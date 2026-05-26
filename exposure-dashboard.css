@@ -107,23 +107,48 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 .corr-view-toggle { display: inline-flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
 .corr-view-btn { border: none; background: transparent; color: var(--muted); font-size: 10px; font-weight: 800; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
 .corr-view-btn.on { background: var(--panel); color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
-.corr-graph-wrap { background: linear-gradient(165deg, var(--panel-2) 0%, var(--panel) 55%, var(--panel-2) 100%); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px 14px; overflow-x: auto; overflow-y: hidden; }
+.corr-graph-wrap { position: relative; background: linear-gradient(165deg, var(--panel-2) 0%, var(--panel) 55%, var(--panel-2) 100%); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px 14px; overflow: auto; }
 .corr-graph { width: 100%; max-width: 1120px; min-width: 720px; height: auto; display: block; margin: 0 auto; }
+
+.diagram-zoom-controls {
+  position: absolute; top: 10px; right: 10px;
+  display: flex; gap: 6px; align-items: center; z-index: 3;
+  background: color-mix(in srgb, var(--panel) 85%, transparent);
+  border: 1px solid var(--border);
+  border-radius: 10px; padding: 4px 6px;
+}
+.diagram-zoom-controls button {
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  border-radius: 8px;
+  font-weight: 900;
+  cursor: pointer;
+  width: 30px; height: 26px;
+  display: inline-flex; align-items: center; justify-content: center;
+  line-height: 1;
+}
+.diagram-zoom-controls button[data-zoom-reset] {
+  width: auto; padding: 0 10px; font-size: 10px; font-weight: 850;
+}
+.diagram-zoom-controls button:hover { border-color: var(--accent); }
+.diagram-zoom-canvas { position: relative; }
 .corr-flow-line { fill: none; stroke: var(--correlation); stroke-width: 2; opacity: .85; }
 .corr-spoke { fill: none; stroke: var(--correlation); stroke-width: 1.75; opacity: .55; pointer-events: none; }
 .corr-spoke.is-runtime { stroke: #0d9488; opacity: .7; }
 .corr-box-wrap { cursor: pointer; outline: none; }
 .corr-box-wrap:focus-visible .corr-box { box-shadow: 0 0 0 2px var(--accent), 0 4px 12px rgba(37,99,235,.15); }
 .corr-box-wrap.selected .corr-box { box-shadow: 0 0 0 2px var(--accent), 0 5px 14px rgba(37,99,235,.16); }
-.corr-box { height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 8px 10px; border-radius: 10px; border: 1.5px solid var(--correlation); background: var(--correlation-soft); font-family: Inter, ui-sans-serif, system-ui, sans-serif; transition: box-shadow .2s, filter .15s; box-shadow: 0 2px 6px rgba(15,23,42,.06); }
+.corr-box { height: 100%; width: 100%; min-width: 0; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 8px 10px; border-radius: 10px; border: 1.5px solid var(--correlation); background: var(--correlation-soft); font-family: Inter, ui-sans-serif, system-ui, sans-serif; transition: box-shadow .2s, filter .15s; box-shadow: 0 2px 6px rgba(15,23,42,.06); }
 .corr-box.has-sub { flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 8px; }
+.corr-box.has-sub .corr-box-label { font-size: 9px; }
 .corr-box-wrap:hover .corr-box { filter: brightness(1.03); }
 .corr-box.is-source { border-color: var(--muted); background: var(--panel); }
 .corr-box.is-runtime { border-color: #0d9488; background: #ecfdf5; }
 [data-theme="dark"] .corr-box.is-runtime { background: #0f2a22; }
 .corr-box.is-pipeline { border-color: color-mix(in srgb, var(--accent) 55%, var(--correlation)); background: color-mix(in srgb, var(--accent) 10%, var(--correlation-soft)); }
 .corr-box.is-pipeline .corr-box-label { color: var(--accent); }
-.corr-box-label { font-size: 10px; font-weight: 850; line-height: 1.2; color: var(--correlation); text-align: center; }
+.corr-box-label { font-size: 10px; font-weight: 850; line-height: 1.2; color: var(--correlation); text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; width: 100%; }
 .corr-box-sub { font-size: 9px; font-weight: 800; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); line-height: 1.2; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .corr-box-sub2 { font-size: 8px; font-weight: 650; line-height: 1.2; color: var(--muted); text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .corr-box.is-pipeline .corr-box-sub { color: var(--accent); }

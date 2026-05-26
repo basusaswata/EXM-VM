@@ -63,7 +63,9 @@ function bpBuildEnvLine(b){
 function bpBuildGraphHint(bp){
   if(!bp?.build) return {label:'Build',sub:'',sub2:''};
   const b=bp.build;
-  return {label:'Build',sub:b.buildId,sub2:`${b.envLabel||b.environment} · ${b.system}`};
+  const env=String(b.envLabel||b.environment||'').replace('Production','Prod').replace('Staging','Stg').replace('Development','Dev');
+  const sys=String(b.system||'').replace('GitHub Actions','GHA').replace('Azure Pipelines','Azure CI').replace('GitLab CI','GitLab');
+  return {label:'Build',sub:b.buildId,sub2:`${env} · ${sys}`.trim()};
 }
 
 function buildBuildPipeline(seed,sid){

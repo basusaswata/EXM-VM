@@ -260,7 +260,41 @@ function summaryCounts(rows, total){
   return `Showing ${rows.length} of ${total} exposures · ${c.Critical} Critical, ${c.High} High, ${c.Medium} Medium`;
 }
 
-function truncate(s,n){const t=String(s);return t.length<=n?t:t.slice(0,n-1)+'…';}
+function truncate(s,n){const t=String(s);return t.length<=n?t:t.slice(0,Math.max(1,n-1))+'…';}
+function fitCharsForWidth(w,fontSize,isMono){
+  const avg=isMono?5.2:fontSize<=8?5.6:5.9;
+  return Math.max(4,Math.floor((w-12)/avg));
+}
+function fitBoxLine(text,maxChars){
+  const s=String(text||'');
+  if(!s||s.length<=maxChars) return s;
+  if(maxChars<=3) return s.slice(0,maxChars);
+  return s.slice(0,maxChars-1)+'…';
+}
+function corrShortLabel(name){
+  const n=String(name);
+  const map={
+    'Asset graph':'Asset','Identity graph':'Identity','Threat intel':'Threat',
+    'Business context':'Business','Build Pipeline':'Build','Runtime controls':'Runtime',
+    'Ownership':'Owner','SCM context':'SCM','Build pipeline':'Build',
+    'SBOM lineage':'SBOM','Runtime presence':'Runtime','Reachability':'Reach',
+    'Image digest':'Digest','Runtime ctx':'Runtime','CNAPP overlay':'CNAPP',
+    'Cross-link DAST/SCA':'X-link','Cross-link SAST':'X-link','Taint analysis':'Taint',
+    'Threat intel':'Threat'
+  };
+  if(map[n]) return map[n];
+  return n.replace(/ graph$/i,'').replace(/^Business /,'Biz ');
+}
+function fitCorrBoxText(label,sub,sub2,w){
+  const labelMax=fitCharsForWidth(w,10,false);
+  const subMax=fitCharsForWidth(w,9,true);
+  const sub2Max=fitCharsForWidth(w,8,false);
+  return {
+    label:fitBoxLine(corrShortLabel(label),labelMax),
+    sub:fitBoxLine(sub,subMax),
+    sub2:fitBoxLine(sub2,sub2Max)
+  };
+}
 function stationBoxClass(s){
   if(!s) return '';
   if(s.isPipeline||s.k==='buildPipeline') return 'is-pipeline';
@@ -309,21 +343,18 @@ function corrSpokePath(hx,hy,bx,by){
   return `M ${hx} ${hy} Q ${mx} ${my} ${bx} ${by}`;
 }
 
-function corrShortLabel(name){
-  return String(name).replace(/ graph$/i,'').replace(/^Business /,'Business ');
-}
-
 function renderCorrBox(cx,cy,label,boxCls,wrapAttrs,opts){
   const w=opts?.w||CORR_BOX_W,h=opts?.h||CORR_BOX_H;
-  const sub=opts?.sub||'',sub2=opts?.sub2||'';
+  const rawSub=opts?.sub||'',rawSub2=opts?.sub2||'';
+  const fit=fitCorrBoxText(label,rawSub,rawSub2,w);
   const x=cx-w/2,y=cy-h/2;
-  const subCls=sub||sub2?' has-sub':'';
+  const subCls=fit.sub||fit.sub2?' has-sub':'';
   return `<g class="corr-box-wrap" ${wrapAttrs}>
     <foreignObject x="${x}" y="${y}" width="${w}" height="${h}">
-      <div xmlns="http://www.w3.org/1999/xhtml" class="corr-box ${boxCls}${subCls}">
-        <span class="corr-box-label">${esc(label)}</span>
-        ${sub?`<span class="corr-box-sub">${esc(sub)}</span>`:''}
-        ${sub2?`<span class="corr-box-sub2">${esc(sub2)}</span>`:''}
+      <div xmlns="http://www.w3.org/1999/xhtml" class="corr-box ${boxCls}${subCls}" style="width:${w}px;height:${h}px">
+        <span class="corr-box-label">${esc(fit.label)}</span>
+        ${fit.sub?`<span class="corr-box-sub">${esc(fit.sub)}</span>`:''}
+        ${fit.sub2?`<span class="corr-box-sub2">${esc(fit.sub2)}</span>`:''}
       </div>
     </foreignObject>
   </g>`;
@@ -336,7 +367,7 @@ function renderCorrelationGraph(e){
   const hasPipeline=PIPELINE_SCANNERS.has(e.scannerId)&&!!byKey.buildPipeline;
   const layout=corrTopLayout(hasPipeline);
   const {W,H,cx,cy,topY,botY,topXs,botXs,topDims}=layout;
-  const title=truncate(e.title,20);
+  const title=fitBoxLine(e.title,fitCharsForWidth(96,8.5,false)*2);
   const bpHint=hasPipeline?bpBuildGraphHint(e.buildPipeline):null;
 
   const topSlots=hasPipeline?[
@@ -392,7 +423,7 @@ function renderCorrelationGraph(e){
     const label=st?corrShortLabel(st.name):slot.label;
     const boxCls=st?stationBoxClass(st):'';
     const attrs=st?`data-station-idx="${st.idx}" tabindex="0" role="button" aria-label="${esc(st.name)}"`:'';
-    return renderCorrBox(botXs[i],botY,label,boxCls,attrs);
+    return renderCorrBox(botXs[i],botY,label,boxCls,attrs,{w:CORR_BOX_W,h:CORR_BOX_H});
   }).join('');
 
   const hubFo=`<foreignObject x="${cx-52}" y="${cy-52}" width="104" height="104">
@@ -420,6 +451,45 @@ function renderCorrelationGraph(e){
     <g class="corr-boxes">${topBoxes}${botBoxes}</g>
     <g clip-path="url(#corr-hub-clip-${uid})">${hubFo}</g>
   </svg>`;
+}
+
+function clamp(n,a,b){return Math.max(a,Math.min(b,n));}
+function getSvgViewBoxWH(svg){
+  const vb=(svg.getAttribute('viewBox')||'0 0 860 360').trim().split(/\s+/).map(Number);
+  return {w:vb[2]||860,h:vb[3]||360};
+}
+function applySvgZoom(svg,scale){
+  const {w,h}=getSvgViewBoxWH(svg);
+  svg.style.width=(w*scale)+'px';
+  svg.style.height=(h*scale)+'px';
+  svg.style.maxWidth='none';
+  svg.style.flex='none';
+  svg.style.display='block';
+}
+function bindDiagramZoom(panel){
+  const wrap=panel.querySelector('.corr-graph-wrap');
+  const controls=panel.querySelector('[data-zoom-controls]');
+  const svg=panel.querySelector('svg.corr-graph');
+  if(!wrap||!controls||!svg) return;
+  if(controls.dataset.bound==='1') return;
+  controls.dataset.bound='1';
+  const key='em-diagram-scale';
+  let scale=1;
+  try{scale=parseFloat(localStorage.getItem(key)||'1');}catch(e){}
+  scale=clamp(scale,0.6,2.5);
+  applySvgZoom(svg,scale);
+  const setScale=(next)=>{
+    scale=clamp(next,0.6,2.5);
+    applySvgZoom(svg,scale);
+    try{localStorage.setItem(key,String(scale));}catch(e){}
+  };
+  controls.querySelectorAll('button[data-zoom]').forEach(btn=>{
+    btn.onclick=()=>{
+      const dir=btn.dataset.zoom;
+      setScale(scale + (dir==='in'?0.15:-0.15));
+    };
+  });
+  controls.querySelector('[data-zoom-reset]')?.addEventListener('click',()=>setScale(1));
 }
 
 function bindCorrelationPanel(panel, stations, exposure){
@@ -474,6 +544,7 @@ function bindCorrelationPanel(panel, stations, exposure){
       panel.querySelector('.corr-cards-panel').hidden=v!=='cards';
     };
   });
+  bindDiagramZoom(panel);
 }
 
 function renderDetail(e){
@@ -514,7 +585,17 @@ function renderDetail(e){
             <button type="button" class="corr-view-btn" data-corr-view="cards">Cards</button>
           </div>
         </div>
-        <div class="corr-graph-wrap corr-graph-panel">${renderCorrelationGraph(e)}<div class="corr-node-detail"></div></div>
+        <div class="corr-graph-wrap corr-graph-panel">
+          <div class="diagram-zoom-controls" data-zoom-controls>
+            <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
+            <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
+            <button type="button" data-zoom-reset aria-label="Reset zoom">Reset</button>
+          </div>
+          <div class="diagram-zoom-canvas" data-zoom-canvas>
+            ${renderCorrelationGraph(e)}
+          </div>
+          <div class="corr-node-detail"></div>
+        </div>
         <div class="corr-cards-panel" hidden>${e.buildPipeline?renderStationCards(e):`<div class="station-grid">${e.stations.map(s=>`<div class="station-card ${s.scm?'scm-station':''}"><div class="station-head">${icon(s.icon,14)}<span>${esc(s.name)}</span></div>${s.lines.map(l=>`<div class="station-line">${esc(l)}</div>`).join('')}</div>`).join('')}</div>`}</div>
       </div>
       <div class="detail-section"><h4>Scoring formula</h4><div class="formula-chain">${pills}<span class="formula-eq">= ${e.score.toFixed(1)}</span></div></div>
