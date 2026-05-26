@@ -1,0 +1,1219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Exposure Management · Analyst Dashboard</title>
+<style>
+:root {
+  --bg: #f7f8fb; --panel: #fff; --panel-2: #f1f4f8; --panel-3: #e8ecf4;
+  --text: #111827; --muted: #5b6575; --muted-2: #8892a3; --border: #d9dee8;
+  --accent: #2563eb; --sidebar: #fff;
+  --correlation: #2563eb; --correlation-soft: #dbeafe;
+  --scoring: #7c3aed; --scoring-soft: #ede9fe;
+  --outcome: #059669; --outcome-soft: #d1fae5;
+  --kev: #dc2626; --kev-soft: #fee2e2;
+  --crit: #dc2626; --crit-soft: #fee2e2;
+  --high: #ea580c; --high-soft: #ffedd5;
+  --med: #ca8a04; --med-soft: #fef9c3;
+  --low: #64748b; --low-soft: #f1f5f9;
+}
+[data-theme="dark"] {
+  --bg: #0b1020; --panel: #111827; --panel-2: #172033; --panel-3: #1f2a40;
+  --text: #f8fafc; --muted: #a9b3c5; --muted-2: #8895ab; --border: #263247;
+  --correlation-soft: #16284f; --scoring-soft: #2a1b49; --outcome-soft: #0f372c;
+  --sidebar: #0f172a; --crit-soft: #401919; --high-soft: #4a2a10; --med-soft: #3d2e08; --low-soft: #1f2937;
+  --kev-soft: #4a1919;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: var(--text); background: var(--bg); overflow: hidden; }
+.app { display: flex; width: 100vw; height: 100vh; }
+.sidebar { width: 232px; background: var(--sidebar); border-right: 1px solid var(--border); padding: 14px 10px; display: flex; flex-direction: column; gap: 10px; }
+.brand { padding: 8px 10px 12px; border-bottom: 1px solid var(--border); }
+.brand h1 { margin: 0; font-size: 16px; font-weight: 800; }
+.sibling-link { font-size: 10px; color: var(--muted); text-decoration: none; font-weight: 600; }
+.sibling-link:hover { color: var(--accent); }
+.scanner-list { display: flex; flex-direction: column; gap: 6px; overflow: auto; flex: 1; }
+.scanner-btn { width: 100%; border: 1px solid transparent; background: transparent; color: var(--text); display: grid; grid-template-columns: 26px 1fr; gap: 8px; align-items: center; text-align: left; border-radius: 10px; padding: 8px; cursor: pointer; transition: background .15s; }
+.scanner-btn:hover { background: var(--panel-2); }
+.scanner-btn.active { background: color-mix(in srgb, var(--accent) 13%, transparent); border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); }
+.scanner-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scanner-icon { width: 24px; height: 24px; display: grid; place-items: center; border-radius: 8px; }
+.scanner-title { font-size: 12px; font-weight: 720; line-height: 1.18; display: block; }
+.scanner-sub { font-size: 10px; color: var(--muted); margin-top: 2px; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sidebar-footer { margin-top: auto; }
+.theme-toggle { width: 100%; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 10px; padding: 9px 10px; cursor: pointer; font-size: 12px; font-weight: 700; }
+.theme-toggle:hover { background: var(--panel-3); }
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.disclaimer { font-size: 11px; font-weight: 700; padding: 8px 18px; background: color-mix(in srgb, #ea580c 12%, var(--panel)); border-bottom: 1px solid var(--border); line-height: 1.4; }
+.topbar { padding: 12px 18px; border-bottom: 1px solid var(--border); background: var(--panel); }
+.topbar h2 { margin: 0; font-size: 17px; font-weight: 800; }
+.topbar p { margin: 4px 0 0; font-size: 12px; color: var(--muted); }
+.filter-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 18px; background: var(--panel); border-bottom: 1px solid var(--border); }
+#searchInput { flex: 1 1 200px; min-width: 180px; max-width: 320px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 10px; font-size: 12px; background: var(--panel-2); color: var(--text); }
+#searchInput:focus { outline: 2px solid var(--accent); outline-offset: 0; }
+.filter-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; flex: 1 1 100%; }
+.chip-group { display: inline-flex; flex-wrap: wrap; gap: 4px; align-items: center; font-size: 9px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-right: 4px; }
+.chip { font-size: 10px; font-weight: 700; padding: 4px 8px; border-radius: 999px; border: 1px solid var(--border); background: var(--panel-2); color: var(--muted); cursor: pointer; }
+.chip.on { background: color-mix(in srgb, var(--accent) 14%, var(--panel)); color: var(--accent); border-color: var(--accent); }
+.chip.clear { color: var(--text); }
+.summary-line { font-size: 11px; color: var(--muted); font-weight: 600; margin-left: auto; white-space: nowrap; }
+.list-head {
+  display: grid; grid-template-columns: 52px 1.4fr 1fr 48px 1fr 110px 72px 28px; gap: 10px;
+  padding: 6px 18px; font-size: 9px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--muted-2); background: var(--panel); border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 2;
+}
+.list-scroll { flex: 1; overflow: auto; background: var(--bg); }
+.exp-wrap { border-bottom: 1px solid var(--border); transition: background .2s; }
+.exp-wrap.open { background: var(--panel); }
+.exp-row { display: grid; grid-template-columns: 52px 1.4fr 1fr 48px 1fr 110px 72px 28px; gap: 10px; align-items: center; padding: 0 18px; min-height: 48px; cursor: pointer; transition: background .15s; }
+.exp-row:hover, .exp-row.focused { background: var(--panel-2); }
+.exp-wrap.open .exp-row { background: color-mix(in srgb, var(--accent) 6%, var(--panel)); }
+.score-badge { font-size: 13px; font-weight: 850; font-variant-numeric: tabular-nums; padding: 4px 8px; border-radius: 8px; text-align: center; line-height: 1.2; }
+.sev-critical { background: var(--crit-soft); color: var(--crit); }
+.sev-high { background: var(--high-soft); color: var(--high); }
+.sev-medium { background: var(--med-soft); color: var(--med); }
+.sev-low { background: var(--low-soft); color: var(--low); }
+.col-title { font-size: 12px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.col-asset { font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.kev-pill { font-size: 8px; font-weight: 900; background: var(--kev); color: #fff; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; }
+.col-owner { font-size: 11px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.status-pill { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border); color: var(--text); background: var(--panel); }
+.status-open { border-color: var(--accent); color: var(--accent); }
+.status-in-progress { border-color: var(--med); }
+.status-compensating-control { border-color: var(--high); }
+.status-patched { border-color: var(--outcome); color: var(--outcome); }
+.status-risk-accepted { border-color: var(--med); background: var(--med-soft); }
+.col-sla { font-size: 10px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sla-overdue { color: var(--crit); }
+.sla-urgent { color: var(--high); }
+.col-chev { color: var(--muted-2); display: flex; justify-content: center; transition: transform .2s; }
+.exp-wrap.open .col-chev { transform: rotate(90deg); color: var(--accent); }
+.detail-panel { padding: 16px 18px 20px; border-top: 1px solid var(--border); animation: fadeIn .2s ease; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.detail-head { display: grid; grid-template-columns: 1fr auto 32px; gap: 16px; align-items: start; margin-bottom: 16px; }
+.detail-title { font-size: 16px; font-weight: 800; }
+.detail-meta { font-size: 11px; color: var(--muted); margin-top: 4px; }
+.detail-score { font-size: 32px; font-weight: 900; font-variant-numeric: tabular-nums; line-height: 1; text-align: right; }
+.detail-expr { font-size: 10px; color: var(--muted); margin-top: 6px; max-width: 280px; text-align: right; font-family: ui-monospace, monospace; }
+.detail-close { border: 1px solid var(--border); background: var(--panel-2); border-radius: 8px; width: 28px; height: 28px; font-size: 18px; cursor: pointer; color: var(--text); }
+.cross-links { font-size: 11px; margin-top: 8px; color: var(--muted); }
+.cross-links-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
+.cross-links-label { font-size: 10px; font-weight: 850; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-right: 4px; }
+.cross-link-btn { display: inline-flex; align-items: center; gap: 6px; flex-wrap: wrap; border: 1px solid var(--border); background: var(--panel-2); border-radius: 10px; padding: 6px 10px; cursor: pointer; font-size: 11px; color: var(--text); text-align: left; max-width: 100%; }
+.cross-link-btn:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(37,99,235,.08); }
+.cross-link-btn .cross-id { font-weight: 900; color: var(--accent); font-variant-numeric: tabular-nums; }
+.cross-link-btn .cross-by { font-weight: 700; color: var(--muted); }
+.cross-link-btn .cross-desc { color: var(--text); flex: 1 1 100%; font-size: 10px; line-height: 1.35; }
+.link-btn { border: none; background: none; color: var(--accent); font-weight: 700; cursor: pointer; padding: 0; font-size: inherit; }
+.detail-section { margin-top: 14px; }
+.detail-section h4 { margin: 0 0 10px; font-size: 10px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 850; }
+.corr-section-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+.corr-section-head h4 { margin: 0; }
+.corr-view-toggle { display: inline-flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
+.corr-view-btn { border: none; background: transparent; color: var(--muted); font-size: 10px; font-weight: 800; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
+.corr-view-btn.on { background: var(--panel); color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.corr-graph-wrap { background: linear-gradient(165deg, var(--panel-2) 0%, var(--panel) 55%, var(--panel-2) 100%); border: 1px solid var(--border); border-radius: 14px; padding: 12px 14px 14px; overflow-x: auto; overflow-y: hidden; }
+.corr-graph { width: 100%; max-width: 1120px; min-width: 720px; height: auto; display: block; margin: 0 auto; }
+.corr-flow-line { fill: none; stroke: var(--correlation); stroke-width: 2; opacity: .85; }
+.corr-spoke { fill: none; stroke: var(--correlation); stroke-width: 1.75; opacity: .55; pointer-events: none; }
+.corr-spoke.is-runtime { stroke: #0d9488; opacity: .7; }
+.corr-box-wrap { cursor: pointer; outline: none; }
+.corr-box-wrap:focus-visible .corr-box { box-shadow: 0 0 0 2px var(--accent), 0 4px 12px rgba(37,99,235,.15); }
+.corr-box-wrap.selected .corr-box { box-shadow: 0 0 0 2px var(--accent), 0 5px 14px rgba(37,99,235,.16); }
+.corr-box { height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; padding: 8px 10px; border-radius: 10px; border: 1.5px solid var(--correlation); background: var(--correlation-soft); font-family: Inter, ui-sans-serif, system-ui, sans-serif; transition: box-shadow .2s, filter .15s; box-shadow: 0 2px 6px rgba(15,23,42,.06); }
+.corr-box.has-sub { flex-direction: column; align-items: center; justify-content: center; gap: 2px; padding: 6px 8px; }
+.corr-box-wrap:hover .corr-box { filter: brightness(1.03); }
+.corr-box.is-source { border-color: var(--muted); background: var(--panel); }
+.corr-box.is-runtime { border-color: #0d9488; background: #ecfdf5; }
+[data-theme="dark"] .corr-box.is-runtime { background: #0f2a22; }
+.corr-box.is-pipeline { border-color: color-mix(in srgb, var(--accent) 55%, var(--correlation)); background: color-mix(in srgb, var(--accent) 10%, var(--correlation-soft)); }
+.corr-box.is-pipeline .corr-box-label { color: var(--accent); }
+.corr-box-label { font-size: 10px; font-weight: 850; line-height: 1.2; color: var(--correlation); text-align: center; }
+.corr-box-sub { font-size: 9px; font-weight: 800; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--text); line-height: 1.2; text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.corr-box-sub2 { font-size: 8px; font-weight: 650; line-height: 1.2; color: var(--muted); text-align: center; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.corr-box.is-pipeline .corr-box-sub { color: var(--accent); }
+.corr-box.is-source .corr-box-label { color: var(--text); }
+.corr-box.is-runtime .corr-box-label { color: #0d9488; }
+.corr-hub-ring { fill: none; stroke: var(--correlation); opacity: .22; }
+.corr-hub-inner { width: 100%; height: 100%; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 6px 8px; gap: 2px; overflow: hidden; border-radius: 50%; font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
+.corr-hub-inner .corr-hub-label { font-size: 7px; font-weight: 800; color: var(--correlation); letter-spacing: .14em; text-transform: uppercase; line-height: 1.2; }
+.corr-hub-inner .corr-hub-score { font-size: 17px; font-weight: 900; color: var(--correlation); line-height: 1.1; }
+.corr-hub-inner .corr-hub-title { font-size: 8.5px; font-weight: 750; color: var(--text); line-height: 1.25; max-width: 100%; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.corr-hub-inner .corr-hub-sub { font-size: 7px; color: var(--muted); line-height: 1.2; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.corr-node-detail { margin-top: 10px; padding: 10px 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; min-height: 48px; }
+.corr-cards-panel { margin-top: 10px; }
+.station-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.station-grid-extended { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 1200px) { .station-grid-extended { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 1100px) { .station-grid { grid-template-columns: repeat(2, 1fr); } }
+.station-card.bp-wide { grid-column: span 2; }
+.bp-pipeline-card { border-color: color-mix(in srgb, var(--accent) 40%, var(--border)); background: color-mix(in srgb, var(--accent) 6%, var(--correlation-soft)); }
+.bp-flow { margin-top: 4px; }
+.bp-stage { display: flex; gap: 10px; align-items: flex-start; }
+.bp-stage-rail { display: flex; flex-direction: column; align-items: center; width: 22px; flex-shrink: 0; }
+.bp-connector { width: 2px; flex: 1; min-height: 10px; background: color-mix(in srgb, var(--accent) 35%, var(--border)); margin-bottom: 2px; }
+.bp-dot { width: 22px; height: 22px; border-radius: 6px; display: flex; align-items: center; justify-content: center; background: var(--panel); border: 1px solid color-mix(in srgb, var(--accent) 30%, var(--border)); color: var(--accent); }
+.bp-stage-body { flex: 1; min-width: 0; padding-bottom: 10px; }
+.bp-stage-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 3px; }
+.bp-stage-title { font-size: 10px; font-weight: 850; text-transform: uppercase; letter-spacing: .06em; color: var(--correlation); }
+.bp-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; line-height: 1.45; color: var(--text); word-break: break-word; }
+.bp-pill { font-size: 9px; font-weight: 800; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.bp-pill.bp-ok { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+.bp-pill.bp-warn { background: #fef9c3; color: #854d0e; border: 1px solid #fde047; }
+.bp-pill.bp-bad { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+.bp-pill.bp-neutral { background: var(--panel-2); color: var(--muted); border: 1px solid var(--border); }
+[data-theme="dark"] .bp-pill.bp-ok { background: #14532d; color: #86efac; border-color: #166534; }
+[data-theme="dark"] .bp-pill.bp-warn { background: #422006; color: #fde047; border-color: #854d0e; }
+[data-theme="dark"] .bp-pill.bp-bad { background: #450a0a; color: #fca5a5; border-color: #991b1b; }
+.bp-extra { margin-top: 10px; padding-top: 10px; border-top: 1px dashed color-mix(in srgb, var(--accent) 25%, var(--border)); }
+.bp-extra-label { font-size: 9px; font-weight: 850; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-bottom: 6px; }
+.bp-chain { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-bottom: 6px; }
+.bp-chain-link { font-size: 10px; font-weight: 700; padding: 3px 8px; border-radius: 6px; background: var(--panel); border: 1px solid var(--border); cursor: default; }
+.bp-chain-link.bp-chain-vuln { border-color: var(--crit); background: var(--crit-soft); color: var(--crit); }
+.bp-chain-sep { color: var(--muted); font-size: 11px; font-weight: 700; }
+.bp-detail-wrap .bp-pipeline-card { border: none; background: transparent; padding: 0; }
+.bp-detail-wrap .bp-wide { grid-column: auto; }
+.station-card { background: var(--correlation-soft); border: 1px solid color-mix(in srgb, var(--correlation) 35%, var(--border)); border-radius: 12px; padding: 10px 12px; }
+.station-card.scm-station { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); background: color-mix(in srgb, var(--accent) 8%, var(--correlation-soft)); }
+.station-card.scm-station .station-head { color: var(--accent); }
+.col-scm { font-size: 10px; color: var(--muted); display: block; margin-top: 1px; }
+.station-head { display: flex; align-items: center; gap: 8px; font-size: 11px; font-weight: 800; color: var(--correlation); margin-bottom: 6px; }
+.station-line { font-size: 10px; line-height: 1.45; color: var(--text); margin-top: 3px; }
+.formula-chain { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.score-pill { background: var(--scoring-soft); border: 1px solid color-mix(in srgb, var(--scoring) 40%, var(--border)); color: var(--scoring); font-size: 11px; font-weight: 700; padding: 6px 10px; border-radius: 10px; }
+.formula-eq { font-size: 14px; font-weight: 900; color: var(--scoring); }
+.outcome-row { display: flex; flex-wrap: wrap; gap: 10px; }
+.outcome-card { flex: 1 1 200px; background: var(--outcome-soft); border: 1px solid color-mix(in srgb, var(--outcome) 35%, var(--border)); border-radius: 12px; padding: 10px 12px; }
+.outcome-type { font-size: 12px; font-weight: 800; color: var(--outcome); }
+.outcome-dest { font-size: 11px; color: var(--accent); font-weight: 700; text-decoration: none; display: block; margin-top: 4px; }
+.outcome-meta { font-size: 10px; color: var(--muted); margin-top: 6px; }
+.auto-pill { font-weight: 800; color: var(--text); }
+.timeline { border-left: 2px solid var(--border); margin-left: 8px; padding-left: 16px; }
+.tl-item { position: relative; margin-bottom: 12px; font-size: 11px; }
+.tl-dot { position: absolute; left: -22px; top: 4px; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.tl-sub { display: block; font-size: 10px; color: var(--muted); margin-top: 2px; }
+.empty { padding: 40px; text-align: center; color: var(--muted); font-size: 13px; }
+
+</style>
+</head>
+<body>
+<div class="app" id="app" data-theme="light">
+<aside class="sidebar" aria-label="Scanner filter">
+<div class="brand"><h1>Exposure Management</h1><a class="sibling-link" href="vulnerability-scanner-journey-explorer_4.html">← Process view</a></div>
+<div class="scanner-list" id="scannerList" role="listbox"></div>
+<div class="sidebar-footer"><button class="theme-toggle" id="themeToggle" type="button">Toggle dark mode</button></div>
+</aside>
+<main class="main">
+<div class="disclaimer" role="note"><strong>All exposures, scores, owners, and remediation data shown are illustrative examples only.</strong> This dashboard is for visualization purposes and does not reflect real findings.</div>
+<header class="topbar"><div><h2 id="mainTitle">Exposure triage queue</h2><p id="mainSub"></p></div></header>
+<div class="filter-bar">
+<input type="search" id="searchInput" placeholder="Filter by CVE, asset, owner…" aria-label="Filter exposures"/>
+<div class="filter-chips" id="filterChips"></div>
+<div class="summary-line" id="summaryLine"></div>
+</div>
+<div class="list-head" aria-hidden="true">
+<span>Score</span><span>Finding</span><span>Asset</span><span></span><span>Owner</span><span>Status</span><span>SLA</span><span></span>
+</div>
+<div class="list-scroll" id="exposureList" role="list" aria-label="Exposure list"></div>
+</main>
+</div>
+<script>
+const EXPOSURE_SEEDS = {
+  network: [
+    {id:'NET-001',score:9.4,title:'CVE-2024-1234 in OpenSSL 3.0.7',cve:'CVE-2024-1234',asset:'srv-payments-prod-04',owner:'Payments Platform',status:'Open',sla:'24h left',kev:true,internet:true,tool:'Tenable Nessus'},
+    {id:'NET-002',score:6.1,title:'Apache httpd 2.4.49 path traversal',cve:'CVE-2021-41773',asset:'web-marketing-01',owner:'Marketing Web',status:'In progress',sla:'3d left',kev:true,internet:true,tool:'Qualys VMDR'},
+    {id:'NET-003',score:5.2,title:'SMBv1 enabled',cve:null,asset:'47 hosts',owner:'Infrastructure',status:'Open',sla:'7d',kev:false,internet:false,tool:'Rapid7 InsightVM'},
+    {id:'NET-004',score:8.8,title:'Exchange ProxyShell chain',cve:'CVE-2021-34473',asset:'exchange-prod-01',owner:'Messaging',status:'Compensating control',sla:'12h left',kev:true,internet:false,tool:'Tenable Nessus'},
+    {id:'NET-005',score:7.4,title:'RDP exposed to internet',cve:null,asset:'12 hosts',owner:'Network',status:'Open',sla:'Overdue 2d',kev:true,internet:true,tool:'Qualys VMDR'},
+    {id:'NET-006',score:3.8,title:'TLS 1.0 enabled',cve:null,asset:'api-gateway-02',owner:'API Platform',status:'Risk accepted',sla:'30d',kev:false,internet:true,tool:'Tenable Nessus'},
+    {id:'NET-007',score:4.9,title:'Default MySQL credentials',cve:null,asset:'db-reporting-04',owner:'Data Platform',status:'Open',sla:'5d',kev:false,internet:false,tool:'Rapid7 InsightVM'},
+    {id:'NET-008',score:6.7,title:'Missing kernel update CVE-2024-1086',cve:'CVE-2024-1086',asset:'200 RHEL hosts',owner:'Linux Ops',status:'In progress',sla:'4d left',kev:false,internet:false,tool:'Qualys VMDR'},
+    {id:'NET-009',score:4.2,title:'Self-signed certificate',cve:null,asset:'edge-cdn-03',owner:'Network',status:'Open',sla:'14d',kev:false,internet:true,tool:'Tenable Nessus'},
+    {id:'NET-010',score:7.1,title:'SNMPv2c community string public',cve:null,asset:'switch-core-12',owner:'Network',status:'Open',sla:'48h left',kev:false,internet:false,tool:'Rapid7 InsightVM'},
+    {id:'NET-011',score:5.8,title:'SSH weak cipher suite',cve:null,asset:'bastion-jump-01',owner:'SecOps',status:'Patched',sla:'Closed',kev:false,internet:true,tool:'Qualys VMDR'},
+    {id:'NET-012',score:8.2,title:'FortiOS SSL-VPN heap overflow',cve:'CVE-2024-21762',asset:'fw-edge-02',owner:'Network',status:'In progress',sla:'18h left',kev:true,internet:true,tool:'Tenable Nessus'},
+    {id:'NET-013',score:3.4,title:'DNS zone transfer allowed',cve:null,asset:'dns-internal-01',owner:'Infrastructure',status:'Open',sla:'21d',kev:false,internet:false,tool:'Rapid7 InsightVM'},
+    {id:'NET-014',score:6.3,title:'NTP monlist amplification',cve:'CVE-2013-5211',asset:'ntp-pool-04',owner:'Infrastructure',status:'Compensating control',sla:'6d',kev:false,internet:true,tool:'Qualys VMDR'},
+    {id:'NET-015',score:7.9,title:'Citrix NetScaler memory leak',cve:'CVE-2023-4966',asset:'adc-payments-01',owner:'Payments Platform',status:'Open',sla:'36h left',kev:true,internet:true,tool:'Tenable Nessus'},
+    {id:'NET-016',score:4.6,title:'ICMP timestamp enabled',cve:null,asset:'srv-legacy-22',owner:'Infrastructure',status:'Risk accepted',sla:'45d',kev:false,internet:false,tool:'Rapid7 InsightVM'},
+    {id:'NET-017',score:5.5,title:'Telnet service listening',cve:null,asset:'lab-net-07',owner:'R&D',status:'Open',sla:'10d',kev:false,internet:false,tool:'Qualys VMDR'},
+    {id:'NET-018',score:8.0,title:'VMware vCenter file upload',cve:'CVE-2021-22005',asset:'vcenter-mgmt-01',owner:'Virtualization',status:'In progress',sla:'2d left',kev:true,internet:false,tool:'Tenable Nessus'}
+  ],
+  sca: [
+    {id:'SCA-001',score:9.7,title:'Log4Shell CVE-2021-44228',cve:'CVE-2021-44228',asset:'transaction-router',owner:'Payments Platform',status:'Open',sla:'12h left',kev:true,internet:true,tool:'Snyk Open Source'},
+    {id:'SCA-002',score:5.1,title:'Vulnerable lodash 4.17.20',cve:'CVE-2020-8203',asset:'web-portal',owner:'Digital Experience',status:'In progress',sla:'5d left',kev:false,internet:true,tool:'Mend SCA'},
+    {id:'SCA-003',score:8.2,title:'Malicious package event-stream',cve:null,asset:'internal-tool',owner:'Platform Engineering',status:'Open',sla:'24h left',kev:false,internet:false,tool:'Black Duck'},
+    {id:'SCA-004',score:2.4,title:'Vulnerable urllib3 (not reachable)',cve:'CVE-2023-45803',asset:'batch-importer',owner:'Data Platform',status:'Risk accepted',sla:'60d',kev:false,internet:false,tool:'Snyk Open Source'},
+    {id:'SCA-005',score:7.6,title:'Vulnerable spring-core',cve:'CVE-2022-22965',asset:'customer-api',owner:'Customer Apps',status:'Open',sla:'2d left',kev:false,internet:true,tool:'Snyk Open Source'},
+    {id:'SCA-006',score:3.0,title:'GPL license leak',cve:null,asset:'mobile-sdk',owner:'Mobile',status:'Open',sla:'14d',kev:false,internet:false,tool:'Black Duck'},
+    {id:'SCA-007',score:6.8,title:'jackson-databind deserialization',cve:'CVE-2020-36518',asset:'reporting-svc',owner:'Analytics',status:'Compensating control',sla:'4d',kev:false,internet:false,tool:'Mend SCA'},
+    {id:'SCA-008',score:4.4,title:'Outdated axios SSRF',cve:'CVE-2023-45857',asset:'notify-worker',owner:'Messaging',status:'Patched',sla:'Closed',kev:false,internet:true,tool:'Snyk Open Source'},
+    {id:'SCA-009',score:7.3,title:'Netty HTTP request smuggling',cve:'CVE-2023-44487',asset:'gateway-core',owner:'API Platform',status:'In progress',sla:'3d left',kev:false,internet:true,tool:'Snyk Open Source'},
+    {id:'SCA-010',score:5.6,title:'Transitive commons-text RCE',cve:'CVE-2022-42889',asset:'etl-pipeline',owner:'Data Platform',status:'Open',sla:'6d',kev:false,internet:false,tool:'Mend SCA'},
+    {id:'SCA-011',score:8.5,title:'Prototype pollution in minimist',cve:'CVE-2021-44906',asset:'cli-deployer',owner:'DevEx',status:'Open',sla:'36h left',kev:false,internet:false,tool:'Snyk Open Source'},
+    {id:'SCA-012',score:1.9,title:'Dev dependency chalk (unused)',cve:null,asset:'docs-site',owner:'Developer Relations',status:'Risk accepted',sla:'90d',kev:false,internet:true,tool:'Snyk Open Source'},
+    {id:'SCA-013',score:6.2,title:'Hibernate ORM SQL injection',cve:'CVE-2020-25638',asset:'inventory-api',owner:'Supply Chain',status:'Open',sla:'7d',kev:false,internet:false,tool:'Black Duck'},
+    {id:'SCA-014',score:4.1,title:'Apache commons-compress zip slip',cve:'CVE-2021-36090',asset:'archive-svc',owner:'Platform Engineering',status:'In progress',sla:'9d left',kev:false,internet:false,tool:'Mend SCA'},
+    {id:'SCA-015',score:7.0,title:'OkHttp certificate pinning bypass',cve:'CVE-2023-0833',asset:'android-checkout',owner:'Mobile',status:'Open',sla:'48h left',kev:false,internet:true,tool:'Snyk Open Source'},
+    {id:'SCA-016',score:3.7,title:'Weak TLS in golang.org/x/crypto',cve:'CVE-2022-27191',asset:'auth-sidecar',owner:'Identity',status:'Patched',sla:'Closed',kev:false,internet:true,tool:'Snyk Open Source'},
+    {id:'SCA-017',score:8.9,title:'XZ utils backdoor (supply chain)',cve:'CVE-2024-3094',asset:'build-ffmpeg',owner:'Build Systems',status:'Open',sla:'6h left',kev:true,internet:false,tool:'Black Duck'},
+    {id:'SCA-018',score:5.0,title:'Electron ASAR integrity gap',cve:'CVE-2022-29247',asset:'desktop-agent',owner:'Endpoint Apps',status:'Compensating control',sla:'11d',kev:false,internet:false,tool:'Mend SCA'}
+  ],
+  sast: [
+    {id:'SAST-001',score:8.9,title:'SQL injection in /charge',cve:null,asset:'payments-api',owner:'Payments Platform',status:'Open',sla:'24h left',kev:false,internet:true,tool:'Semgrep'},
+    {id:'SAST-002',score:6.4,title:'Stored XSS in profile page',cve:null,asset:'admin-portal',owner:'Internal Apps',status:'In progress',sla:'4d left',kev:false,internet:true,tool:'Checkmarx'},
+    {id:'SAST-003',score:8.1,title:'Hard-coded AWS access key',cve:null,asset:'legacy-batch.py',owner:'Data Platform',status:'Open',sla:'12h left',kev:false,internet:false,tool:'Veracode'},
+    {id:'SAST-004',score:7.2,title:'Insecure deserialization',cve:null,asset:'report-generator',owner:'Analytics',status:'Open',sla:'3d left',kev:false,internet:false,tool:'Checkmarx'},
+    {id:'SAST-005',score:5.5,title:'Broken authentication pattern',cve:null,asset:'internal-tool-svc',owner:'Platform Engineering',status:'Compensating control',sla:'8d',kev:false,internet:false,tool:'Semgrep'},
+    {id:'SAST-006',score:7.8,title:'Path traversal in file upload',cve:null,asset:'file-upload-handler',owner:'Customer Apps',status:'In progress',sla:'2d left',kev:false,internet:true,tool:'Semgrep'},
+    {id:'SAST-007',score:4.3,title:'Dead code: unused crypto API',cve:null,asset:'legacy-crypto-lib',owner:'Security Engineering',status:'Risk accepted',sla:'30d',kev:false,internet:false,tool:'Checkmarx'},
+    {id:'SAST-008',score:6.9,title:'LDAP injection in search',cve:null,asset:'directory-sync',owner:'Identity',status:'Open',sla:'5d',kev:false,internet:false,tool:'Veracode'},
+    {id:'SAST-009',score:3.2,title:'Log injection (low reach)',cve:null,asset:'audit-logger',owner:'SecOps',status:'Patched',sla:'Closed',kev:false,internet:false,tool:'Semgrep'},
+    {id:'SAST-010',score:8.4,title:'Command injection in shell wrapper',cve:null,asset:'ops-runner',owner:'DevEx',status:'Open',sla:'18h left',kev:false,internet:false,tool:'Checkmarx'},
+    {id:'SAST-011',score:5.9,title:'Weak random for session token',cve:null,asset:'session-mgr',owner:'Identity',status:'In progress',sla:'6d left',kev:false,internet:true,tool:'Semgrep'},
+    {id:'SAST-012',score:7.5,title:'XXE in XML import parser',cve:null,asset:'invoice-import',owner:'Finance Systems',status:'Open',sla:'48h left',kev:false,internet:false,tool:'Veracode'},
+    {id:'SAST-013',score:4.8,title:'Hard-coded JWT secret',cve:null,asset:'mobile-bff',owner:'Mobile',status:'Open',sla:'9d',kev:false,internet:true,tool:'Semgrep'},
+    {id:'SAST-014',score:6.1,title:'Open redirect in OAuth callback',cve:null,asset:'sso-broker',owner:'Identity',status:'Compensating control',sla:'7d',kev:false,internet:true,tool:'Checkmarx'},
+    {id:'SAST-015',score:2.8,title:'Unreachable branch: eval()',cve:null,asset:'feature-flags-old',owner:'Platform Engineering',status:'Risk accepted',sla:'45d',kev:false,internet:false,tool:'Semgrep'},
+    {id:'SAST-016',score:7.7,title:'Server-side template injection',cve:null,asset:'email-renderer',owner:'Messaging',status:'Open',sla:'36h left',kev:false,internet:true,tool:'Veracode'},
+    {id:'SAST-017',score:5.2,title:'Missing CSRF token on form',cve:null,asset:'hr-selfserve',owner:'HR Tech',status:'In progress',sla:'10d left',kev:false,internet:true,tool:'Checkmarx'},
+    {id:'SAST-018',score:8.6,title:'Race condition in balance transfer',cve:null,asset:'ledger-core',owner:'Payments Platform',status:'Open',sla:'24h left',kev:false,internet:true,tool:'Veracode'}
+  ],
+  dast: [
+    {id:'DAST-001',score:9.6,title:'Authentication bypass',cve:null,asset:'partners.example.com/auth',owner:'Partner Integrations',status:'Open',sla:'6h left',kev:true,internet:true,tool:'Burp Suite Enterprise'},
+    {id:'DAST-002',score:8.7,title:'IDOR on /users/{id}/orders',cve:null,asset:'api.example.com',owner:'Customer Apps',status:'Open',sla:'12h left',kev:false,internet:true,tool:'OWASP ZAP'},
+    {id:'DAST-003',score:8.3,title:'SSRF in /import?url=',cve:null,asset:'payments-api',owner:'Payments Platform',status:'In progress',sla:'24h left',kev:true,internet:true,tool:'Salt Security'},
+    {id:'DAST-004',score:7.4,title:'Shadow API /internal/_debug',cve:null,asset:'api-gateway-prod',owner:'API Platform',status:'Open',sla:'2d left',kev:false,internet:true,tool:'Noname Security'},
+    {id:'DAST-005',score:6.0,title:'Mass assignment on /profile/update',cve:null,asset:'user-profile-svc',owner:'Customer Apps',status:'Compensating control',sla:'5d',kev:false,internet:true,tool:'Burp Suite Enterprise'},
+    {id:'DAST-006',score:7.1,title:'JWT alg:none accepted',cve:null,asset:'mobile-api',owner:'Mobile',status:'Open',sla:'3d left',kev:false,internet:true,tool:'OWASP ZAP'},
+    {id:'DAST-007',score:5.4,title:'Clickjacking on checkout',cve:null,asset:'shop.example.com',owner:'E-commerce',status:'Risk accepted',sla:'21d',kev:false,internet:true,tool:'Burp Suite Enterprise'},
+    {id:'DAST-008',score:8.0,title:'GraphQL introspection enabled',cve:null,asset:'graphql-federation',owner:'API Platform',status:'Open',sla:'36h left',kev:false,internet:true,tool:'Salt Security'},
+    {id:'DAST-009',score:6.7,title:'CORS misconfiguration',cve:null,asset:'analytics-beacon',owner:'Marketing Web',status:'In progress',sla:'4d left',kev:false,internet:true,tool:'OWASP ZAP'},
+    {id:'DAST-010',score:9.1,title:'SQLi in search parameter',cve:null,asset:'catalog-api',owner:'E-commerce',status:'Open',sla:'8h left',kev:false,internet:true,tool:'Burp Suite Enterprise'},
+    {id:'DAST-011',score:4.9,title:'Verbose error stack traces',cve:null,asset:'staging-api',owner:'Platform Engineering',status:'Patched',sla:'Closed',kev:false,internet:true,tool:'OWASP ZAP'},
+    {id:'DAST-012',score:7.6,title:'BOLA on /accounts/{id}',cve:null,asset:'banking-api',owner:'Finance Systems',status:'Open',sla:'48h left',kev:false,internet:true,tool:'Noname Security'},
+    {id:'DAST-013',score:5.8,title:'Session fixation',cve:null,asset:'legacy-portal',owner:'Internal Apps',status:'Open',sla:'7d',kev:false,internet:true,tool:'Burp Suite Enterprise'},
+    {id:'DAST-014',score:8.5,title:'XXE via SOAP upload',cve:null,asset:'erp-connector',owner:'Finance Systems',status:'In progress',sla:'1d left',kev:false,internet:false,tool:'OWASP ZAP'},
+    {id:'DAST-015',score:3.6,title:'Missing security headers',cve:null,asset:'status-page',owner:'SRE',status:'Open',sla:'14d',kev:false,internet:true,tool:'OWASP ZAP'},
+    {id:'DAST-016',score:6.5,title:'Rate limit bypass on OTP',cve:null,asset:'mfa-service',owner:'Identity',status:'Compensating control',sla:'6d',kev:false,internet:true,tool:'Salt Security'},
+    {id:'DAST-017',score:7.9,title:'Web cache poisoning',cve:null,asset:'cdn-origin-app',owner:'Digital Experience',status:'Open',sla:'2d left',kev:false,internet:true,tool:'Burp Suite Enterprise'},
+    {id:'DAST-018',score:5.1,title:'Host header injection',cve:null,asset:'marketing-landing',owner:'Marketing Web',status:'In progress',sla:'9d left',kev:false,internet:true,tool:'Noname Security'}
+  ],
+  container: [
+    {id:'CON-001',score:9.4,title:'Log4j in deployed image',cve:'CVE-2021-44228',asset:'transaction-router:v4.2.1',owner:'Payments Platform',status:'Open',sla:'12h left',kev:true,internet:true,tool:'Trivy'},
+    {id:'CON-002',score:7.2,title:'OS package CVE in node:16-alpine',cve:'CVE-2023-45853',asset:'node:16-alpine (47 svcs)',owner:'Platform Engineering',status:'In progress',sla:'3d left',kev:false,internet:true,tool:'Aqua Security'},
+    {id:'CON-003',score:8.5,title:'Embedded secret in image layer',cve:null,asset:'deploy-tools:latest',owner:'DevEx',status:'Open',sla:'24h left',kev:false,internet:false,tool:'Sysdig Secure'},
+    {id:'CON-004',score:8.0,title:'Privileged container + vuln kernel module',cve:null,asset:'monitoring-agent',owner:'Observability',status:'Compensating control',sla:'2d',kev:false,internet:false,tool:'Trivy'},
+    {id:'CON-005',score:4.5,title:'CIS gap: :latest tag in prod',cve:null,asset:'23 deployments',owner:'Kubernetes Platform',status:'Open',sla:'10d',kev:false,internet:true,tool:'Aqua Security'},
+    {id:'CON-006',score:7.8,title:'glibc CVE in distroless base',cve:'CVE-2023-4911',asset:'payments-svc:v2.1',owner:'Payments Platform',status:'Open',sla:'48h left',kev:false,internet:true,tool:'Trivy'},
+    {id:'CON-007',score:6.4,title:'Writable root filesystem',cve:null,asset:'batch-worker',owner:'Data Platform',status:'In progress',sla:'5d left',kev:false,internet:false,tool:'Sysdig Secure'},
+    {id:'CON-008',score:5.3,title:'Missing CPU/memory limits',cve:null,asset:'cron-jobs-ns',owner:'SRE',status:'Open',sla:'8d',kev:false,internet:false,tool:'Aqua Security'},
+    {id:'CON-009',score:8.7,title:'Critical OpenSSL in nginx sidecar',cve:'CVE-2024-1234',asset:'ingress-nginx:1.25',owner:'Kubernetes Platform',status:'Open',sla:'18h left',kev:true,internet:true,tool:'Trivy'},
+    {id:'CON-010',score:3.9,title:'Non-root user not enforced',cve:null,asset:'legacy-monolith',owner:'Internal Apps',status:'Risk accepted',sla:'30d',kev:false,internet:false,tool:'Sysdig Secure'},
+    {id:'CON-011',score:7.5,title:'Capabilities ADD NET_ADMIN',cve:null,asset:'cni-plugin',owner:'Kubernetes Platform',status:'Open',sla:'4d',kev:false,internet:false,tool:'Aqua Security'},
+    {id:'CON-012',score:6.1,title:'Image from untrusted registry',cve:null,asset:'ml-training-job',owner:'Data Science',status:'Compensating control',sla:'7d',kev:false,internet:false,tool:'Trivy'},
+    {id:'CON-013',score:9.0,title:'RunAsNonRoot=false in prod',cve:null,asset:'admin-console',owner:'Internal Apps',status:'Open',sla:'24h left',kev:false,internet:true,tool:'Sysdig Secure'},
+    {id:'CON-014',score:5.7,title:'Secrets mounted as env vars',cve:null,asset:'checkout-api',owner:'E-commerce',status:'In progress',sla:'6d left',kev:false,internet:true,tool:'Aqua Security'},
+    {id:'CON-015',score:4.2,title:'Image signature not verified',cve:null,asset:'artifact-cache',owner:'DevEx',status:'Open',sla:'14d',kev:false,internet:false,tool:'Trivy'},
+    {id:'CON-016',score:8.3,title:'Shellshock in deprecated base',cve:'CVE-2014-6271',asset:'legacy-etl:v0.9',owner:'Data Platform',status:'Patched',sla:'Closed',kev:false,internet:false,tool:'Trivy'},
+    {id:'CON-017',score:6.8,title:'HostPath mount to /var/run/docker.sock',cve:null,asset:'debug-sidecar',owner:'SRE',status:'Open',sla:'3d left',kev:false,internet:false,tool:'Sysdig Secure'},
+    {id:'CON-018',score:7.0,title:'Vulnerable Helm chart subchart',cve:'CVE-2023-27163',asset:'service-mesh-chart',owner:'Platform Engineering',status:'Open',sla:'5d',kev:false,internet:true,tool:'Aqua Security'}
+  ],
+  iac: [
+    {id:'IAC-001',score:8.6,title:'Public S3 bucket policy',cve:null,asset:'data-lake.tf',owner:'Data Platform',status:'Open',sla:'24h left',kev:false,internet:true,tool:'Checkov'},
+    {id:'IAC-002',score:7.9,title:'0.0.0.0/0 ingress on RDS SG',cve:null,asset:'analytics-stack',owner:'Analytics',status:'In progress',sla:'2d left',kev:false,internet:true,tool:'tfsec'},
+    {id:'IAC-003',score:7.2,title:'IAM wildcard *:*',cve:null,asset:'admin-policy.tf',owner:'Cloud Security',status:'Open',sla:'3d left',kev:false,internet:false,tool:'KICS'},
+    {id:'IAC-004',score:4.4,title:'Unencrypted RDS instance',cve:null,asset:'staging-db.tf',owner:'Data Platform',status:'Open',sla:'9d',kev:false,internet:false,tool:'Checkov'},
+    {id:'IAC-005',score:5.1,title:'CloudTrail logging disabled',cve:null,asset:'audit-baseline.tf',owner:'GRC',status:'Compensating control',sla:'7d',kev:false,internet:false,tool:'tfsec'},
+    {id:'IAC-006',score:8.1,title:'EKS public endpoint enabled',cve:null,asset:'eks-cluster.tf',owner:'Kubernetes Platform',status:'Open',sla:'36h left',kev:false,internet:true,tool:'Checkov'},
+    {id:'IAC-007',score:6.3,title:'Security group allows all egress',cve:null,asset:'vpc-module',owner:'Network',status:'In progress',sla:'5d left',kev:false,internet:false,tool:'KICS'},
+    {id:'IAC-008',score:3.8,title:'S3 versioning not enabled',cve:null,asset:'backup-bucket.tf',owner:'SRE',status:'Risk accepted',sla:'28d',kev:false,internet:false,tool:'tfsec'},
+    {id:'IAC-009',score:7.5,title:'Lambda overly permissive role',cve:null,asset:'etl-lambda.tf',owner:'Data Platform',status:'Open',sla:'4d',kev:false,internet:false,tool:'Checkov'},
+    {id:'IAC-010',score:5.6,title:'KMS key rotation off',cve:null,asset:'secrets-kms.tf',owner:'Cloud Security',status:'Open',sla:'11d',kev:false,internet:false,tool:'KICS'},
+    {id:'IAC-011',score:8.4,title:'Open security group to 0.0.0.0/0:22',cve:null,asset:'bastion.tf',owner:'Network',status:'Open',sla:'12h left',kev:false,internet:true,tool:'tfsec'},
+    {id:'IAC-012',score:4.7,title:'Missing S3 public access block',cve:null,asset:'logs-archive.tf',owner:'Observability',status:'Patched',sla:'Closed',kev:false,internet:false,tool:'Checkov'},
+    {id:'IAC-013',score:6.9,title:'IAM user long-lived access key',cve:null,asset:'ci-user.tf',owner:'DevEx',status:'Open',sla:'6d',kev:false,internet:false,tool:'KICS'},
+    {id:'IAC-014',score:7.7,title:'ALB without WAF association',cve:null,asset:'edge-alb.tf',owner:'Digital Experience',status:'In progress',sla:'3d left',kev:false,internet:true,tool:'Checkov'},
+    {id:'IAC-015',score:5.0,title:'EBS volume not encrypted',cve:null,asset:'worker-asg.tf',owner:'Kubernetes Platform',status:'Open',sla:'8d',kev:false,internet:false,tool:'tfsec'},
+    {id:'IAC-016',score:3.5,title:'Tag policy noncompliance',cve:null,asset:'org-scp.tf',owner:'Cloud FinOps',status:'Risk accepted',sla:'45d',kev:false,internet:false,tool:'Checkov'},
+    {id:'IAC-017',score:8.8,title:'Secrets in Terraform state backend',cve:null,asset:'backend-config.tf',owner:'Platform Engineering',status:'Open',sla:'24h left',kev:false,internet:false,tool:'KICS'},
+    {id:'IAC-018',score:6.0,title:'Azure NSG allows RDP from Internet',cve:null,asset:'win-jump.bicep',owner:'Windows Ops',status:'Compensating control',sla:'5d',kev:false,internet:true,tool:'Checkov'}
+  ],
+  cspm: [
+    {id:'CSPM-001',score:9.8,title:'Toxic combo: public S3 + admin IAM + PCI',cve:null,asset:'payments-data-lake',owner:'Payments Platform',status:'Open',sla:'6h left',kev:true,internet:true,tool:'Wiz'},
+    {id:'CSPM-002',score:6.5,title:'IAM unused privileges (230)',cve:null,asset:'payments-admin-role',owner:'Cloud Security',status:'In progress',sla:'7d left',kev:false,internet:false,tool:'Prisma Cloud'},
+    {id:'CSPM-003',score:8.4,title:'Lateral path: dev EC2 → prod IAM',cve:null,asset:'cloud-graph',owner:'Cloud Security',status:'Open',sla:'24h left',kev:false,internet:false,tool:'Orca Security'},
+    {id:'CSPM-004',score:8.9,title:'Public Postgres RDS weak password',cve:null,asset:'analytics-rds-prod',owner:'Analytics',status:'Open',sla:'12h left',kev:true,internet:true,tool:'Microsoft Defender for Cloud'},
+    {id:'CSPM-005',score:5.0,title:'Drift: 47 resources outside IaC',cve:null,asset:'prod-account',owner:'Cloud Platform',status:'Open',sla:'10d',kev:false,internet:false,tool:'Wiz'},
+    {id:'CSPM-006',score:7.6,title:'S3 bucket MFA delete disabled',cve:null,asset:'audit-logs-bucket',owner:'GRC',status:'Compensating control',sla:'5d',kev:false,internet:false,tool:'Prisma Cloud'},
+    {id:'CSPM-007',score:8.2,title:'VM with public IP and local admin',cve:null,asset:'jumpbox-dev-03',owner:'R&D',status:'Open',sla:'2d left',kev:false,internet:true,tool:'Orca Security'},
+    {id:'CSPM-008',score:6.8,title:'K8s dashboard exposed',cve:null,asset:'eks-prod-west',owner:'Kubernetes Platform',status:'In progress',sla:'4d left',kev:false,internet:true,tool:'Wiz'},
+    {id:'CSPM-009',score:9.2,title:'Internet→S3→Lambda→RDS path',cve:null,asset:'attack-path-014',owner:'Payments Platform',status:'Open',sla:'8h left',kev:true,internet:true,tool:'Wiz'},
+    {id:'CSPM-010',score:4.6,title:'Unused security group rules',cve:null,asset:'vpc-prod-01',owner:'Network',status:'Risk accepted',sla:'21d',kev:false,internet:false,tool:'Prisma Cloud'},
+    {id:'CSPM-011',score:7.3,title:'Overly broad S3 ACL',cve:null,asset:'marketing-assets',owner:'Marketing Web',status:'Open',sla:'3d left',kev:false,internet:true,tool:'Microsoft Defender for Cloud'},
+    {id:'CSPM-012',score:5.9,title:'Azure AD guest invite unrestricted',cve:null,asset:'entra-tenant',owner:'Identity',status:'Open',sla:'8d',kev:false,internet:false,tool:'Prisma Cloud'},
+    {id:'CSPM-013',score:8.6,title:'Secrets in Lambda environment',cve:null,asset:'webhook-handler',owner:'Platform Engineering',status:'Open',sla:'18h left',kev:false,internet:true,tool:'Orca Security'},
+    {id:'CSPM-014',score:6.2,title:'GCP service account key age >365d',cve:null,asset:'gcp-billing-sa',owner:'Cloud FinOps',status:'In progress',sla:'6d left',kev:false,internet:false,tool:'Wiz'},
+    {id:'CSPM-015',score:7.8,title:'CNAPP: malware in running workload',cve:null,asset:'payments-pod-7f2a',owner:'Payments Platform',status:'Open',sla:'24h left',kev:false,internet:true,tool:'Orca Security'},
+    {id:'CSPM-016',score:3.9,title:'Non-prod account missing guardrail',cve:null,asset:'sandbox-12',owner:'Cloud Platform',status:'Patched',sla:'Closed',kev:false,internet:false,tool:'Prisma Cloud'},
+    {id:'CSPM-017',score:8.7,title:'IAM passRole to admin role',cve:null,asset:'cicd-deployer',owner:'DevEx',status:'Open',sla:'36h left',kev:false,internet:false,tool:'Wiz'},
+    {id:'CSPM-018',score:5.4,title:'Logging bucket not immutable',cve:null,asset:'siem-archive',owner:'SecOps',status:'Compensating control',sla:'9d',kev:false,internet:false,tool:'Microsoft Defender for Cloud'}
+  ],
+  easm: [
+    {id:'EASM-001',score:9.1,title:'Exposed Jenkins instance',cve:null,asset:'ci-old.example.com',owner:'DevEx',status:'Open',sla:'12h left',kev:true,internet:true,tool:'Censys'},
+    {id:'EASM-002',score:7.6,title:'Subdomain takeover (dangling CNAME)',cve:null,asset:'coupons.example.com',owner:'Marketing Web',status:'In progress',sla:'3d left',kev:false,internet:true,tool:'Randori'},
+    {id:'EASM-003',score:9.3,title:'Public Elasticsearch no auth',cve:null,asset:'acme-acquired.example.net',owner:'M&A Integration',status:'Open',sla:'8h left',kev:false,internet:true,tool:'Palo Alto Xpanse'},
+    {id:'EASM-004',score:5.5,title:'Expired wildcard certificate',cve:null,asset:'*.partners.example.com',owner:'Partner Integrations',status:'Open',sla:'7d',kev:false,internet:true,tool:'Censys'},
+    {id:'EASM-005',score:6.8,title:'Shadow IT: hosts not in CMDB',cve:null,asset:'23 internet hosts',owner:'SecOps',status:'Open',sla:'5d',kev:false,internet:true,tool:'Randori'},
+    {id:'EASM-006',score:8.4,title:'Exposed Kubernetes API',cve:null,asset:'k8s-lab.example.com',owner:'R&D',status:'Open',sla:'24h left',kev:true,internet:true,tool:'Palo Alto Xpanse'},
+    {id:'EASM-007',score:4.1,title:'Typosquat domain registered',cve:null,asset:'examp1e.com',owner:'Brand Protection',status:'In progress',sla:'14d left',kev:false,internet:true,tool:'Censys'},
+    {id:'EASM-008',score:7.2,title:'Git repository exposed via .git',cve:null,asset:'dev.example.com',owner:'DevEx',status:'Open',sla:'2d left',kev:false,internet:true,tool:'Randori'},
+    {id:'EASM-009',score:8.8,title:'Citrix ADC login panel internet',cve:null,asset:'remote.example.com',owner:'Network',status:'Compensating control',sla:'1d',kev:true,internet:true,tool:'Palo Alto Xpanse'},
+    {id:'EASM-010',score:5.9,title:'Open MongoDB on non-standard port',cve:null,asset:'db-leak-44.example.net',owner:'Data Platform',status:'Open',sla:'48h left',kev:false,internet:true,tool:'Censys'},
+    {id:'EASM-011',score:3.7,title:'SPF record missing',cve:null,asset:'mail.example.com',owner:'Messaging',status:'Risk accepted',sla:'30d',kev:false,internet:true,tool:'Censys'},
+    {id:'EASM-012',score:9.0,title:'RDP on residential ISP IP',cve:null,asset:'185.12.x.x',owner:'Unknown',status:'Open',sla:'6h left',kev:true,internet:true,tool:'Randori'},
+    {id:'EASM-013',score:6.4,title:'WordPress admin reachable',cve:null,asset:'blog.example.com',owner:'Marketing Web',status:'In progress',sla:'4d left',kev:false,internet:true,tool:'Palo Alto Xpanse'},
+    {id:'EASM-014',score:7.9,title:'Exposed .env backup file',cve:null,asset:'cdn-static.example.com',owner:'Digital Experience',status:'Open',sla:'36h left',kev:false,internet:true,tool:'Censys'},
+    {id:'EASM-015',score:4.8,title:'Certificate transparency new subdomain',cve:null,asset:'pay-staging.example.com',owner:'Payments Platform',status:'Open',sla:'10d',kev:false,internet:true,tool:'Randori'},
+    {id:'EASM-016',score:8.1,title:'VPN portal pre-auth RCE',cve:'CVE-2024-21762',asset:'vpn.example.com',owner:'Network',status:'Open',sla:'18h left',kev:true,internet:true,tool:'Palo Alto Xpanse'},
+    {id:'EASM-017',score:5.2,title:'SMB signing not required',cve:null,asset:'fileshare.example.com',owner:'Windows Ops',status:'Patched',sla:'Closed',kev:false,internet:true,tool:'Censys'},
+    {id:'EASM-018',score:6.6,title:'M&A asset: exposed SonarQube',cve:null,asset:'sonar.acme-acquired.net',owner:'M&A Integration',status:'Open',sla:'5d',kev:false,internet:true,tool:'Randori'}
+  ],
+  secrets: [
+    {id:'SEC-001',score:10.0,title:'AWS access key in public gist',cve:null,asset:'github-gist AKIA...',owner:'Payments Platform',status:'Open',sla:'1h left',kev:false,internet:true,tool:'GitGuardian'},
+    {id:'SEC-002',score:7.4,title:'OAuth token in commit history',cve:null,asset:'backend-svc repo',owner:'Platform Engineering',status:'In progress',sla:'2d left',kev:false,internet:false,tool:'TruffleHog'},
+    {id:'SEC-003',score:8.0,title:'DB connection string with password',cve:null,asset:'config-old.json',owner:'Data Platform',status:'Open',sla:'24h left',kev:false,internet:false,tool:'GitHub Advanced Security'},
+    {id:'SEC-004',score:8.7,title:'Private SSH key in repo',cve:null,asset:'deployment-scripts',owner:'DevEx',status:'Open',sla:'12h left',kev:false,internet:false,tool:'GitGuardian'},
+    {id:'SEC-005',score:6.9,title:'Hard-coded password campaign (12 repos)',cve:null,asset:'12 repositories',owner:'Security Engineering',status:'In progress',sla:'4d left',kev:false,internet:false,tool:'TruffleHog'},
+    {id:'SEC-006',score:8.6,title:'Stripe API key in container image',cve:null,asset:'payments-svc:v2.1',owner:'Payments Platform',status:'Open',sla:'18h left',kev:false,internet:true,tool:'GitGuardian'},
+    {id:'SEC-007',score:9.2,title:'Azure service principal secret live',cve:null,asset:'infra-terraform PR #882',owner:'Cloud Platform',status:'Open',sla:'6h left',kev:false,internet:false,tool:'GitHub Advanced Security'},
+    {id:'SEC-008',score:5.8,title:'Slack webhook URL in README',cve:null,asset:'oncall-bot',owner:'SRE',status:'Patched',sla:'Closed',kev:false,internet:true,tool:'TruffleHog'},
+    {id:'SEC-009',score:7.9,title:'GCP JSON key in artifact bucket',cve:null,asset:'gs://build-artifacts',owner:'DevEx',status:'Open',sla:'36h left',kev:false,internet:true,tool:'GitGuardian'},
+    {id:'SEC-010',score:4.5,title:'Test API key (revoked)',cve:null,asset:'integration-tests',owner:'QA',status:'Risk accepted',sla:'30d',kev:false,internet:false,tool:'TruffleHog'},
+    {id:'SEC-011',score:8.3,title:'Datadog API key in Helm values',cve:null,asset:'observability-chart',owner:'Observability',status:'In progress',sla:'2d left',kev:false,internet:false,tool:'GitHub Advanced Security'},
+    {id:'SEC-012',score:7.1,title:'PagerDuty token in CI env',cve:null,asset:'.github/workflows',owner:'SRE',status:'Open',sla:'3d left',kev:false,internet:false,tool:'GitGuardian'},
+    {id:'SEC-013',score:9.5,title:'Production DB password in ticket paste',cve:null,asset:'Jira export attachment',owner:'Finance Systems',status:'Open',sla:'4h left',kev:false,internet:false,tool:'GitGuardian'},
+    {id:'SEC-014',score:6.3,title:'JWT signing key in mobile repo',cve:null,asset:'ios-app-config',owner:'Mobile',status:'Compensating control',sla:'6d',kev:false,internet:false,tool:'TruffleHog'},
+    {id:'SEC-015',score:8.8,title:'Twilio auth token validated live',cve:null,asset:'notify-svc commit abc12',owner:'Messaging',status:'Open',sla:'24h left',kev:false,internet:true,tool:'GitGuardian'},
+    {id:'SEC-016',score:5.4,title:'Base64-encoded secret in config map',cve:null,asset:'k8s-manifests',owner:'Kubernetes Platform',status:'Open',sla:'8d',kev:false,internet:false,tool:'GitHub Advanced Security'},
+    {id:'SEC-017',score:7.6,title:'Salesforce connected app secret',cve:null,asset:'crm-sync',owner:'Sales Ops',status:'In progress',sla:'5d left',kev:false,internet:false,tool:'TruffleHog'},
+    {id:'SEC-018',score:9.8,title:'Root AWS key in public S3 object',cve:null,asset:'s3://leaked-backup-2023',owner:'Incident Response',status:'Open',sla:'Overdue 1h',kev:false,internet:true,tool:'GitGuardian'}
+  ]
+};
+
+/* Build pipeline correlation — included in dashboard bundle */
+const PIPELINE_SCANNERS = new Set(['sca','sast','container']);
+
+const PIPELINE_PRESETS = {
+  'SCA-001': {
+    repo:{name:'payments-platform/transaction-router',branch:'main',commitShort:'a3f8e92',author:'Sarah Chen',ageHours:72},
+    prStatus:{state:'merged',prNumber:1247,prUrl:'#',detail:'Two reviewers approved; SCA gate non-blocking when dep added'},
+    build:{system:'Jenkins',buildId:'build-4521',buildUrl:'#',ageHours:48,status:'passed',note:'SCA scan ran; KEV unknown at build time',environment:'production',envKey:'prod',envLabel:'Production CI',agentPool:'k8s-build-agents-prod-us-east-1',region:'us-east-1'},
+    artifact:{name:'registry.internal/transaction-router',version:'v4.2.1',digest:'sha256:3f2a9c1e…',registry:'JFrog Artifactory'},
+    registry:{name:'JFrog Artifactory',path:'prod-releases/transaction-router',scanStatus:'scanned · digest retained'},
+    deployment:{tool:'ArgoCD',app:'transaction-router-prod',cluster:'eks-prod-us-east-1',namespace:'payments',podCount:12,syncedAgo:'2 days ago'},
+    reachability:{confirmed:true,callsPerDay:'14,000×/day',entryPoint:'HTTP /api/charge handler',sensor:'Endor Labs runtime'},
+    dependencyChain:['transaction-router','spring-boot-starter-web 2.5.4','spring-core 5.3.9','spring-jcl 5.3.9','log4j-core 2.14.1'],
+    manifestFile:'pom.xml',resolvedVersion:'2.14.1'
+  },
+  'CON-001': {
+    repo:{name:'payments-platform/transaction-router',branch:'main',commitShort:'a3f8e92',author:'Sarah Chen',ageHours:72},
+    prStatus:{state:'merged',prNumber:1247,detail:'Image built from same commit as SCA finding'},
+    build:{system:'GitHub Actions',buildId:'workflow-8821',ageHours:48,status:'passed',note:'Kaniko image build · Trivy gate warn-only',environment:'production',envKey:'prod',envLabel:'Production CI',agentPool:'gha-hosted · larger runners',region:'us-east-1'},
+    artifact:{name:'registry.internal/transaction-router',version:'v4.2.1',digest:'sha256:3f2a9c1e…',registry:'JFrog Artifactory'},
+    registry:{name:'JFrog Artifactory',path:'prod-releases',scanStatus:'3 older digests still pullable'},
+    deployment:{tool:'ArgoCD',app:'transaction-router-prod',cluster:'eks-prod-us-east-1',namespace:'payments',podCount:12,syncedAgo:'2 days ago'},
+    baseImageLineage:[
+      {name:'transaction-router:v4.2.1',layer:'app'},
+      {name:'internal-base/java17:2024-01',layer:'intermediate'},
+      {name:'eclipse-temurin:17-jre',layer:'base'},
+      {name:'ubuntu:22.04',layer:'os'}
+    ],
+    vulnerableLayer:'app',
+    note:'Same root cause as SCA-001 — log4j in app layer, not base image',
+    reachability:{confirmed:true,callsPerDay:'JndiLookup.lookup() via bundled log4j-core',entryPoint:'HTTP /api/charge',sensor:'Endor Labs runtime (folded into Runtime controls)'}
+  },
+  'SAST-001': {
+    repo:{name:'payments-platform/payments-api',branch:'main',commitShort:'b7c21de',author:'Marcus Webb',ageHours:96},
+    prStatus:{state:'precaught',prNumber:1189,detail:'Semgrep commented on PR; merged before DAST confirmation'},
+    build:{system:'GitLab CI',buildId:'pipeline-33902',ageHours:60,status:'passed',note:'SAST gate failed — override by platform lead',environment:'production',envKey:'prod',envLabel:'Production CI',agentPool:'gitlab-runner-prod · docker',region:'us-east-1'},
+    artifact:{name:'payments-api',version:'payments-api-2.8.0.war',digest:'sha256:91ab…',registry:'Nexus releases'},
+    registry:{name:'Nexus Repository Manager',path:'releases/payments-api',scanStatus:'artifact retained'},
+    deployment:{tool:'Spinnaker',app:'payments-api-prod',cluster:'eks-prod-us-east-1',namespace:'payments',podCount:8,syncedAgo:'3 days ago'},
+    reachability:{confirmed:true,callsPerDay:'~2,400×/day',entryPoint:'POST /charge from internet ALB',sensor:'Contrast IAST + prod traces'}
+  }
+};
+
+function bpAge(h){return h<24?`${h}h ago`:`${Math.floor(h/24)} day${Math.floor(h/24)>1?'s':''} ago`;}
+function bpRepoName(asset){return asset.includes(':')?asset.split(':')[0]:asset.replace(/\s*\(.*\)/,'').trim();}
+
+const BP_BUILD_ENVS=[
+  {environment:'production',envKey:'prod',envLabel:'Production CI',agentPool:'k8s-build-agents-prod-us-east-1',region:'us-east-1'},
+  {environment:'staging',envKey:'staging',envLabel:'Staging CI',agentPool:'k8s-build-agents-stg-us-east-1',region:'us-east-1'},
+  {environment:'development',envKey:'dev',envLabel:'Development CI',agentPool:'github-hosted · ubuntu-22.04',region:'us-west-2'}
+];
+
+function bpApplyBuildEnv(build,n){
+  const env=BP_BUILD_ENVS[n%BP_BUILD_ENVS.length];
+  return {...build,...env};
+}
+
+function bpBuildEnvLine(b){
+  if(!b) return '';
+  return `${b.envLabel||b.environment} · ${b.system} · ${b.agentPool||'default agents'}${b.region?` · ${b.region}`:''}`;
+}
+
+function bpBuildGraphHint(bp){
+  if(!bp?.build) return {label:'Build',sub:'',sub2:''};
+  const b=bp.build;
+  return {label:'Build',sub:b.buildId,sub2:`${b.envLabel||b.environment} · ${b.system}`};
+}
+
+function buildBuildPipeline(seed,sid){
+  if(!PIPELINE_SCANNERS.has(sid)) return null;
+  if(PIPELINE_PRESETS[seed.id]) return {...PIPELINE_PRESETS[seed.id]};
+  const n=seed.id.charCodeAt(4)+seed.id.charCodeAt(5);
+  const repo=bpRepoName(seed.asset);
+  const orgRepo=`payments-platform/${repo}`.replace(/\/+/g,'/');
+  const authors=['Sarah Chen','Marcus Webb','Priya Nair','James Okonkwo'];
+  const systems=['Jenkins','GitHub Actions','GitLab CI','CircleCI','Azure Pipelines'];
+  const prStates=['merged','merged','precaught','blocked'];
+  const prState=prStates[n%4];
+  const base={
+    repo:{name:orgRepo,branch:'main',commitShort:(n*17%0xffff).toString(16).slice(0,7),author:authors[n%4],ageHours:48+(n%96)},
+    prStatus:{state:prState,prNumber:1100+(n%200),prUrl:'#',detail:prState==='merged'?'Security gate passed at merge':prState==='precaught'?'Fixed in follow-up PR before merge':'Blocked at PR — override for hotfix'},
+    build:bpApplyBuildEnv({system:systems[n%5],buildId:`build-${4000+n}`,buildUrl:'#',ageHours:36+(n%48),status:n%7===0?'failed':'passed',note:'Pipeline scan completed'},n),
+    artifact:{name:sid==='container'?`registry.internal/${repo}`:`${repo}`,version:sid==='container'?`${repo}:v${4+(n%3)}.${n%10}`:`v2.${n%9}.0`,digest:`sha256:${(n*991).toString(16).slice(0,4)}…`,registry:'JFrog Artifactory'},
+    registry:{name:'JFrog Artifactory',path:'prod-releases',scanStatus:'digest on file'},
+    deployment:{tool:'ArgoCD',app:`${repo.replace(/[^a-z0-9-]/gi,'-')}-prod`,cluster:'eks-prod-us-east-1',namespace:seed.owner.split(' ')[0].toLowerCase(),podCount:4+(n%20),syncedAgo:bpAge(36+(n%48))}
+  };
+  if(sid==='sca'){
+    base.reachability={confirmed:seed.score>=7,callsPerDay:seed.score>=7?'1,200×/day':'Not loaded at runtime',entryPoint:seed.internet?'Inbound API traffic':'Internal batch only',sensor:'Runtime SBOM sensor'};
+    base.dependencyChain=[repo,'spring-boot-starter-web','spring-core',seed.cve?seed.cve.replace('CVE-','lib-'):'vuln-lib'];
+    base.manifestFile=n%2?'pom.xml':'package-lock.json';
+    base.resolvedVersion=`${2+(n%3)}.${10+(n%5)}.${n%10}`;
+  }
+  if(sid==='sast'){
+    base.reachability={confirmed:seed.score>=7.5,callsPerDay:seed.score>=7.5?'Called from prod entry':'Dead code path — never invoked',entryPoint:seed.internet?'/api public routes':'Internal admin only',sensor:'IAST + APM traces'};
+  }
+  if(sid==='container'){
+    base.baseImageLineage=[
+      {name:`${repo}:v4.${n%3}`,layer:'app'},
+      {name:'internal-base/java17:2024-01',layer:'intermediate'},
+      {name:'eclipse-temurin:17-jre',layer:'base'},
+      {name:'ubuntu:22.04',layer:'os'}
+    ];
+    base.vulnerableLayer=n%5===0?'os':n%3===0?'base':'app';
+    base.note='Image built from application repo Dockerfile';
+  }
+  return base;
+}
+
+
+function bpPill(state){
+  const m={
+    merged:{cls:'bp-ok',label:'Merged'},
+    precaught:{cls:'bp-warn',label:'Pre-PR catch'},
+    blocked:{cls:'bp-bad',label:'Blocked at PR'},
+    passed:{cls:'bp-ok',label:'✓ Passed'},
+    failed:{cls:'bp-bad',label:'✗ Failed'}
+  };
+  const x=m[state]||{cls:'bp-neutral',label:state};
+  return `<span class="bp-pill ${x.cls}">${esc(x.label)}</span>`;
+}
+
+function renderBpChain(bp,sid){
+  if(sid==='sca'&&bp.dependencyChain){
+    const links=bp.dependencyChain.map((name,i)=>{
+      const vuln=i===bp.dependencyChain.length-1;
+      return `<span class="bp-chain-link ${vuln?'bp-chain-vuln':''}">${esc(name)}</span>`;
+    }).join('<span class="bp-chain-sep">›</span>');
+    return `<div class="bp-extra"><div class="bp-extra-label">Dependency chain</div><div class="bp-chain">${links}</div><div class="bp-mono">${esc(bp.manifestFile)} → resolved <strong>${esc(bp.resolvedVersion)}</strong></div></div>`;
+  }
+  if(sid==='container'&&bp.baseImageLineage){
+    const links=bp.baseImageLineage.map(row=>{
+      const vuln=row.layer===bp.vulnerableLayer;
+      return `<span class="bp-chain-link ${vuln?'bp-chain-vuln':''}" title="${esc(row.layer)} layer">${esc(row.name)}</span>`;
+    }).join('<span class="bp-chain-sep">›</span>');
+    return `<div class="bp-extra"><div class="bp-extra-label">Base image lineage · vuln in <strong>${esc(bp.vulnerableLayer)}</strong> layer</div><div class="bp-chain">${links}</div>${bp.note?`<div class="bp-mono">${esc(bp.note)}</div>`:''}</div>`;
+  }
+  return '';
+}
+
+function renderBuildPipelineCard(e){
+  const bp=e.buildPipeline;
+  if(!bp) return '';
+  const sid=e.scannerId;
+  const stages=[
+    {icon:'git',title:'Source repo',mono:`${bp.repo.name} · ${bp.repo.branch} · ${bp.repo.commitShort} · ${bp.repo.author} · ${bpAge(bp.repo.ageHours)}`,pill:null},
+    {icon:'git',title:'PR / merge status',mono:bp.prStatus.detail+(bp.prStatus.prNumber?` · PR #${bp.prStatus.prNumber}`:''),pill:bpPill(bp.prStatus.state)},
+    {icon:'server',title:'Build',mono:`${bp.build.buildId} · ${bpBuildEnvLine(bp.build)} · ${bpAge(bp.build.ageHours)}${bp.build.note?' · '+bp.build.note:''}`,pill:bpPill(bp.build.status)},
+    {icon:'package',title:'Artifact',mono:`${bp.artifact.name}${bp.artifact.version?':'+bp.artifact.version:''} · ${bp.artifact.registry} · digest ${bp.artifact.digest}`,pill:null},
+    {icon:'container',title:'Registry / artifact store',mono:`${bp.registry.name} · ${bp.registry.path} · ${bp.registry.scanStatus}`,pill:null},
+    {icon:'cloud',title:'Deployment trail',mono:`${bp.deployment.tool} ${bp.deployment.app} → ${bp.deployment.cluster} ns ${bp.deployment.namespace} · ${bp.deployment.podCount} pods · ${bp.deployment.syncedAgo}`,pill:null}
+  ];
+  if(sid!=='container'&&bp.reachability){
+    const r=bp.reachability;
+    stages.push({icon:'shield',title:'Reachability',mono:r.confirmed?`${r.sensor}: ${r.entryPoint} · ${r.callsPerDay}`:`Not confirmed in prod — ${r.callsPerDay||'sensor offline'}`,pill:bpPill(r.confirmed?'passed':'blocked')});
+  }
+  const flow=stages.map((st,i)=>`
+    <div class="bp-stage">
+      <div class="bp-stage-rail">${i>0?'<div class="bp-connector"></div>':''}<div class="bp-dot">${icon(st.icon,14)}</div></div>
+      <div class="bp-stage-body">
+        <div class="bp-stage-head"><span class="bp-stage-title">${esc(st.title)}</span>${st.pill||''}</div>
+        <div class="bp-mono">${esc(st.mono)}</div>
+      </div>
+    </div>`).join('');
+  return `<div class="station-card bp-wide bp-pipeline-card" data-pipeline-card>
+    <div class="station-head">${icon('container',14)}<span>Build Pipeline</span></div>
+    <div class="bp-flow">${flow}</div>
+    ${renderBpChain(bp,sid)}
+  </div>`;
+}
+
+function renderBuildPipelineDetail(e){
+  return renderBuildPipelineCard(e).replace('data-pipeline-card','');
+}
+
+function renderStationCards(e){
+  const parts=[];
+  e.stations.forEach(s=>{
+    if(s.k==='buildPipeline') return;
+    if(s.k==='asset'&&e.buildPipeline){
+      parts.push(`<div class="station-card ${s.scm?'scm-station':''}"><div class="station-head">${icon(s.icon,14)}<span>${esc(s.name)}</span></div>${s.lines.map(l=>`<div class="station-line">${esc(l)}</div>`).join('')}</div>`);
+      parts.push(renderBuildPipelineCard(e));
+      return;
+    }
+    parts.push(`<div class="station-card ${s.scm?'scm-station':''} ${s.k==='runtime'?'runtime-station':''}"><div class="station-head">${icon(s.icon,14)}<span>${esc(s.name)}</span></div>${s.lines.map(l=>`<div class="station-line">${esc(l)}</div>`).join('')}</div>`);
+  });
+  return `<div class="station-grid station-grid-extended">${parts.join('')}</div>`;
+}
+
+function stationCountLabel(e){
+  const n=e.stations.filter(s=>s.k!=='buildPipeline').length+(e.buildPipeline?1:0);
+  return `${n} sources`;
+}
+
+
+const SCANNERS = [
+  {id:'network',name:'Network / Infrastructure',short:'Tenable · Qualys · Rapid7',icon:'server',accent:'#2563eb',scannerLabel:'Network / Infrastructure Scanner'},
+  {id:'sca',name:'SCA — Software Composition',short:'Snyk · Mend · Black Duck',icon:'package',accent:'#0891b2',scannerLabel:'SCA Scanner'},
+  {id:'sast',name:'SAST — Static App Security',short:'Checkmarx · Semgrep · Veracode',icon:'code',accent:'#7c3aed',scannerLabel:'SAST Scanner'},
+  {id:'dast',name:'DAST & API Security',short:'Burp · ZAP · Salt · Noname',icon:'api',accent:'#ea580c',scannerLabel:'DAST / API Scanner'},
+  {id:'container',name:'Container & Image',short:'Trivy · Aqua · Sysdig',icon:'container',accent:'#0d9488',scannerLabel:'Container Scanner'},
+  {id:'iac',name:'IaC — Infrastructure as Code',short:'Checkov · KICS · tfsec',icon:'cloud',accent:'#4f46e5',scannerLabel:'IaC Scanner'},
+  {id:'cspm',name:'CSPM / CNAPP',short:'Wiz · Orca · Prisma · Defender',icon:'graph',accent:'#16a34a',scannerLabel:'CSPM / CNAPP'},
+  {id:'easm',name:'EASM — External Surface',short:'Censys · Randori · Xpanse',icon:'globe',accent:'#be123c',scannerLabel:'EASM Scanner'},
+  {id:'secrets',name:'Secrets Scanner',short:'GitGuardian · TruffleHog · GHAS',icon:'key',accent:'#dc2626',scannerLabel:'Secrets Scanner'}
+];
+
+const CROSS_LINKS = {
+  'SCA-001':[{id:'CON-001',by:'Container Scanner',desc:'Same Log4Shell in image transaction-router:v4.2.1'},{id:'SAST-001',by:'SAST Scanner',desc:'Related code path in payments-api'}],
+  'CON-001':[{id:'SCA-001',by:'SCA Scanner',desc:'Same log4j-core — cheapest fix via SCA auto-PR'}],
+  'SAST-001':[{id:'SCA-001',by:'SCA Scanner',desc:'Shared payments platform dependency surface'},{id:'DAST-003',by:'DAST Scanner',desc:'Same /charge path exploitable at runtime'}],
+  'SAST-003':[{id:'SEC-001',by:'Secrets Scanner',desc:'Hard-coded key in same module'}],
+  'SEC-001':[{id:'SAST-003',by:'SAST Scanner',desc:'Secret surfaced in static analysis'}],
+  'SEC-006':[{id:'CON-006',by:'Container Scanner',desc:'Secret embedded in image layer'}],
+  'CON-006':[{id:'SEC-006',by:'Secrets Scanner',desc:'Credential in build context'}],
+  'NET-001':[{id:'CON-009',by:'Container Scanner',desc:'OpenSSL sidecar image on same host'}],
+  'DAST-003':[{id:'SAST-001',by:'SAST Scanner',desc:'Same payments-api code path'}]
+};
+
+const ICONS = {
+  server:`<path d="M4 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4H4V6Z"/><path d="M4 14h16v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-4Z"/>`,
+  package:`<path d="m21 16-9 5-9-5V8l9-5 9 5v8Z"/><path d="M12 22V12"/>`,
+  code:`<path d="m16 18 6-6-6-6"/><path d="m8 6-6 6 6 6"/><path d="m14.5 4-5 16"/>`,
+  api:`<path d="M4 13h5"/><path d="M15 13h5"/><path d="m9 7 3 12 3-12"/>`,
+  container:`<path d="M4 7h16v10H4z"/><path d="M4 11h16"/>`,
+  cloud:`<path d="M17.5 19H7a5 5 0 1 1 1.1-9.9 7 7 0 0 1 13.4 2.9 3.5 3.5 0 0 1-4 7Z"/>`,
+  graph:`<circle cx="6" cy="18" r="2"/><circle cx="18" cy="6" r="2"/><path d="M8 6h8M8 18h8M6 8v8M18 8v8M8 8l8 8"/>`,
+  globe:`<circle cx="12" cy="12" r="10"/><path d="M2 12h20"/>`,
+  key:`<circle cx="7.5" cy="14.5" r="3.5"/><path d="m10 12 9-9 2 2-1.5 1.5L21 8l-2 2"/>`,
+  shield:`<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>`,
+  git:`<path d="M15 6 3 6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-4"/><path d="M9 6V3a3 3 0 0 1 6 0v3"/>`,
+  chev:`<path d="m9 18 6-6-6-6"/>`
+};
+
+const SCM_SCANNERS = new Set(['sca','sast','secrets','container']);
+const SCM_PLATFORM = { sca:'GitHub', sast:'GitHub', secrets:'GitHub · GitLab', container:'GitHub Actions → registry' };
+
+function deriveRepo(asset){
+  const a=String(asset);
+  if (a.includes(' repo')) return a.replace(/\s*repo$/i,'').trim();
+  if (a.includes(':')) return a.split(':')[0].trim();
+  if (a.includes('/')) return a.split('/').pop().trim();
+  return a.replace(/\s*\([^)]*\)/g,'').trim();
+}
+
+function scmFileHint(seed, sid){
+  const t=seed.title.toLowerCase();
+  if (sid==='sast') return t.includes('injection')?'src/.../ChargeController.java':t.includes('xss')?'templates/profile.html':'src/main/...';
+  if (sid==='sca') return t.includes('log4')?'pom.xml · log4j-core':'package-lock.json / go.mod';
+  if (sid==='secrets') return seed.asset.includes('.py')?seed.asset:seed.asset.includes('workflow')?'.github/workflows/deploy.yml':seed.asset.includes('gist')?'external gist':`.env · ${seed.asset}`;
+  if (sid==='container') return seed.asset.includes(':')?`image ${seed.asset}`:'Dockerfile · CI build context';
+  return 'manifest / lockfile';
+}
+
+function buildScmStation(seed, sid){
+  const repo=deriveRepo(seed.asset);
+  const orgRepo=`payments-platform/${repo}`.replace(/\/+/g,'/');
+  const branch=seed.status==='In progress'?'fix/'+seed.id.toLowerCase():'main';
+  const commit=`${seed.id.replace('-','').slice(0,6)}a2f91 · pushed 2d ago`;
+  return {
+    k:'scm', name:'SCM context', icon:'git', scm:true,
+    lines:[
+      `Platform: ${SCM_PLATFORM[sid]}`,
+      `Repository: ${orgRepo}`,
+      `Branch: ${branch} · branch protection on`,
+      `Commit / ref: ${commit}`,
+      `Path scanned: ${scmFileHint(seed, sid)}`,
+      `Trigger: ${seed.tool} · PR gate / push`,
+      `CODEOWNERS → ${seed.owner}`
+    ]
+  };
+}
+
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');}
+function statusLabel(s){return s==='Compensating control'?'com-ctl':s;}
+function icon(name,size=17){return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">${ICONS[name]||ICONS.shield}</svg>`;}
+
+function band(score){if(score>=8)return 'Critical';if(score>=6)return 'High';if(score>=3)return 'Medium';return 'Low';}
+function bandClass(b){return ({Critical:'sev-critical',High:'sev-high',Medium:'sev-medium',Low:'sev-low'}[b]);}
+
+const RUNTIME_BY_SCANNER = {
+  network:'CrowdStrike Falcon · healthy',
+  sca:'Runtime SBOM · package loaded in prod',
+  sast:'RASP off · EDR on runner only',
+  dast:'WAF rule · partial virtual patch',
+  container:'Falco · Sysdig runtime sensor',
+  iac:'Drift check · policy guardrail',
+  cspm:'CWPP · agentless + Defender',
+  easm:'Perimeter IDS · threat feed only',
+  secrets:'N/A — rotation required'
+};
+
+function buildScoring(seed){
+  const s=seed.score;
+  const kev=seed.kev?2.0:1.0;
+  const epss=seed.kev?0.94:0.42;
+  const reach=seed.internet?1.4:1.0;
+  const crit=s>=8?2.0:s>=6?1.5:1.0;
+  const ctrl=seed.status==='Compensating control'?1.5:seed.status==='Patched'?2.0:1.2;
+  const base=5.0;
+  const mult=(base*kev*epss*reach*crit/ctrl).toFixed(1);
+  return {
+    base, result:s.toFixed(1),
+    expr:`Base ${base} × KEV ${kev} × EPSS ${epss} × Reach ${reach} × Crit ${crit} ÷ Controls ${ctrl} = ${s.toFixed(1)}`,
+    pills:[
+      {l:'KEV match',w:seed.kev?'×2.0':'×1.0'},
+      {l:'EPSS',w:`×${epss}`},
+      {l:'Reach',w:`×${reach}`},
+      {l:'Asset crit',w:`×${crit}`},
+      {l:'Controls',w:`÷${ctrl}`}
+    ]
+  };
+}
+
+function buildStations(seed, sid){
+  const a=seed.asset;
+  const net=seed.internet?'Yes — internet-facing':'No — internal only';
+  const repo=deriveRepo(a);
+  const bp=PIPELINE_SCANNERS.has(sid)?buildBuildPipeline(seed,sid):null;
+  const assetLines=PIPELINE_SCANNERS.has(sid)
+    ? [`Service / artifact: ${a}`,`Repo trail: see Build Pipeline`,`Environment: prod · correlated via CI/CD`]
+    : SCM_SCANNERS.has(sid)
+    ? [`Repository (SCM): ${repo}`,`Artifact / service: ${a}`,`Scan scope: default branch + PRs`,`Deployed artifact: prod · correlated via CI`]
+    : [`Host / asset: ${a}`,`OS / stack: per CMDB record`,`Location: us-east-1 · prod VPC`,`IP: 10.42.${(seed.id.charCodeAt(4)%200)+.18}.0/24`,net];
+  const runtimeLines=[
+    `EDR: ${RUNTIME_BY_SCANNER[sid]||'CrowdStrike · Defender'}`,
+    `Behavioral rule: ${seed.kev?'IOA template match pending':'No exploit fired'}`,
+    `WAF: ${seed.internet?'Coverage on edge ALB':'Not in path'}`,
+    `NDR: ${seed.internet?'East-west sensor':'N/A internal'}`
+  ];
+  if(sid==='container'&&bp){
+    runtimeLines.push(`Running: ${bp.artifact.digest} · ${bp.deployment.podCount} pods`);
+    runtimeLines.push(`Cluster: ${bp.deployment.cluster} · ${bp.deployment.namespace}`);
+    if(bp.reachability){
+      const r=bp.reachability;
+      runtimeLines.push(r.confirmed?`${r.sensor}: ${r.entryPoint} · ${r.callsPerDay}`:'Reachability: not confirmed in prod');
+    }
+  }
+  const stations=[
+    {k:'asset',name:'Asset graph',icon:PIPELINE_SCANNERS.has(sid)?'server':SCM_SCANNERS.has(sid)?'git':'server',lines:assetLines},
+    ...(PIPELINE_SCANNERS.has(sid)&&bp?[{k:'buildPipeline',name:'Build Pipeline',icon:'container',isPipeline:true,lines:[`Build ID: ${bp.build.buildId}`,`Environment: ${bp.build.envLabel||bp.build.environment}`,`${bp.build.system} · ${bp.build.agentPool||'agents'} · ${bp.build.region||'—'}`]}]:[]),
+    ...(SCM_SCANNERS.has(sid)&&!PIPELINE_SCANNERS.has(sid)?[buildScmStation(seed, sid)]:[]),
+    {k:'identity',name:'Identity graph',icon:'shield',lines:[`Service accounts: 2 attached`,`IAM / role: app-runtime-prod`,`Blast radius: S3 read · RDS connect`,`Privileged: ${seed.score>=8?'elevated':'standard'}`]},
+    {k:'threat',name:'Threat intel',icon:'shield',lines:[`KEV: ${seed.kev?'Listed · active exploitation':'Not in KEV catalog'}`,`EPSS: ${seed.kev?'0.94':'0.42'} · trending`,`Exploit: ${seed.kev||seed.score>=8?'Public PoC · Metasploit module':'Theoretical only'}`,`Campaign: ${seed.kev?'CISA AA24-131A ref':'None linked'}`]},
+    {k:'ownership',name:'Ownership',icon:'git',lines:PIPELINE_SCANNERS.has(sid)||SCM_SCANNERS.has(sid)
+      ?[`Owning team: ${seed.owner}`,`CODEOWNERS: /${repo}/** → ${seed.owner}`,`Last author: svc-ci-bot · human: on-call`,`PagerDuty · Slack: #${seed.owner.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,18)}`]
+      :[`Team: ${seed.owner}`,`Lead: on-call rotation`,`PagerDuty: ${seed.owner.replace(/ .*/,'').toUpperCase().slice(0,4)}-primary`,`Slack: #${seed.owner.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,20)}`]},
+    {k:'business',name:'Business context',icon:'shield',lines:[`App tier: ${seed.score>=8?'Tier 0 — revenue':'Tier 2 — internal'}`,`Data class: ${seed.internet?'PII · payment adjacent':'Internal ops'}`,`Compliance: ${seed.owner.includes('Payment')?'PCI DSS in scope':'SOX logging'}`,`Customer-facing: ${seed.internet?'Yes':'No'}`]},
+    {k:'runtime',name:'Runtime controls',icon:'shield',lines:runtimeLines}
+  ];
+  return stations;
+}
+
+function buildOutcomes(seed, sid){
+  const o=[];
+  const ticket={type:'Patch / change ticket',dest:'Jira',owner:seed.owner,sla:seed.score>=9?'P0':seed.score>=7?'P1':'P2',auto:'Semi'};
+  if(sid==='secrets'||seed.title.toLowerCase().includes('secret')||seed.title.toLowerCase().includes('key')){
+    o.push({type:'Rotation runbook',dest:'Vault · IAM',owner:seed.owner,sla:'P0',auto:'Auto'});
+    o.push({type:'Usage audit + IR',dest:'SIEM · case mgmt',owner:'Incident Response',sla:'P0',auto:'Manual'});
+  } else if(sid==='sca'||sid==='sast'){
+    o.push({type:'Auto-fix PR',dest:'GitHub',owner:seed.owner,sla:'PR cycle',auto:'Auto'});
+    o.push(ticket);
+  } else if(sid==='dast'||sid==='network'||sid==='container'){
+    o.push({type:'Compensating control',dest:'WAF · EDR · NDR',owner:'SecOps',sla:'P1',auto:'Semi'});
+    o.push(ticket);
+  } else {
+    o.push(ticket);
+    if(seed.status==='Compensating control'||seed.score>=7)
+      o.push({type:'EDR containment policy',dest:'CrowdStrike console',owner:'SecOps',sla:'P1',auto:'Semi'});
+  }
+  if(seed.score>=8.5) o.push({type:'Exec visibility',dest:'Risk dashboard',owner:'GRC',sla:'Weekly',auto:'Auto'});
+  return o.slice(0,3);
+}
+
+function buildTimeline(seed, sid){
+  const id=seed.id;
+  const repo=deriveRepo(seed.asset);
+  const bp=PIPELINE_SCANNERS.has(sid)?buildBuildPipeline(seed,sid):null;
+  return [
+    ...(bp?[{t:'Build pipeline correlated',d:'2 days ago',by:`${bp.build.system} · ${bp.build.buildId}`}]:[]),
+    ...(SCM_SCANNERS.has(sid)&&!PIPELINE_SCANNERS.has(sid)?[{t:'SCM scan completed',d:'2 days ago',by:`${SCM_PLATFORM[sid]} · ${repo}`}]:[]),
+    {t:'Scanner detected',d:'2 days ago',by:seed.tool},
+    {t:'Correlated & scored',d:'2 days ago',by:'Exposure pipeline'},
+    {t:`Ticket ${id.replace('-','')}-4521 opened`,d:'2 days ago',by:'Mobilization'},
+    ...(seed.status==='Compensating control'?[{t:'WAF / EDR rule pushed',d:'1 day ago',by:'SecOps'}]:[]),
+    ...(seed.status==='In progress'?[{t:'Patch in staging',d:'4h ago',by:seed.owner}]:[]),
+    ...(seed.status==='Patched'?[{t:'Verified fixed in prod',d:'1 day ago',by:seed.owner}]:[])
+  ];
+}
+
+function enrich(seed, scannerId){
+  const sc=SCANNERS.find(x=>x.id===scannerId);
+  const b=band(seed.score);
+  return {...seed,scannerId,scannerName:sc.scannerLabel,accent:sc.accent,
+    severity:b,severityClass:bandClass(b),
+    crossLinks:CROSS_LINKS[seed.id]||[],
+    scoring:buildScoring(seed),stations:buildStations(seed,scannerId),
+    buildPipeline:PIPELINE_SCANNERS.has(scannerId)?buildBuildPipeline(seed,scannerId):null,
+    outcomes:buildOutcomes(seed,scannerId),timeline:buildTimeline(seed,scannerId),
+    scmRepo:SCM_SCANNERS.has(scannerId)?deriveRepo(seed.asset):null};
+}
+
+const ALL_EXPOSURES=[];
+Object.keys(EXPOSURE_SEEDS).forEach(sid=>{
+  EXPOSURE_SEEDS[sid].forEach(seed=>ALL_EXPOSURES.push(enrich(seed,sid)));
+});
+
+let activeScanner=0, expandedId=null, focusRow=0;
+let filters={q:'',sev:new Set(),status:new Set(),owner:new Set(),kev:false,internet:false};
+
+const app=document.getElementById('app');
+const listEl=document.getElementById('exposureList');
+const scannerList=document.getElementById('scannerList');
+
+function getFiltered(){
+  const sid=SCANNERS[activeScanner].id;
+  return ALL_EXPOSURES.filter(e=>{
+    if(e.scannerId!==sid) return false;
+    if(filters.kev&&!e.kev) return false;
+    if(filters.internet&&!e.internet) return false;
+    if(filters.sev.size&&!filters.sev.has(e.severity)) return false;
+    if(filters.status.size&&!filters.status.has(e.status)) return false;
+    if(filters.owner.size&&!filters.owner.has(e.owner)) return false;
+    if(filters.q){
+      const q=filters.q.toLowerCase();
+      const hay=`${e.title} ${e.cve||''} ${e.asset} ${e.scmRepo||''} ${e.owner} ${e.id}`.toLowerCase();
+      if(!hay.includes(q)) return false;
+    }
+    return true;
+  }).sort((a,b)=>b.score-a.score);
+}
+
+function renderSidebar(){
+  scannerList.innerHTML=SCANNERS.map((s,i)=>`
+    <button class="scanner-btn ${i===activeScanner?'active':''}" data-i="${i}" type="button" role="option" aria-selected="${i===activeScanner}">
+      <span class="scanner-icon" style="color:${s.accent};background:color-mix(in srgb, ${s.accent} 14%, var(--panel-2))">${icon(s.icon)}</span>
+      <span style="min-width:0"><span class="scanner-title">${esc(s.name)}</span><span class="scanner-sub">${esc(s.short)}</span></span>
+    </button>`).join('');
+  scannerList.querySelectorAll('.scanner-btn').forEach(btn=>{
+    btn.onclick=()=>{activeScanner=+btn.dataset.i;expandedId=null;focusRow=0;render();};
+  });
+}
+
+function summaryCounts(rows, total){
+  const c={Critical:0,High:0,Medium:0,Low:0};
+  rows.forEach(r=>c[r.severity]++);
+  return `Showing ${rows.length} of ${total} exposures · ${c.Critical} Critical, ${c.High} High, ${c.Medium} Medium`;
+}
+
+function truncate(s,n){const t=String(s);return t.length<=n?t:t.slice(0,n-1)+'…';}
+function stationBoxClass(s){
+  if(!s) return '';
+  if(s.isPipeline||s.k==='buildPipeline') return 'is-pipeline';
+  if(s.k==='runtime') return 'is-runtime';
+  return '';
+}
+
+const CORR_BOX_W=118,CORR_BOX_H=40,CORR_HUB_R=50;
+const CORR_TOP_GAP=26;
+
+function corrTopLayout(hasPipeline){
+  if(!hasPipeline) return {W:860,H:360,cx:430,cy:188,topY:44,botY:298,topXs:[100,270,440,610],botXs:[220,430,640],topDims:null};
+  const topW=108,buildW=124,topH=54,buildH=60,gap=CORR_TOP_GAP;
+  const total=4*topW+buildW+4*gap;
+  const W=Math.max(1120,total+120);
+  const cx=W/2,cy=196,topY=46,botY=306;
+  let x=(W-total)/2+topW/2;
+  const topXs=[];
+  const topDims=[];
+  for(let i=0;i<5;i++){
+    const isBuild=i===2;
+    const w=isBuild?buildW:topW;
+    const h=isBuild?buildH:topH;
+    topXs.push(x);
+    topDims.push({w,h});
+    x+=w/2+gap+w/2;
+  }
+  const botXs=[W*0.26,W*0.5,W*0.74];
+  return {W,H:388,cx,cy,topY,botY,topXs,botXs,topDims};
+}
+
+function corrBoxAnchor(bx,by,w,h,tcx,tcy){
+  const cx=bx+w/2,cy=by+h/2,dx=tcx-cx,dy=tcy-cy;
+  if(Math.abs(dx)<1e-6&&Math.abs(dy)<1e-6) return {x:cx,y:cy};
+  const scale=Math.min(Math.abs(w/2/dx),Math.abs(h/2/dy));
+  return {x:cx+dx*scale,y:cy+dy*scale};
+}
+
+function corrHubAnchor(cx,cy,r,tx,ty){
+  const dx=tx-cx,dy=ty-cy,len=Math.hypot(dx,dy)||1;
+  return {x:cx+(dx/len)*r,y:cy+(dy/len)*r};
+}
+
+function corrSpokePath(hx,hy,bx,by){
+  const mx=(hx+bx)/2,my=(hy+by)/2;
+  return `M ${hx} ${hy} Q ${mx} ${my} ${bx} ${by}`;
+}
+
+function corrShortLabel(name){
+  return String(name).replace(/ graph$/i,'').replace(/^Business /,'Business ');
+}
+
+function renderCorrBox(cx,cy,label,boxCls,wrapAttrs,opts){
+  const w=opts?.w||CORR_BOX_W,h=opts?.h||CORR_BOX_H;
+  const sub=opts?.sub||'',sub2=opts?.sub2||'';
+  const x=cx-w/2,y=cy-h/2;
+  const subCls=sub||sub2?' has-sub':'';
+  return `<g class="corr-box-wrap" ${wrapAttrs}>
+    <foreignObject x="${x}" y="${y}" width="${w}" height="${h}">
+      <div xmlns="http://www.w3.org/1999/xhtml" class="corr-box ${boxCls}${subCls}">
+        <span class="corr-box-label">${esc(label)}</span>
+        ${sub?`<span class="corr-box-sub">${esc(sub)}</span>`:''}
+        ${sub2?`<span class="corr-box-sub2">${esc(sub2)}</span>`:''}
+      </div>
+    </foreignObject>
+  </g>`;
+}
+
+function renderCorrelationGraph(e){
+  const byKey={};
+  e.stations.forEach((s,i)=>{byKey[s.k]={...s,idx:i};});
+  const uid=e.id.replace(/[^a-zA-Z0-9]/g,'');
+  const hasPipeline=PIPELINE_SCANNERS.has(e.scannerId)&&!!byKey.buildPipeline;
+  const layout=corrTopLayout(hasPipeline);
+  const {W,H,cx,cy,topY,botY,topXs,botXs,topDims}=layout;
+  const title=truncate(e.title,20);
+  const bpHint=hasPipeline?bpBuildGraphHint(e.buildPipeline):null;
+
+  const topSlots=hasPipeline?[
+    {label:'Source',boxCls:'is-source',attrs:'data-finding="1" tabindex="0" role="button" aria-label="Source"'},
+    {label:'Asset',station:byKey.asset},
+    {label:'Build',station:byKey.buildPipeline,pipelineHint:bpHint},
+    {label:'Identity',station:byKey.identity},
+    {label:'Runtime',station:byKey.runtime}
+  ]:[
+    {label:'Source',boxCls:'is-source',attrs:'data-finding="1" tabindex="0" role="button" aria-label="Source"'},
+    {label:'Asset',station:byKey.asset},
+    {label:'Identity',station:byKey.identity},
+    {label:'Runtime',station:byKey.runtime}
+  ];
+  const botSlots=[
+    {label:'Ownership',station:byKey.ownership},
+    {label:'Threat intel',station:byKey.threat},
+    {label:'Business context',station:byKey.business}
+  ];
+
+  const flowLines=[];
+  for(let i=0;i<topXs.length-1;i++){
+    const w0=topDims?topDims[i].w:CORR_BOX_W;
+    const w1=topDims?topDims[i+1].w:CORR_BOX_W;
+    flowLines.push(`<line class="corr-flow-line" x1="${topXs[i]+w0/2+6}" y1="${topY}" x2="${topXs[i+1]-w1/2-6}" y2="${topY}" marker-end="url(#corr-flow-${uid})"/>`);
+  }
+
+  const allPts=[
+    ...topXs.map((x,i)=>({x,y:topY,w:topDims?topDims[i].w:CORR_BOX_W,h:topDims?topDims[i].h:CORR_BOX_H})),
+    ...botXs.map(x=>({x,y:botY,w:CORR_BOX_W,h:CORR_BOX_H}))
+  ];
+  const spokes=allPts.map(pt=>{
+    const hub=corrHubAnchor(cx,cy,CORR_HUB_R,pt.x,pt.y);
+    const box=corrBoxAnchor(pt.x-pt.w/2,pt.y-pt.h/2,pt.w,pt.h,cx,cy);
+    const isRuntime=pt.y===topY&&pt.x===topXs[topXs.length-1];
+    const cls=isRuntime?'corr-spoke is-runtime':'corr-spoke';
+    return `<path class="${cls}" d="${corrSpokePath(hub.x,hub.y,box.x,box.y)}" marker-end="url(#corr-spoke-${uid})"/>`;
+  }).join('');
+
+  const topBoxes=topSlots.map((slot,i)=>{
+    const hint=slot.pipelineHint;
+    const label=hint?.label||(slot.station?corrShortLabel(slot.station.name):slot.label);
+    const boxCls=slot.station?stationBoxClass(slot.station):slot.boxCls;
+    const attrs=slot.station
+      ?`data-station-idx="${slot.station.idx}" tabindex="0" role="button" aria-label="${esc(slot.station.name)}${hint?.sub?' · '+hint.sub:''}"`
+      :slot.attrs;
+    const opts=topDims?{w:topDims[i].w,h:topDims[i].h,sub:hint?.sub||'',sub2:hint?.sub2||''}:{};
+    return renderCorrBox(topXs[i],topY,label,boxCls,attrs,opts);
+  }).join('');
+
+  const botBoxes=botSlots.map((slot,i)=>{
+    const st=slot.station;
+    const label=st?corrShortLabel(st.name):slot.label;
+    const boxCls=st?stationBoxClass(st):'';
+    const attrs=st?`data-station-idx="${st.idx}" tabindex="0" role="button" aria-label="${esc(st.name)}"`:'';
+    return renderCorrBox(botXs[i],botY,label,boxCls,attrs);
+  }).join('');
+
+  const hubFo=`<foreignObject x="${cx-52}" y="${cy-52}" width="104" height="104">
+    <div xmlns="http://www.w3.org/1999/xhtml" class="corr-hub-inner">
+      <div class="corr-hub-label">Exposure</div>
+      <div class="corr-hub-score">${e.score.toFixed(1)}</div>
+      <div class="corr-hub-title">${esc(title)}</div>
+      <div class="corr-hub-sub">${esc(e.id)}</div>
+    </div>
+  </foreignObject>`;
+
+  return `<svg class="corr-graph" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" aria-label="Correlation graph for ${esc(e.id)}">
+    <defs>
+      <marker id="corr-flow-${uid}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--correlation)"/></marker>
+      <marker id="corr-spoke-${uid}" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="var(--correlation)" opacity=".8"/></marker>
+      <filter id="corr-glow-${uid}" x="-50%" y="-50%" width="200%" height="200%"><feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#2563eb" flood-opacity=".1"/></filter>
+      <clipPath id="corr-hub-clip-${uid}"><circle cx="${cx}" cy="${cy}" r="${CORR_HUB_R-2}"/></clipPath>
+    </defs>
+    <g class="corr-spokes">${spokes}</g>
+    <g filter="url(#corr-glow-${uid})">
+      <circle cx="${cx}" cy="${cy}" r="${CORR_HUB_R}" fill="var(--panel)" stroke="var(--correlation)" stroke-width="2"/>
+      <circle cx="${cx}" cy="${cy}" r="${CORR_HUB_R-8}" class="corr-hub-ring" stroke-width="1"/>
+    </g>
+    <g class="corr-flow">${flowLines.join('')}</g>
+    <g class="corr-boxes">${topBoxes}${botBoxes}</g>
+    <g clip-path="url(#corr-hub-clip-${uid})">${hubFo}</g>
+  </svg>`;
+}
+
+function bindCorrelationPanel(panel, stations, exposure){
+  const detailEl=panel.querySelector('.corr-node-detail');
+  const sc=SCANNERS.find(x=>x.id===exposure.scannerId);
+  const clearSel=()=>panel.querySelectorAll('.corr-box-wrap').forEach(w=>w.classList.remove('selected'));
+  const showStation=(idx)=>{
+    const s=stations[idx];
+    if(!s||!detailEl) return;
+    clearSel();
+    panel.querySelector(`.corr-box-wrap[data-station-idx="${idx}"]`)?.classList.add('selected');
+    if(s.isPipeline||s.k==='buildPipeline'){
+      detailEl.innerHTML=`<div class="bp-detail-wrap">${renderBuildPipelineDetail(exposure)}</div>`;
+      return;
+    }
+    const scm=stations.find(x=>x.scm);
+    const extra=idx>=0&&stations[idx]?.k==='asset'&&scm&&!exposure.buildPipeline
+      ?`<div class="station-line" style="margin-top:8px;font-weight:700;color:var(--accent)">${esc(scm.name)}</div>${scm.lines.map(l=>`<div class="station-line">${esc(l)}</div>`).join('')}`
+      :'';
+    detailEl.innerHTML=`
+      <div class="station-head">${icon(s.icon,14)}<span>${esc(s.name)}</span></div>
+      ${s.lines.map(l=>`<div class="station-line">${esc(l)}</div>`).join('')}${extra}`;
+  };
+  const showFinding=()=>{
+    if(!detailEl) return;
+    clearSel();
+    panel.querySelector('.corr-box-wrap[data-finding]')?.classList.add('selected');
+    detailEl.innerHTML=`
+      <div class="station-head">${icon(sc?.icon||'shield',14)}<span>Source</span></div>
+      <div class="station-line">${esc(exposure.tool)}</div>
+      <div class="station-line">${esc(exposure.title)}</div>
+      <div class="station-line">${exposure.cve?esc(exposure.cve):`Severity: ${esc(exposure.severity)}`}</div>`;
+  };
+  const bindWrap=(wrap,fn)=>{
+    wrap.onclick=fn;
+    wrap.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();fn();}};
+  };
+  panel.querySelectorAll('.corr-box-wrap[data-station-idx]').forEach(w=>{
+    bindWrap(w,()=>showStation(+w.dataset.stationIdx));
+  });
+  const finding=panel.querySelector('.corr-box-wrap[data-finding]');
+  if(finding) bindWrap(finding,showFinding);
+  const assetIdx=stations.findIndex(s=>s.k==='asset');
+  if(assetIdx>=0) showStation(assetIdx);
+  else if(stations.length) showStation(0);
+  else showFinding();
+  panel.querySelectorAll('[data-corr-view]').forEach(btn=>{
+    btn.onclick=()=>{
+      const v=btn.dataset.corrView;
+      panel.querySelectorAll('[data-corr-view]').forEach(b=>b.classList.toggle('on',b.dataset.corrView===v));
+      panel.querySelector('.corr-graph-panel').hidden=v!=='graph';
+      panel.querySelector('.corr-cards-panel').hidden=v!=='cards';
+    };
+  });
+}
+
+function renderDetail(e){
+  const corrSub=e.buildPipeline?` · pipeline: ${esc(e.buildPipeline.repo.name)}`:e.scmRepo?` · SCM: ${esc(e.scmRepo)}`:'';
+  const pills=e.scoring.pills.map(p=>`<span class="score-pill">${esc(p.l)} <strong>${esc(p.w)}</strong></span>`).join('');
+  const outs=e.outcomes.map(o=>`
+    <div class="outcome-card">
+      <div class="outcome-type">${esc(o.type)}</div>
+      <a class="outcome-dest" href="#">${esc(o.dest)}</a>
+      <div class="outcome-meta">${esc(o.owner)} · ${esc(o.sla)} · <span class="auto-pill">${esc(o.auto)}</span></div>
+    </div>`).join('');
+  const tl=e.timeline.map(t=>`
+    <div class="tl-item"><div class="tl-dot"></div><div><strong>${esc(t.t)}</strong> — ${esc(t.d)}<span class="tl-sub">${esc(t.by)}</span></div></div>`).join('');
+  const cross=e.crossLinks.length?`<div class="cross-links-strip"><span class="cross-links-label">Also found by</span>${e.crossLinks.map(c=>{
+    const t=ALL_EXPOSURES.find(x=>x.id===c.id);
+    const scanner=SCANNERS.find(s=>s.id===t?.scannerId);
+    return `<button type="button" class="cross-link-btn" data-jump="${c.id}">${icon(scanner?.icon||'shield',14)}<span class="cross-id">${c.id}</span><span class="cross-by">${esc(c.by)}</span><span class="cross-desc">${esc(c.desc||t?.title||'')}</span></button>`;
+  }).join('')}</div>`:'';
+  return `
+    <div class="detail-panel" id="detail-${e.id}">
+      <div class="detail-head">
+        <div>
+          <div class="detail-title">${esc(e.title)}</div>
+          <div class="detail-meta">${e.cve?`<span>${esc(e.cve)}</span> · `:''}<span>${esc(e.scannerName)}</span> · <span>${esc(e.tool)}</span> · <span class="${e.severityClass}">${e.severity}</span></div>
+          ${cross}
+        </div>
+        <div class="detail-score-block">
+          <div class="detail-score ${e.severityClass}">${e.score.toFixed(1)}</div>
+          <div class="detail-expr">${esc(e.scoring.expr)}</div>
+        </div>
+        <button type="button" class="detail-close" aria-label="Close detail" data-close>&times;</button>
+      </div>
+      <div class="detail-section corr-panel" data-exp-id="${e.id}">
+        <div class="corr-section-head">
+          <h4>Correlation breakdown (${stationCountLabel(e)}${corrSub})</h4>
+          <div class="corr-view-toggle">
+            <button type="button" class="corr-view-btn on" data-corr-view="graph">Graph</button>
+            <button type="button" class="corr-view-btn" data-corr-view="cards">Cards</button>
+          </div>
+        </div>
+        <div class="corr-graph-wrap corr-graph-panel">${renderCorrelationGraph(e)}<div class="corr-node-detail"></div></div>
+        <div class="corr-cards-panel" hidden>${e.buildPipeline?renderStationCards(e):`<div class="station-grid">${e.stations.map(s=>`<div class="station-card ${s.scm?'scm-station':''}"><div class="station-head">${icon(s.icon,14)}<span>${esc(s.name)}</span></div>${s.lines.map(l=>`<div class="station-line">${esc(l)}</div>`).join('')}</div>`).join('')}</div>`}</div>
+      </div>
+      <div class="detail-section"><h4>Scoring formula</h4><div class="formula-chain">${pills}<span class="formula-eq">= ${e.score.toFixed(1)}</span></div></div>
+      <div class="detail-section"><h4>Mobilization plan</h4><div class="outcome-row">${outs}</div></div>
+      <div class="detail-section"><h4>Activity</h4><div class="timeline">${tl}</div></div>
+    </div>`;
+}
+
+function renderList(){
+  const sid=SCANNERS[activeScanner].id;
+  const total=ALL_EXPOSURES.filter(e=>e.scannerId===sid).length;
+  const rows=getFiltered();
+  document.getElementById('summaryLine').textContent=summaryCounts(rows,total);
+  document.getElementById('mainTitle').textContent='Exposure triage queue';
+  document.getElementById('mainSub').textContent=SCANNERS[activeScanner].name+' — prioritized after correlation & scoring';
+  document.documentElement.style.setProperty('--accent',SCANNERS[activeScanner].accent);
+
+  listEl.innerHTML=rows.map((e,i)=>{
+    const open=expandedId===e.id;
+    const slaCls=e.sla.includes('Overdue')?'sla-overdue':e.sla.includes('h left')?'sla-urgent':'';
+    return `
+    <div class="exp-wrap ${open?'open':''}" data-id="${e.id}">
+      <div class="exp-row ${i===focusRow?'focused':''}" role="button" tabindex="0" aria-expanded="${open}" aria-label="Exposure ${e.id} score ${e.score}" data-row="${e.id}">
+        <span class="score-badge ${e.severityClass}">${e.score.toFixed(1)}</span>
+        <span class="col-title">${esc(e.title)}</span>
+        <span class="col-asset">${esc(e.asset)}${e.scmRepo?`<span class="col-scm">${esc(e.scmRepo)} · SCM</span>`:''}</span>
+        <span class="col-kev">${e.kev?'<span class="kev-pill">KEV</span>':''}</span>
+        <span class="col-owner">${esc(e.owner)}</span>
+        <span class="col-status"><span class="status-pill status-${e.status.replace(/\s+/g,'-').toLowerCase()}" title="${esc(e.status)}">${esc(statusLabel(e.status))}</span></span>
+        <span class="col-sla ${slaCls}">${esc(e.sla)}</span>
+        <span class="col-chev">${icon('chev',16)}</span>
+      </div>
+      ${open?renderDetail(e):''}
+    </div>`;
+  }).join('') || '<div class="empty">No exposures match filters.</div>';
+
+  listEl.querySelectorAll('.exp-row').forEach(row=>{
+    const id=row.dataset.row;
+    const toggle=()=>{expandedId=expandedId===id?null:id;renderList();};
+    row.onclick=toggle;
+    row.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();toggle();}};
+  });
+  listEl.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>{expandedId=null;renderList();});
+  listEl.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>{
+    const t=ALL_EXPOSURES.find(x=>x.id===b.dataset.jump);
+    if(!t) return;
+    activeScanner=SCANNERS.findIndex(s=>s.id===t.scannerId);
+    expandedId=t.id; render();
+  });
+  listEl.querySelectorAll('.corr-panel').forEach(panel=>{
+    const exp=ALL_EXPOSURES.find(x=>x.id===panel.dataset.expId);
+    if(exp) bindCorrelationPanel(panel, exp.stations, exp);
+  });
+}
+
+function renderChips(){
+  const sid=SCANNERS[activeScanner].id;
+  const rows=ALL_EXPOSURES.filter(e=>e.scannerId===sid);
+  const owners=[...new Set(rows.map(r=>r.owner))].sort();
+  const chipHost=document.getElementById('filterChips');
+  const mk=(label,set,val)=>`<button type="button" class="chip ${set.has(val)?'on':''}" data-kind="${label}" data-val="${esc(val)}" title="${label==='status'?esc(val):''}">${esc(label==='status'?statusLabel(val):val)}</button>`;
+  chipHost.innerHTML=`
+    <span class="chip-group">Severity ${['Critical','High','Medium','Low'].map(s=>mk('sev',filters.sev,s)).join('')}</span>
+    <span class="chip-group">Status ${['Open','In progress','Compensating control','Patched','Risk accepted'].map(s=>mk('status',filters.status,s)).join('')}</span>
+    <span class="chip-group">Owner ${owners.slice(0,5).map(o=>mk('owner',filters.owner,o)).join('')}</span>
+    <button type="button" class="chip toggle ${filters.kev?'on':''}" data-toggle="kev">KEV only</button>
+    <button type="button" class="chip toggle ${filters.internet?'on':''}" data-toggle="internet">Internet-facing</button>
+    <button type="button" class="chip clear" data-clear>Clear filters</button>`;
+  chipHost.querySelectorAll('.chip[data-kind]').forEach(c=>{
+    c.onclick=()=>{
+      const kind=c.dataset.kind; const val=c.dataset.val;
+      const set=filters[kind];
+      if(set.has(val)) set.delete(val); else set.add(val);
+      renderChips(); renderList();
+    };
+  });
+  chipHost.querySelectorAll('[data-toggle]').forEach(c=>{
+    c.onclick=()=>{filters[c.dataset.toggle]=!filters[c.dataset.toggle]; renderChips(); renderList();};
+  });
+  chipHost.querySelectorAll('[data-clear]').forEach(c=>{
+    c.onclick=()=>{filters={q:'',sev:new Set(),status:new Set(),owner:new Set(),kev:false,internet:false};
+      document.getElementById('searchInput').value=''; renderChips(); renderList();};
+  });
+}
+
+function render(){renderSidebar();renderChips();renderList();}
+
+document.getElementById('searchInput').oninput=e=>{filters.q=e.target.value;renderList();};
+document.getElementById('themeToggle').onclick=()=>{
+  const t=app.dataset.theme==='dark'?'light':'dark';
+  app.dataset.theme=t; document.documentElement.dataset.theme=t;
+  try{localStorage.setItem('em-theme',t);}catch(e){}
+};
+try{const s=localStorage.getItem('em-theme');if(s){app.dataset.theme=s;document.documentElement.dataset.theme=s;}}catch(e){}
+
+document.addEventListener('keydown',e=>{
+  const rows=getFiltered();
+  if(!rows.length) return;
+  if(e.key==='Escape'){expandedId=null;renderList();return;}
+  if(e.key==='ArrowDown'){e.preventDefault();focusRow=Math.min(focusRow+1,rows.length-1);if(expandedId)expandedId=rows[focusRow].id;renderList();return;}
+  if(e.key==='ArrowUp'){e.preventDefault();focusRow=Math.max(focusRow-1,0);if(expandedId)expandedId=rows[focusRow].id;renderList();return;}
+  if(e.key==='Enter'&&document.activeElement?.classList.contains('exp-row')){
+    const id=document.activeElement.dataset.row; expandedId=expandedId===id?null:id; renderList();
+  }
+});
+
+render();
+
+</script>
+</body>
+</html>
