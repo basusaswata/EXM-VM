@@ -3,23 +3,23 @@ const PIPELINE_SCANNERS = new Set(['sca','sast','container']);
 
 const PIPELINE_PRESETS = {
   'SCA-001': {
-    repo:{name:'payments-platform/transaction-router',branch:'main',commitShort:'a3f8e92',author:'Sarah Chen',ageHours:72},
-    prStatus:{state:'merged',prNumber:1247,prUrl:'#',detail:'Two reviewers approved; SCA gate non-blocking when dep added'},
-    build:{system:'Jenkins',buildId:'build-4521',buildUrl:'#',ageHours:48,status:'passed',note:'SCA scan ran; KEV unknown at build time',environment:'production',envKey:'prod',envLabel:'Production CI',agentPool:'k8s-build-agents-prod-us-east-1',region:'us-east-1'},
-    artifact:{name:'registry.internal/transaction-router',version:'v4.2.1',digest:'sha256:3f2a9c1e…',registry:'JFrog Artifactory'},
-    registry:{name:'JFrog Artifactory',path:'prod-releases/transaction-router',scanStatus:'scanned · digest retained'},
-    deployment:{tool:'ArgoCD',app:'transaction-router-prod',cluster:'eks-prod-us-east-1',namespace:'payments',podCount:12,syncedAgo:'2 days ago'},
+    repo:{name:'acme-payments/transaction-router',branch:'main',commitShort:'a3f8e92d',author:'Sarah Chen',ageHours:72},
+    prStatus:{state:'merged',prNumber:1247,prUrl:'https://github.com/acme-payments/transaction-router/pull/1247',detail:'Approved by @platform-lead; Snyk gate waived for log4j bump follow-up'},
+    build:{system:'Jenkins',buildId:'payments-router-main-4521',buildUrl:'https://jenkins.acmepay.internal/job/payments-router/4521',ageHours:48,status:'passed',note:'Snyk OSS: 0 critical at build; KEV added post-deploy',environment:'production',envKey:'prod',envLabel:'Production CI',agentPool:'k8s-build-agents-prod-use1',region:'us-east-1'},
+    artifact:{name:'jfrog.acmepay.internal/docker-prod/transaction-router',version:'v4.2.1',digest:'sha256:3f2a9c1e8b4d…7c21',registry:'JFrog Artifactory'},
+    registry:{name:'JFrog Artifactory',path:'docker-prod/transaction-router',scanStatus:'Trivy 0.48 · digest signed cosign'},
+    deployment:{tool:'ArgoCD',app:'transaction-router-prod',cluster:'eks-prod-use1',namespace:'payments',podCount:12,syncedAgo:'47h ago'},
     reachability:{confirmed:true,callsPerDay:'14,000×/day',entryPoint:'HTTP /api/charge handler',sensor:'Endor Labs runtime'},
     dependencyChain:['transaction-router','spring-boot-starter-web 2.5.4','spring-core 5.3.9','spring-jcl 5.3.9','log4j-core 2.14.1'],
     manifestFile:'pom.xml',resolvedVersion:'2.14.1'
   },
   'CON-001': {
-    repo:{name:'payments-platform/transaction-router',branch:'main',commitShort:'a3f8e92',author:'Sarah Chen',ageHours:72},
-    prStatus:{state:'merged',prNumber:1247,detail:'Image built from same commit as SCA finding'},
-    build:{system:'GitHub Actions',buildId:'workflow-8821',ageHours:48,status:'passed',note:'Kaniko image build · Trivy gate warn-only',environment:'production',envKey:'prod',envLabel:'Production CI',agentPool:'gha-hosted · larger runners',region:'us-east-1'},
-    artifact:{name:'registry.internal/transaction-router',version:'v4.2.1',digest:'sha256:3f2a9c1e…',registry:'JFrog Artifactory'},
-    registry:{name:'JFrog Artifactory',path:'prod-releases',scanStatus:'3 older digests still pullable'},
-    deployment:{tool:'ArgoCD',app:'transaction-router-prod',cluster:'eks-prod-us-east-1',namespace:'payments',podCount:12,syncedAgo:'2 days ago'},
+    repo:{name:'acme-payments/transaction-router',branch:'main',commitShort:'a3f8e92d',author:'Sarah Chen',ageHours:72},
+    prStatus:{state:'merged',prNumber:1247,detail:'GHA workflow 8821 · same commit as SCA-001'},
+    build:{system:'GitHub Actions',buildId:'8821 · build-image',ageHours:48,status:'passed',note:'Kaniko · Trivy CRITICAL=1 (log4j) · deploy not blocked',environment:'production',envKey:'prod',envLabel:'Production CI',agentPool:'ubuntu-22.04 · 8vcpu',region:'us-east-1'},
+    artifact:{name:'jfrog.acmepay.internal/docker-prod/transaction-router',version:'v4.2.1',digest:'sha256:3f2a9c1e8b4d…7c21',registry:'JFrog Artifactory'},
+    registry:{name:'JFrog Artifactory',path:'docker-prod/transaction-router',scanStatus:'3 prior digests · retention 90d'},
+    deployment:{tool:'ArgoCD',app:'transaction-router-prod',cluster:'eks-prod-use1',namespace:'payments',podCount:12,syncedAgo:'47h ago'},
     baseImageLineage:[
       {name:'transaction-router:v4.2.1',layer:'app'},
       {name:'internal-base/java17:2024-01',layer:'intermediate'},
@@ -31,12 +31,12 @@ const PIPELINE_PRESETS = {
     reachability:{confirmed:true,callsPerDay:'JndiLookup.lookup() via bundled log4j-core',entryPoint:'HTTP /api/charge',sensor:'Endor Labs runtime (folded into Runtime controls)'}
   },
   'SAST-001': {
-    repo:{name:'payments-platform/payments-api',branch:'main',commitShort:'b7c21de',author:'Marcus Webb',ageHours:96},
-    prStatus:{state:'precaught',prNumber:1189,detail:'Semgrep commented on PR; merged before DAST confirmation'},
-    build:{system:'GitLab CI',buildId:'pipeline-33902',ageHours:60,status:'passed',note:'SAST gate failed — override by platform lead',environment:'production',envKey:'prod',envLabel:'Production CI',agentPool:'gitlab-runner-prod · docker',region:'us-east-1'},
-    artifact:{name:'payments-api',version:'payments-api-2.8.0.war',digest:'sha256:91ab…',registry:'Nexus releases'},
-    registry:{name:'Nexus Repository Manager',path:'releases/payments-api',scanStatus:'artifact retained'},
-    deployment:{tool:'Spinnaker',app:'payments-api-prod',cluster:'eks-prod-us-east-1',namespace:'payments',podCount:8,syncedAgo:'3 days ago'},
+    repo:{name:'acme-payments/payments-api',branch:'main',commitShort:'b7c21de',author:'Marcus Webb',ageHours:96},
+    prStatus:{state:'precaught',prNumber:1189,detail:'Semgrep PRO · sql-injection-java · merged w/ platform exception'},
+    build:{system:'GitLab CI',buildId:'33902 · deploy-prod',ageHours:60,status:'passed',note:'SAST gate failed · override CHG0048199',environment:'production',envKey:'prod',envLabel:'Production CI',agentPool:'gitlab-runner-prod · k8s',region:'us-east-1'},
+    artifact:{name:'nexus.acmepay.internal/releases/payments-api',version:'2.8.0',digest:'sha256:91ab44f2…c801',registry:'Nexus Repository Manager'},
+    registry:{name:'Nexus Repository Manager',path:'releases/payments-api',scanStatus:'SBOM attached · SPDX 2.3'},
+    deployment:{tool:'Spinnaker',app:'payments-api-prod',cluster:'eks-prod-use1',namespace:'payments',podCount:8,syncedAgo:'71h ago'},
     reachability:{confirmed:true,callsPerDay:'~2,400×/day',entryPoint:'POST /charge from internet ALB',sensor:'Contrast IAST + prod traces'}
   }
 };
@@ -73,7 +73,7 @@ function buildBuildPipeline(seed,sid){
   if(PIPELINE_PRESETS[seed.id]) return {...PIPELINE_PRESETS[seed.id]};
   const n=seed.id.charCodeAt(4)+seed.id.charCodeAt(5);
   const repo=bpRepoName(seed.asset);
-  const orgRepo=`payments-platform/${repo}`.replace(/\/+/g,'/');
+  const orgRepo=`acme-payments/${repo}`.replace(/\/+/g,'/');
   const authors=['Sarah Chen','Marcus Webb','Priya Nair','James Okonkwo'];
   const systems=['Jenkins','GitHub Actions','GitLab CI','CircleCI','Azure Pipelines'];
   const prStates=['merged','merged','precaught','blocked'];

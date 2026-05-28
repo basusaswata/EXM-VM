@@ -19,7 +19,7 @@ const SCANNERS = [
 ];
 
 const CROSS_LINKS = {
-  'SCA-001':[{id:'CON-001',by:'Container Scanner',desc:'Same Log4Shell in image transaction-router:v4.2.1'},{id:'SAST-001',by:'SAST Scanner',desc:'Related code path in payments-api'}],
+  'SCA-001':[{id:'CON-001',by:'Trivy',desc:'Same log4j-core in jfrog…/transaction-router:v4.2.1'},{id:'SAST-001',by:'Semgrep',desc:'payments-api · /charge path'}],
   'CON-001':[{id:'SCA-001',by:'SCA Scanner',desc:'Same log4j-core — cheapest fix via SCA auto-PR'}],
   'SAST-001':[{id:'SCA-001',by:'SCA Scanner',desc:'Shared payments platform dependency surface'},{id:'DAST-003',by:'DAST Scanner',desc:'Same /charge path exploitable at runtime'}],
   'SAST-003':[{id:'SEC-001',by:'Secrets Scanner',desc:'Hard-coded key in same module'}],
@@ -46,40 +46,174 @@ const ICONS = {
 };
 
 const SCM_SCANNERS = new Set(['sca','sast','secrets','container']);
-const SCM_PLATFORM = { sca:'GitHub', sast:'GitHub', secrets:'GitHub · GitLab', container:'GitHub Actions → registry' };
+/** Vulns discovered in code/IaC — asset has origin (source) + deploy artifact. */
+const CODE_ORIGIN_SCANNERS = new Set(['sca','sast','container','iac']);
+const SCM_PLATFORM = { sca:'GitHub Enterprise', sast:'GitHub Enterprise', secrets:'GitHub · GitLab', container:'GitHub Actions → JFrog', iac:'GitHub Enterprise' };
+const ORG = 'acme-payments';
+const DOMAIN = 'acmepay.com';
+
+function seedMeta(seed){
+  const n=(seed.id.charCodeAt(4)||48)*19+(seed.id.charCodeAt(5)||48);
+  const oct3=18+(n%200), oct4=7+(n%240);
+  const slug=String(seed.asset).replace(/:.*$/,'').replace(/\..*$/,'').replace(/[^a-z0-9-]+/gi,'-').slice(0,24);
+  return {
+    ip: seed.ip || `10.42.${oct3}.${oct4}`,
+    host: seed.host || (/\./.test(seed.asset)?seed.asset:`${slug}.use1.${DOMAIN}`),
+    jira: seed.jira || `PAY-${4200+(n%900)}`,
+    epss: seed.epss ?? (seed.kev?0.91+((n%8)/100):0.08+((n%72)/100)),
+    cvss: seed.cvss ?? (seed.score>=9?9.8:seed.score>=7?7.4:5.1),
+    discovered: seed.discovered || `${4+(n%48)}h ago`,
+    cmdb: seed.cmdb || `cmdb:service/${10000+n}`,
+    qid: seed.qid || `QID-${379000+(n%999)}`,
+    plugin: seed.plugin || `Plugin ${190000+(n%9999)}`
+  };
+}
 
 function deriveRepo(asset){
   const a=String(asset);
   if (a.includes(' repo')) return a.replace(/\s*repo$/i,'').trim();
-  if (a.includes(':')) return a.split(':')[0].trim();
   if (a.includes('/')) return a.split('/').pop().trim();
+  if (a.includes(':')) return a.split(':')[0].trim();
+  if (a.includes('.')) return a.split('.')[0].replace(/^pay-/,'').replace(/-prod.*/,'')||'service';
   return a.replace(/\s*\([^)]*\)/g,'').trim();
 }
 
 function scmFileHint(seed, sid){
   const t=seed.title.toLowerCase();
-  if (sid==='sast') return t.includes('injection')?'src/.../ChargeController.java':t.includes('xss')?'templates/profile.html':'src/main/...';
-  if (sid==='sca') return t.includes('log4')?'pom.xml · log4j-core':'package-lock.json / go.mod';
+  if (sid==='sast') return t.includes('injection')?'payments-api/.../ChargeController.java:142':t.includes('xss')?'templates/profile.html':'src/main/...';
+  if (sid==='sca') return t.includes('log4')?'pom.xml · log4j-core 2.14.1':'package-lock.json / go.mod';
   if (sid==='secrets') return seed.asset.includes('.py')?seed.asset:seed.asset.includes('workflow')?'.github/workflows/deploy.yml':seed.asset.includes('gist')?'external gist':`.env · ${seed.asset}`;
-  if (sid==='container') return seed.asset.includes(':')?`image ${seed.asset}`:'Dockerfile · CI build context';
+  if (sid==='container') return 'Dockerfile · dependency layers in repo';
+  if (sid==='iac') return iacPathHint(seed);
   return 'manifest / lockfile';
 }
 
-function buildScmStation(seed, sid){
+function iacPathHint(seed){
+  const t=seed.title.toLowerCase();
+  if(t.includes('s3')) return 'terraform/modules/s3-bucket/main.tf';
+  if(t.includes('rds')||t.includes('ingress')) return 'terraform/network/database.tf';
+  if(t.includes('eks')) return 'terraform/eks/cluster.tf';
+  return seed.asset.includes('.tf')?seed.asset:'infrastructure/**/*.tf';
+}
+
+function buildCodeAssetParts(seed, sid, bp){
+  const meta=seedMeta(seed);
   const repo=deriveRepo(seed.asset);
-  const orgRepo=`payments-platform/${repo}`.replace(/\/+/g,'/');
-  const branch=seed.status==='In progress'?'fix/'+seed.id.toLowerCase():'main';
-  const commit=`${seed.id.replace('-','').slice(0,6)}a2f91 · pushed 2d ago`;
+  const orgRepo=`${ORG}/${repo}`;
+  const sha=seed.commit||`${seed.id.replace(/[^A-Z0-9]/gi,'').slice(0,7).toLowerCase()}a3f8e92`;
+  const pr=seed.pr||(1100+(seed.id.charCodeAt(4)%200));
+  const branch=seed.status==='In progress'?`fix/${seed.id.toLowerCase()}`:'main';
+
+  if(sid==='sca'){
+    const pkg=seed.cve&&seed.title.includes('log4j')?'log4j-core 2.14.1':scmFileHint(seed,sid);
+    return {
+      originShort:`${repo} · ${scmFileHint(seed,sid).split(' · ')[0]||'manifest'}`,
+      deployShort:seed.asset.includes(':')?seed.asset.split(':').pop():`${repo}:prod`,
+      originLines:[
+        `① Origin in source`,
+        `Repo: github.com/${orgRepo}`,
+        `Branch: ${branch} · commit ${sha}`,
+        `Path: ${scmFileHint(seed,sid)}`,
+        `Package: ${pkg} — where scanner found the vuln`
+      ],
+      deployLines:[
+        `② Deploy artifact`,
+        `Service / image: ${seed.asset}`,
+        bp?`Registry: ${bp.artifact.name.split('/').pop()}:${bp.artifact.version}`:'',
+        bp?`Digest: ${bp.artifact.digest}`:'',
+        bp?`Running: ${bp.deployment.cluster} · ${bp.deployment.namespace} · ${bp.deployment.podCount} pods`:'Prod if build reached deploy',
+        `Where the vulnerable component exists in prod`
+      ].filter(Boolean)
+    };
+  }
+  if(sid==='sast'){
+    return {
+      originShort:`${repo} · ${scmFileHint(seed,sid).split('/').pop()}`,
+      deployShort:`${repo} · prod`,
+      originLines:[
+        `① Origin in source`,
+        `Repo: github.com/${orgRepo}`,
+        `File: ${scmFileHint(seed,sid)}`,
+        `PR #${pr} · commit ${sha}`,
+        `Flaw introduced / detected in source`
+      ],
+      deployLines:[
+        `② Deploy artifact`,
+        `Service: ${repo} (payments-api)`,
+        bp?`Artifact: ${bp.artifact.version} · ${bp.deployment.tool}`:'Deployed via main → prod',
+        bp?`Reachability: ${bp.reachability?.entryPoint||'prod entry path'}`:'',
+        `Executable path in production runtime`
+      ].filter(Boolean)
+    };
+  }
+  if(sid==='container'){
+    const img=seed.asset.includes('/')?seed.asset.split('/').pop():seed.asset;
+    return {
+      originShort:`${orgRepo} · Dockerfile`,
+      deployShort:img,
+      originLines:[
+        `① Origin in source`,
+        `Repo: github.com/${orgRepo}`,
+        `Dockerfile / CI build context`,
+        `Commit: ${sha} — image built from this repo`,
+        `Vuln in layer introduced at build time`
+      ],
+      deployLines:[
+        `② Deploy artifact`,
+        `Image: ${seed.asset}`,
+        bp?`Digest: ${bp.artifact.digest}`:'',
+        bp?`Cluster: ${bp.deployment.cluster} · ${bp.deployment.namespace}`:'',
+        bp?`Pods: ${bp.deployment.podCount} · synced ${bp.deployment.syncedAgo}`:'',
+        `Where image runs — vuln exists in container`
+      ].filter(Boolean)
+    };
+  }
+  if(sid==='iac'){
+    return {
+      originShort:`${orgRepo} · ${iacPathHint(seed).split('/').pop()}`,
+      deployShort:seed.asset.replace(/^arn:aws:[^:]+::/,'').slice(0,40),
+      originLines:[
+        `① Origin in source`,
+        `Repo: github.com/${orgRepo}`,
+        `IaC path: ${iacPathHint(seed)}`,
+        `PR #${pr} · policy as code`,
+        `Misconfiguration defined in Terraform/Bicep`
+      ],
+      deployLines:[
+        `② Deploy target`,
+        `Resource: ${seed.asset}`,
+        `Account: prod-payments (112233445566)`,
+        `Drift check: deployed vs declared`,
+        `Where risk lands if this code is applied`
+      ]
+    };
+  }
+  return {originShort:orgRepo,deployShort:seed.asset,originLines:[],deployLines:[]};
+}
+
+function bpAssetGraphHint(seed, sid, bp){
+  if(!CODE_ORIGIN_SCANNERS.has(sid)) return null;
+  const p=buildCodeAssetParts(seed,sid,bp);
+  return {label:'Asset',sub:`① ${p.originShort}`,sub2:`② ${p.deployShort}`};
+}
+
+function buildScmStation(seed, sid){
+  const meta=seedMeta(seed);
+  const repo=deriveRepo(seed.asset);
+  const orgRepo=`${ORG}/${repo}`.replace(/\/+/g,'/');
+  const branch=seed.status==='In progress'?`fix/${seed.id.toLowerCase()}-cve`:seed.status==='Patched'?'main':'main';
+  const sha=seed.commit||`${seed.id.replace(/[^A-Z0-9]/gi,'').slice(0,7).toLowerCase()}a3f8e92`;
+  const pr=seed.pr||(1100+(seed.id.charCodeAt(4)%200));
   return {
     k:'scm', name:'SCM context', icon:'git', scm:true,
     lines:[
       `Platform: ${SCM_PLATFORM[sid]}`,
-      `Repository: ${orgRepo}`,
-      `Branch: ${branch} · branch protection on`,
-      `Commit / ref: ${commit}`,
-      `Path scanned: ${scmFileHint(seed, sid)}`,
-      `Trigger: ${seed.tool} · PR gate / push`,
-      `CODEOWNERS → ${seed.owner}`
+      `Repository: github.com/${orgRepo}`,
+      `Branch: ${branch} · required reviews: 2`,
+      `Commit: ${sha} · ${meta.discovered}`,
+      `PR #${pr} · ${seed.status==='In progress'?'checks failing':'merged'}`,
+      `Path: ${scmFileHint(seed, sid)}`,
+      `Scan: ${seed.tool} · ${meta.jira} linked`
     ]
   };
 }
@@ -104,20 +238,20 @@ const RUNTIME_BY_SCANNER = {
 };
 
 function buildScoring(seed){
+  const meta=seedMeta(seed);
   const s=seed.score;
   const kev=seed.kev?2.0:1.0;
-  const epss=seed.kev?0.94:0.42;
+  const epss=Number(meta.epss.toFixed(2));
   const reach=seed.internet?1.4:1.0;
   const crit=s>=8?2.0:s>=6?1.5:1.0;
   const ctrl=seed.status==='Compensating control'?1.5:seed.status==='Patched'?2.0:1.2;
   const base=5.0;
-  const mult=(base*kev*epss*reach*crit/ctrl).toFixed(1);
   return {
-    base, result:s.toFixed(1),
-    expr:`Base ${base} × KEV ${kev} × EPSS ${epss} × Reach ${reach} × Crit ${crit} ÷ Controls ${ctrl} = ${s.toFixed(1)}`,
+    base, result:s.toFixed(1), cvss:meta.cvss, epss,
+    expr:`Base ${base} × KEV ${kev} × EPSS ${epss} × Reach ${reach} × Crit ${crit} ÷ Controls ${ctrl} = ${s.toFixed(1)} (CVSS ${meta.cvss})`,
     pills:[
       {l:'KEV match',w:seed.kev?'×2.0':'×1.0'},
-      {l:'EPSS',w:`×${epss}`},
+      {l:`EPSS ${epss}`,w:`×${epss}`},
       {l:'Reach',w:`×${reach}`},
       {l:'Asset crit',w:`×${crit}`},
       {l:'Controls',w:`÷${ctrl}`}
@@ -126,20 +260,30 @@ function buildScoring(seed){
 }
 
 function buildStations(seed, sid){
+  const meta=seedMeta(seed);
   const a=seed.asset;
-  const net=seed.internet?'Yes — internet-facing':'No — internal only';
+  const net=seed.internet?'Internet-facing · ALB `pay-api`':'Internal · private subnet';
   const repo=deriveRepo(a);
   const bp=PIPELINE_SCANNERS.has(sid)?buildBuildPipeline(seed,sid):null;
-  const assetLines=PIPELINE_SCANNERS.has(sid)
-    ? [`Service / artifact: ${a}`,`Repo trail: see Build Pipeline`,`Environment: prod · correlated via CI/CD`]
+  const codeParts=CODE_ORIGIN_SCANNERS.has(sid)?buildCodeAssetParts(seed,sid,bp):null;
+  const assetLines=codeParts
+    ? [...codeParts.originLines,...codeParts.deployLines]
+    : PIPELINE_SCANNERS.has(sid)
+    ? [`Artifact: ${a}`,`Registry: jfrog.acmepay.internal`,`Cluster: eks-prod-use1 · ns payments`,`CI/CD: ${bp?.build?.system||'CI'} · ${bp?.build?.buildId||'—'}`]
     : SCM_SCANNERS.has(sid)
-    ? [`Repository (SCM): ${repo}`,`Artifact / service: ${a}`,`Scan scope: default branch + PRs`,`Deployed artifact: prod · correlated via CI`]
-    : [`Host / asset: ${a}`,`OS / stack: per CMDB record`,`Location: us-east-1 · prod VPC`,`IP: 10.42.${(seed.id.charCodeAt(4)%200)+.18}.0/24`,net];
+    ? [`Repo: ${ORG}/${repo}`,`Service: ${a}`,`Branch policy: main + release/*`,`Deploy: prod-us-east-1`]
+    : sid==='dast'
+    ? [`Target: ${a}`,`Route: CloudFront → ALB → EKS`,`Catalog: Apigee registry · v2.3`,`Zone: production`]
+    : sid==='cspm'
+    ? [`Resource: ${a}`,`Account: 112233445566 (prod-payments)`,`Region: us-east-1`,`ARN: arn:aws:s3:::${repo}`]
+    : sid==='easm'
+    ? [`Asset: ${a}`,`Attribution: ${seed.owner} (87% conf.)`,`ASN: AS16509 · us-east-1`,`First seen: ${meta.discovered}`]
+    : [`CMDB: ${meta.cmdb}`,`Host: ${meta.host}`,`IPv4: ${meta.ip} · vpc-prod-payments`,`OS: RHEL 8.9 / Windows 2022`,net];
   const runtimeLines=[
-    `EDR: ${RUNTIME_BY_SCANNER[sid]||'CrowdStrike · Defender'}`,
-    `Behavioral rule: ${seed.kev?'IOA template match pending':'No exploit fired'}`,
-    `WAF: ${seed.internet?'Coverage on edge ALB':'Not in path'}`,
-    `NDR: ${seed.internet?'East-west sensor':'N/A internal'}`
+    `EDR: ${RUNTIME_BY_SCANNER[sid]||'CrowdStrike Falcon 7.10'}`,
+    `Sensor: ${seed.kev?'IOA-SSL-Overflow · monitoring':'No IOA in 30d'}`,
+    `WAF: ${seed.internet?'AWS WAFv2 · pay-api-prod ACL':'Out of request path'}`,
+    `NDR: ${seed.internet?'Vectra · east-west':'Internal only'}`
   ];
   if(sid==='container'&&bp){
     runtimeLines.push(`Running: ${bp.artifact.digest} · ${bp.deployment.podCount} pods`);
@@ -149,24 +293,26 @@ function buildStations(seed, sid){
       runtimeLines.push(r.confirmed?`${r.sensor}: ${r.entryPoint} · ${r.callsPerDay}`:'Reachability: not confirmed in prod');
     }
   }
+  const assetStation=codeParts
+    ?{k:'asset',name:'Asset — origin & deploy',icon:'git',dualAsset:true,originLines:codeParts.originLines,deployLines:codeParts.deployLines,lines:assetLines}
+    :{k:'asset',name:'Asset graph',icon:SCM_SCANNERS.has(sid)?'git':'server',lines:assetLines};
   const stations=[
-    {k:'asset',name:'Asset graph',icon:PIPELINE_SCANNERS.has(sid)?'server':SCM_SCANNERS.has(sid)?'git':'server',lines:assetLines},
+    assetStation,
     ...(PIPELINE_SCANNERS.has(sid)&&bp?[{k:'buildPipeline',name:'Build Pipeline',icon:'container',isPipeline:true,lines:[`Build ID: ${bp.build.buildId}`,`Environment: ${bp.build.envLabel||bp.build.environment}`,`${bp.build.system} · ${bp.build.agentPool||'agents'} · ${bp.build.region||'—'}`]}]:[]),
-    ...(SCM_SCANNERS.has(sid)&&!PIPELINE_SCANNERS.has(sid)?[buildScmStation(seed, sid)]:[]),
-    {k:'identity',name:'Identity graph',icon:'shield',lines:[`Service accounts: 2 attached`,`IAM / role: app-runtime-prod`,`Blast radius: S3 read · RDS connect`,`Privileged: ${seed.score>=8?'elevated':'standard'}`]},
-    {k:'threat',name:'Threat intel',icon:'shield',lines:[`KEV: ${seed.kev?'Listed · active exploitation':'Not in KEV catalog'}`,`EPSS: ${seed.kev?'0.94':'0.42'} · trending`,`Exploit: ${seed.kev||seed.score>=8?'Public PoC · Metasploit module':'Theoretical only'}`,`Campaign: ${seed.kev?'CISA AA24-131A ref':'None linked'}`]},
-    {k:'ownership',name:'Ownership',icon:'git',lines:PIPELINE_SCANNERS.has(sid)||SCM_SCANNERS.has(sid)
-      ?[`Owning team: ${seed.owner}`,`CODEOWNERS: /${repo}/** → ${seed.owner}`,`Last author: svc-ci-bot · human: on-call`,`PagerDuty · Slack: #${seed.owner.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,18)}`]
-      :[`Team: ${seed.owner}`,`Lead: on-call rotation`,`PagerDuty: ${seed.owner.replace(/ .*/,'').toUpperCase().slice(0,4)}-primary`,`Slack: #${seed.owner.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,20)}`]},
-    {k:'business',name:'Business context',icon:'shield',lines:[`App tier: ${seed.score>=8?'Tier 0 — revenue':'Tier 2 — internal'}`,`Data class: ${seed.internet?'PII · payment adjacent':'Internal ops'}`,`Compliance: ${seed.owner.includes('Payment')?'PCI DSS in scope':'SOX logging'}`,`Customer-facing: ${seed.internet?'Yes':'No'}`]},
+    ...(SCM_SCANNERS.has(sid)&&!PIPELINE_SCANNERS.has(sid)&&!CODE_ORIGIN_SCANNERS.has(sid)?[buildScmStation(seed, sid)]:[]),
+    {k:'identity',name:'Identity graph',icon:'shield',lines:[`Instance profile: ${repo}-prod-role`,`Attached policies: 4 · 2 wildcards`,`Service account: svc-${repo.slice(0,12)}@acmepay.internal`,`Blast: ${seed.score>=8?'S3 cardholder · RDS payments':'read-only logs'}`]},
+    {k:'threat',name:'Threat intel',icon:'shield',lines:[`KEV: ${seed.kev?`CVE ${seed.cve||'listed'} · CISA catalog`:'Not listed'}`,`EPSS: ${meta.epss} · 30d Δ ${seed.kev?'+12%':'flat'}`,`CVSS: ${meta.cvss} · ${seed.tool.split(' ')[0]}`,`Exploit: ${seed.kev?'Metasploit · CISA AA24-131A':'No public exploit'}`]},
+    {k:'ownership',name:'Ownership',icon:'git',lines:[`Team: ${seed.owner}`,`Jira: ${meta.jira} · ${seed.status}`,`PagerDuty: ${seed.owner.split(' ')[0].toUpperCase()}-oncall`,`Slack: #${seed.owner.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,22)}`]},
+    {k:'business',name:'Business context',icon:'shield',lines:[`App: Transaction Processing`,`Tier: ${seed.score>=8?'0 — revenue critical':'2 — internal'}`,`Data: ${seed.internet?'PAN adjacent · tokenized':'Ops metadata'}`,`Compliance: ${/payment|pay/i.test(seed.owner)?'PCI DSS 4.0 · SOX':'SOC2 Type II'}`]},
     {k:'runtime',name:'Runtime controls',icon:'shield',lines:runtimeLines}
   ];
   return stations;
 }
 
 function buildOutcomes(seed, sid){
+  const meta=seedMeta(seed);
   const o=[];
-  const ticket={type:'Patch / change ticket',dest:'Jira',owner:seed.owner,sla:seed.score>=9?'P0':seed.score>=7?'P1':'P2',auto:'Semi'};
+  const ticket={type:`${meta.jira} · patch`,dest:'Jira Cloud',owner:seed.owner,sla:seed.score>=9?'P0 · 24h':seed.score>=7?'P1 · 72h':'P2 · 14d',auto:'Semi'};
   if(sid==='secrets'||seed.title.toLowerCase().includes('secret')||seed.title.toLowerCase().includes('key')){
     o.push({type:'Rotation runbook',dest:'Vault · IAM',owner:seed.owner,sla:'P0',auto:'Auto'});
     o.push({type:'Usage audit + IR',dest:'SIEM · case mgmt',owner:'Incident Response',sla:'P0',auto:'Manual'});
@@ -186,29 +332,39 @@ function buildOutcomes(seed, sid){
 }
 
 function buildTimeline(seed, sid){
-  const id=seed.id;
+  const meta=seedMeta(seed);
   const repo=deriveRepo(seed.asset);
   const bp=PIPELINE_SCANNERS.has(sid)?buildBuildPipeline(seed,sid):null;
+  const scanLine=sid==='network'?{t:'Vuln scan ingested',d:meta.discovered,by:`${seed.tool} · ${meta.plugin}`}
+    :sid==='dast'?{t:'DAST proof captured',d:meta.discovered,by:`Burp scan · session 8f2c`}
+    :{t:'Finding ingested',d:meta.discovered,by:seed.tool};
   return [
-    ...(bp?[{t:'Build pipeline correlated',d:'2 days ago',by:`${bp.build.system} · ${bp.build.buildId}`}]:[]),
-    ...(SCM_SCANNERS.has(sid)&&!PIPELINE_SCANNERS.has(sid)?[{t:'SCM scan completed',d:'2 days ago',by:`${SCM_PLATFORM[sid]} · ${repo}`}]:[]),
-    {t:'Scanner detected',d:'2 days ago',by:seed.tool},
-    {t:'Correlated & scored',d:'2 days ago',by:'Exposure pipeline'},
-    {t:`Ticket ${id.replace('-','')}-4521 opened`,d:'2 days ago',by:'Mobilization'},
-    ...(seed.status==='Compensating control'?[{t:'WAF / EDR rule pushed',d:'1 day ago',by:'SecOps'}]:[]),
-    ...(seed.status==='In progress'?[{t:'Patch in staging',d:'4h ago',by:seed.owner}]:[]),
-    ...(seed.status==='Patched'?[{t:'Verified fixed in prod',d:'1 day ago',by:seed.owner}]:[])
+    ...(bp?[{t:'CI/CD artifact linked',d:'52h ago',by:`${bp.build.system} ${bp.build.buildId} · ${bp.artifact.digest}`}]:[]),
+    ...(SCM_SCANNERS.has(sid)&&!PIPELINE_SCANNERS.has(sid)?[{t:'SCM commit correlated',d:'48h ago',by:`${ORG}/${repo} @ main`}]:[]),
+    scanLine,
+    {t:'Exposure record created',d:'47h ago',by:`${seed.id} · score ${seed.score.toFixed(1)}`},
+    {t:'Correlation complete',d:'46h ago',by:'Splunk SOAR · CMDB + KEV'},
+    {t:`${meta.jira} assigned`,d:'45h ago',by:seed.owner},
+    ...(seed.status==='Compensating control'?[{t:'Virtual patch deployed',d:'22h ago',by:'SecOps · WAF custom rule'}]:[]),
+    ...(seed.status==='In progress'?[{t:'Change CHG0048211 staging',d:'6h ago',by:seed.owner}]:[]),
+    ...(seed.status==='Patched'?[{t:'Rescan clean',d:'14h ago',by:seed.tool}]:[])
   ];
 }
 
 function enrich(seed, scannerId){
   const sc=SCANNERS.find(x=>x.id===scannerId);
   const b=band(seed.score);
-  return {...seed,scannerId,scannerName:sc.scannerLabel,accent:sc.accent,
+  const meta=seedMeta(seed);
+  const bp=PIPELINE_SCANNERS.has(scannerId)?buildBuildPipeline(seed,scannerId):null;
+  const codeParts=CODE_ORIGIN_SCANNERS.has(scannerId)?buildCodeAssetParts(seed,scannerId,bp):null;
+  return {...seed,...meta,
+    assetOrigin:codeParts?.originShort||null,
+    assetDeploy:codeParts?.deployShort||null,
+    scannerId,scannerName:sc.scannerLabel,accent:sc.accent,
     severity:b,severityClass:bandClass(b),
     crossLinks:CROSS_LINKS[seed.id]||[],
     scoring:buildScoring(seed),stations:buildStations(seed,scannerId),
-    buildPipeline:PIPELINE_SCANNERS.has(scannerId)?buildBuildPipeline(seed,scannerId):null,
+    buildPipeline:bp,
     outcomes:buildOutcomes(seed,scannerId),timeline:buildTimeline(seed,scannerId),
     scmRepo:SCM_SCANNERS.has(scannerId)?deriveRepo(seed.asset):null};
 }
@@ -274,7 +430,7 @@ function fitBoxLine(text,maxChars){
 function corrShortLabel(name){
   const n=String(name);
   const map={
-    'Asset graph':'Asset','Identity graph':'Identity','Threat intel':'Threat',
+    'Asset graph':'Asset','Asset — origin & deploy':'Asset','Identity graph':'Identity','Threat intel':'Threat',
     'Business context':'Business','Build Pipeline':'Build','Runtime controls':'Runtime',
     'Ownership':'Owner','SCM context':'SCM','Build pipeline':'Build',
     'SBOM lineage':'SBOM','Runtime presence':'Runtime','Reachability':'Reach',
@@ -369,15 +525,16 @@ function renderCorrelationGraph(e){
   const {W,H,cx,cy,topY,botY,topXs,botXs,topDims}=layout;
   const title=fitBoxLine(e.title,fitCharsForWidth(96,8.5,false)*2);
   const bpHint=hasPipeline?bpBuildGraphHint(e.buildPipeline):null;
+  const assetHint=CODE_ORIGIN_SCANNERS.has(e.scannerId)?bpAssetGraphHint(e,e.scannerId,e.buildPipeline):null;
 
   const topSlots=hasPipeline?[
-    {label:'Source',boxCls:'is-source',attrs:'data-finding="1" tabindex="0" role="button" aria-label="Source"'},
-    {label:'Asset',station:byKey.asset},
+    {label:'Finding',boxCls:'is-finding',attrs:'data-finding="1" tabindex="0" role="button" aria-label="Scanner finding"'},
+    {label:'Asset',station:byKey.asset,assetHint},
     {label:'Build',station:byKey.buildPipeline,pipelineHint:bpHint},
     {label:'Identity',station:byKey.identity},
     {label:'Runtime',station:byKey.runtime}
   ]:[
-    {label:'Source',boxCls:'is-source',attrs:'data-finding="1" tabindex="0" role="button" aria-label="Source"'},
+    {label:'Finding',boxCls:'is-finding',attrs:'data-finding="1" tabindex="0" role="button" aria-label="Scanner finding"'},
     {label:'Asset',station:byKey.asset},
     {label:'Identity',station:byKey.identity},
     {label:'Runtime',station:byKey.runtime}
@@ -408,13 +565,14 @@ function renderCorrelationGraph(e){
   }).join('');
 
   const topBoxes=topSlots.map((slot,i)=>{
-    const hint=slot.pipelineHint;
+    const hint=slot.pipelineHint||slot.assetHint;
     const label=hint?.label||(slot.station?corrShortLabel(slot.station.name):slot.label);
     const boxCls=slot.station?stationBoxClass(slot.station):slot.boxCls;
     const attrs=slot.station
       ?`data-station-idx="${slot.station.idx}" tabindex="0" role="button" aria-label="${esc(slot.station.name)}${hint?.sub?' · '+hint.sub:''}"`
       :slot.attrs;
-    const opts=topDims?{w:topDims[i].w,h:topDims[i].h,sub:hint?.sub||'',sub2:hint?.sub2||''}:{};
+    let opts=topDims?{w:topDims[i].w,h:topDims[i].h,sub:hint?.sub||'',sub2:hint?.sub2||''}:{};
+    if(assetHint&&i===1&&topDims) opts={...opts,h:Math.max(topDims[i].h,58)};
     return renderCorrBox(topXs[i],topY,label,boxCls,attrs,opts);
   }).join('');
 
@@ -505,8 +663,22 @@ function bindCorrelationPanel(panel, stations, exposure){
       detailEl.innerHTML=`<div class="bp-detail-wrap">${renderBuildPipelineDetail(exposure)}</div>`;
       return;
     }
+    if(s.dualAsset){
+      detailEl.innerHTML=`
+        <div class="station-head">${icon(s.icon,14)}<span>${esc(s.name)}</span></div>
+        <p class="asset-dual-hint">Code-origin scanners tie the vuln to <strong>where it was introduced</strong> and <strong>where it runs</strong>.</p>
+        <div class="asset-dual-grid">
+          <div class="asset-dual-col asset-dual-origin">
+            ${s.originLines.map(l=>l.startsWith('①')?`<div class="asset-dual-section">${esc(l)}</div>`:`<div class="station-line">${esc(l)}</div>`).join('')}
+          </div>
+          <div class="asset-dual-col asset-dual-deploy">
+            ${s.deployLines.map(l=>l.startsWith('②')?`<div class="asset-dual-section">${esc(l)}</div>`:`<div class="station-line">${esc(l)}</div>`).join('')}
+          </div>
+        </div>`;
+      return;
+    }
     const scm=stations.find(x=>x.scm);
-    const extra=idx>=0&&stations[idx]?.k==='asset'&&scm&&!exposure.buildPipeline
+    const extra=idx>=0&&stations[idx]?.k==='asset'&&scm&&!exposure.buildPipeline&&!CODE_ORIGIN_SCANNERS.has(exposure.scannerId)
       ?`<div class="station-line" style="margin-top:8px;font-weight:700;color:var(--accent)">${esc(scm.name)}</div>${scm.lines.map(l=>`<div class="station-line">${esc(l)}</div>`).join('')}`
       :'';
     detailEl.innerHTML=`
@@ -518,7 +690,7 @@ function bindCorrelationPanel(panel, stations, exposure){
     clearSel();
     panel.querySelector('.corr-box-wrap[data-finding]')?.classList.add('selected');
     detailEl.innerHTML=`
-      <div class="station-head">${icon(sc?.icon||'shield',14)}<span>Source</span></div>
+      <div class="station-head">${icon(sc?.icon||'shield',14)}<span>Scanner finding</span></div>
       <div class="station-line">${esc(exposure.tool)}</div>
       <div class="station-line">${esc(exposure.title)}</div>
       <div class="station-line">${exposure.cve?esc(exposure.cve):`Severity: ${esc(exposure.severity)}`}</div>`;
@@ -545,6 +717,23 @@ function bindCorrelationPanel(panel, stations, exposure){
     };
   });
   bindDiagramZoom(panel);
+}
+
+function renderStationCard(s){
+  if(s.dualAsset){
+    return `<div class="station-card asset-dual-card">
+      <div class="station-head">${icon(s.icon,14)}<span>${esc(s.name)}</span></div>
+      <div class="asset-dual-grid asset-dual-grid-compact">
+        <div class="asset-dual-col asset-dual-origin">
+          ${s.originLines.map(l=>l.match(/^①/)?`<div class="asset-dual-section">${esc(l)}</div>`:`<div class="station-line">${esc(l)}</div>`).join('')}
+        </div>
+        <div class="asset-dual-col asset-dual-deploy">
+          ${s.deployLines.map(l=>l.match(/^②/)?`<div class="asset-dual-section">${esc(l)}</div>`:`<div class="station-line">${esc(l)}</div>`).join('')}
+        </div>
+      </div>
+    </div>`;
+  }
+  return `<div class="station-card ${s.scm?'scm-station':''}"><div class="station-head">${icon(s.icon,14)}<span>${esc(s.name)}</span></div>${s.lines.map(l=>`<div class="station-line">${esc(l)}</div>`).join('')}</div>`;
 }
 
 function renderDetail(e){
@@ -596,7 +785,7 @@ function renderDetail(e){
           </div>
           <div class="corr-node-detail"></div>
         </div>
-        <div class="corr-cards-panel" hidden>${e.buildPipeline?renderStationCards(e):`<div class="station-grid">${e.stations.map(s=>`<div class="station-card ${s.scm?'scm-station':''}"><div class="station-head">${icon(s.icon,14)}<span>${esc(s.name)}</span></div>${s.lines.map(l=>`<div class="station-line">${esc(l)}</div>`).join('')}</div>`).join('')}</div>`}</div>
+        <div class="corr-cards-panel" hidden>${e.buildPipeline?renderStationCards(e):`<div class="station-grid">${e.stations.map(s=>renderStationCard(s)).join('')}</div>`}</div>
       </div>
       <div class="detail-section"><h4>Scoring formula</h4><div class="formula-chain">${pills}<span class="formula-eq">= ${e.score.toFixed(1)}</span></div></div>
       <div class="detail-section"><h4>Mobilization plan</h4><div class="outcome-row">${outs}</div></div>
@@ -621,7 +810,7 @@ function renderList(){
       <div class="exp-row ${i===focusRow?'focused':''}" role="button" tabindex="0" aria-expanded="${open}" aria-label="Exposure ${e.id} score ${e.score}" data-row="${e.id}">
         <span class="score-badge ${e.severityClass}">${e.score.toFixed(1)}</span>
         <span class="col-title">${esc(e.title)}</span>
-        <span class="col-asset">${esc(e.asset)}${e.scmRepo?`<span class="col-scm">${esc(e.scmRepo)} · SCM</span>`:''}</span>
+        <span class="col-asset">${e.assetOrigin&&e.assetDeploy?`<span class="col-asset-origin" title="Origin in source">${esc(e.assetOrigin)}</span><span class="col-asset-arrow"> → </span><span class="col-asset-deploy" title="Deploy artifact">${esc(e.assetDeploy)}</span>`:esc(e.asset)}</span>
         <span class="col-kev">${e.kev?'<span class="kev-pill">KEV</span>':''}</span>
         <span class="col-owner">${esc(e.owner)}</span>
         <span class="col-status"><span class="status-pill status-${e.status.replace(/\s+/g,'-').toLowerCase()}" title="${esc(e.status)}">${esc(statusLabel(e.status))}</span></span>
@@ -737,7 +926,7 @@ HTML = f'''<!DOCTYPE html>
 <div class="sidebar-footer"><button class="theme-toggle" id="themeToggle" type="button">Toggle dark mode</button></div>
 </aside>
 <main class="main">
-<div class="disclaimer" role="note"><strong>All exposures, scores, owners, and remediation data shown are illustrative examples only.</strong> This dashboard is for visualization purposes and does not reflect real findings.</div>
+<div class="disclaimer" role="note"><strong>Synthetic demo data</strong> modeled on production exposure-management patterns (Acme Payments / acmepay.com). Names, IDs, and scores are fictional — not your environment.</div>
 <header class="topbar"><div><h2 id="mainTitle">Exposure triage queue</h2><p id="mainSub"></p></div></header>
 <div class="filter-bar">
 <input type="search" id="searchInput" placeholder="Filter by CVE, asset, owner…" aria-label="Filter exposures"/>

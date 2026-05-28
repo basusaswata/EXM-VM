@@ -1,7 +1,7 @@
 window.EXPOSURE_SEEDS = {
   network: [
-    {id:'NET-001',score:9.4,title:'CVE-2024-1234 in OpenSSL 3.0.7',cve:'CVE-2024-1234',asset:'srv-payments-prod-04',owner:'Payments Platform',status:'Open',sla:'24h left',kev:true,internet:true,tool:'Tenable Nessus'},
-    {id:'NET-002',score:6.1,title:'Apache httpd 2.4.49 path traversal',cve:'CVE-2021-41773',asset:'web-marketing-01',owner:'Marketing Web',status:'In progress',sla:'3d left',kev:true,internet:true,tool:'Qualys VMDR'},
+    {id:'NET-001',score:9.4,title:'OpenSSL 3.0.13 buffer overflow (CVE-2024-5535)',cve:'CVE-2024-5535',asset:'pay-db-prod-04.use1.acmepay.internal',host:'pay-db-prod-04.use1.acmepay.internal',ip:'10.42.18.217',owner:'Payments Platform',status:'Open',sla:'18h left',kev:true,internet:true,tool:'Tenable Nessus 10.6.4',epss:0.94,cvss:9.8,jira:'PAY-4892',discovered:'6h ago',plugin:'19506',qid:'QID-379291'},
+    {id:'NET-002',score:6.1,title:'Apache httpd 2.4.49 path traversal',cve:'CVE-2021-41773',asset:'mkt-web-01.use1.acmepay.internal',host:'mkt-web-01.use1.acmepay.internal',ip:'10.42.44.88',owner:'Marketing Web',status:'In progress',sla:'3d left',kev:true,internet:true,tool:'Qualys VMDR 10.24',jira:'MKT-2201',discovered:'1d ago'},
     {id:'NET-003',score:5.2,title:'SMBv1 enabled',cve:null,asset:'47 hosts',owner:'Infrastructure',status:'Open',sla:'7d',kev:false,internet:false,tool:'Rapid7 InsightVM'},
     {id:'NET-004',score:8.8,title:'Exchange ProxyShell chain',cve:'CVE-2021-34473',asset:'exchange-prod-01',owner:'Messaging',status:'Compensating control',sla:'12h left',kev:true,internet:false,tool:'Tenable Nessus'},
     {id:'NET-005',score:7.4,title:'RDP exposed to internet',cve:null,asset:'12 hosts',owner:'Network',status:'Open',sla:'Overdue 2d',kev:true,internet:true,tool:'Qualys VMDR'},
@@ -20,7 +20,7 @@ window.EXPOSURE_SEEDS = {
     {id:'NET-018',score:8.0,title:'VMware vCenter file upload',cve:'CVE-2021-22005',asset:'vcenter-mgmt-01',owner:'Virtualization',status:'In progress',sla:'2d left',kev:true,internet:false,tool:'Tenable Nessus'}
   ],
   sca: [
-    {id:'SCA-001',score:9.7,title:'Log4Shell CVE-2021-44228',cve:'CVE-2021-44228',asset:'transaction-router',owner:'Payments Platform',status:'Open',sla:'12h left',kev:true,internet:true,tool:'Snyk Open Source'},
+    {id:'SCA-001',score:9.7,title:'log4j-core 2.14.1 · Log4Shell (CVE-2021-44228)',cve:'CVE-2021-44228',asset:'transaction-router:v4.2.1',owner:'Payments Platform',status:'Open',sla:'12h left',kev:true,internet:true,tool:'Snyk Open Source',epss:0.97,cvss:10.0,jira:'PAY-4892',discovered:'8h ago',commit:'a3f8e92d',pr:1247},
     {id:'SCA-002',score:5.1,title:'Vulnerable lodash 4.17.20',cve:'CVE-2020-8203',asset:'web-portal',owner:'Digital Experience',status:'In progress',sla:'5d left',kev:false,internet:true,tool:'Mend SCA'},
     {id:'SCA-003',score:8.2,title:'Malicious package event-stream',cve:null,asset:'internal-tool',owner:'Platform Engineering',status:'Open',sla:'24h left',kev:false,internet:false,tool:'Black Duck'},
     {id:'SCA-004',score:2.4,title:'Vulnerable urllib3 (not reachable)',cve:'CVE-2023-45803',asset:'batch-importer',owner:'Data Platform',status:'Risk accepted',sla:'60d',kev:false,internet:false,tool:'Snyk Open Source'},
@@ -40,7 +40,7 @@ window.EXPOSURE_SEEDS = {
     {id:'SCA-018',score:5.0,title:'Electron ASAR integrity gap',cve:'CVE-2022-29247',asset:'desktop-agent',owner:'Endpoint Apps',status:'Compensating control',sla:'11d',kev:false,internet:false,tool:'Mend SCA'}
   ],
   sast: [
-    {id:'SAST-001',score:8.9,title:'SQL injection in /charge',cve:null,asset:'payments-api',owner:'Payments Platform',status:'Open',sla:'24h left',kev:false,internet:true,tool:'Semgrep'},
+    {id:'SAST-001',score:8.9,title:'SQLi · ChargeController.java:142',cve:null,asset:'payments-api',owner:'Payments Platform',status:'Open',sla:'24h left',kev:false,internet:true,tool:'Semgrep PRO',jira:'PAY-4901',discovered:'11h ago',commit:'b7c21de',pr:1189},
     {id:'SAST-002',score:6.4,title:'Stored XSS in profile page',cve:null,asset:'admin-portal',owner:'Internal Apps',status:'In progress',sla:'4d left',kev:false,internet:true,tool:'Checkmarx'},
     {id:'SAST-003',score:8.1,title:'Hard-coded AWS access key',cve:null,asset:'legacy-batch.py',owner:'Data Platform',status:'Open',sla:'12h left',kev:false,internet:false,tool:'Veracode'},
     {id:'SAST-004',score:7.2,title:'Insecure deserialization',cve:null,asset:'report-generator',owner:'Analytics',status:'Open',sla:'3d left',kev:false,internet:false,tool:'Checkmarx'},
@@ -62,7 +62,7 @@ window.EXPOSURE_SEEDS = {
   dast: [
     {id:'DAST-001',score:9.6,title:'Authentication bypass',cve:null,asset:'partners.example.com/auth',owner:'Partner Integrations',status:'Open',sla:'6h left',kev:true,internet:true,tool:'Burp Suite Enterprise'},
     {id:'DAST-002',score:8.7,title:'IDOR on /users/{id}/orders',cve:null,asset:'api.example.com',owner:'Customer Apps',status:'Open',sla:'12h left',kev:false,internet:true,tool:'OWASP ZAP'},
-    {id:'DAST-003',score:8.3,title:'SSRF in /import?url=',cve:null,asset:'payments-api',owner:'Payments Platform',status:'In progress',sla:'24h left',kev:true,internet:true,tool:'Salt Security'},
+    {id:'DAST-003',score:8.3,title:'SSRF · POST /api/v1/import?url=',cve:null,asset:'https://api.acmepay.com/api/v1/import',owner:'Payments Platform',status:'In progress',sla:'24h left',kev:true,internet:true,tool:'Salt Security API',jira:'PAY-4901',discovered:'9h ago'},
     {id:'DAST-004',score:7.4,title:'Shadow API /internal/_debug',cve:null,asset:'api-gateway-prod',owner:'API Platform',status:'Open',sla:'2d left',kev:false,internet:true,tool:'Noname Security'},
     {id:'DAST-005',score:6.0,title:'Mass assignment on /profile/update',cve:null,asset:'user-profile-svc',owner:'Customer Apps',status:'Compensating control',sla:'5d',kev:false,internet:true,tool:'Burp Suite Enterprise'},
     {id:'DAST-006',score:7.1,title:'JWT alg:none accepted',cve:null,asset:'mobile-api',owner:'Mobile',status:'Open',sla:'3d left',kev:false,internet:true,tool:'OWASP ZAP'},
@@ -80,7 +80,7 @@ window.EXPOSURE_SEEDS = {
     {id:'DAST-018',score:5.1,title:'Host header injection',cve:null,asset:'marketing-landing',owner:'Marketing Web',status:'In progress',sla:'9d left',kev:false,internet:true,tool:'Noname Security'}
   ],
   container: [
-    {id:'CON-001',score:9.4,title:'Log4j in deployed image',cve:'CVE-2021-44228',asset:'transaction-router:v4.2.1',owner:'Payments Platform',status:'Open',sla:'12h left',kev:true,internet:true,tool:'Trivy'},
+    {id:'CON-001',score:9.4,title:'log4j-core 2.14.1 in image (CVE-2021-44228)',cve:'CVE-2021-44228',asset:'jfrog.acmepay.internal/docker-prod/transaction-router:v4.2.1',owner:'Payments Platform',status:'Open',sla:'12h left',kev:true,internet:true,tool:'Trivy 0.48.3',jira:'PAY-4892',discovered:'8h ago'},
     {id:'CON-002',score:7.2,title:'OS package CVE in node:16-alpine',cve:'CVE-2023-45853',asset:'node:16-alpine (47 svcs)',owner:'Platform Engineering',status:'In progress',sla:'3d left',kev:false,internet:true,tool:'Aqua Security'},
     {id:'CON-003',score:8.5,title:'Embedded secret in image layer',cve:null,asset:'deploy-tools:latest',owner:'DevEx',status:'Open',sla:'24h left',kev:false,internet:false,tool:'Sysdig Secure'},
     {id:'CON-004',score:8.0,title:'Privileged container + vuln kernel module',cve:null,asset:'monitoring-agent',owner:'Observability',status:'Compensating control',sla:'2d',kev:false,internet:false,tool:'Trivy'},
@@ -120,7 +120,7 @@ window.EXPOSURE_SEEDS = {
     {id:'IAC-018',score:6.0,title:'Azure NSG allows RDP from Internet',cve:null,asset:'win-jump.bicep',owner:'Windows Ops',status:'Compensating control',sla:'5d',kev:false,internet:true,tool:'Checkov'}
   ],
   cspm: [
-    {id:'CSPM-001',score:9.8,title:'Toxic combo: public S3 + admin IAM + PCI',cve:null,asset:'payments-data-lake',owner:'Payments Platform',status:'Open',sla:'6h left',kev:true,internet:true,tool:'Wiz'},
+    {id:'CSPM-001',score:9.8,title:'Toxic combo: public S3 + admin IAM + PCI',cve:null,asset:'arn:aws:s3:::acmepay-pci-audit-logs-prod',owner:'Payments Platform',status:'Open',sla:'6h left',kev:true,internet:true,tool:'Wiz',jira:'PAY-4888',discovered:'4h ago'},
     {id:'CSPM-002',score:6.5,title:'IAM unused privileges (230)',cve:null,asset:'payments-admin-role',owner:'Cloud Security',status:'In progress',sla:'7d left',kev:false,internet:false,tool:'Prisma Cloud'},
     {id:'CSPM-003',score:8.4,title:'Lateral path: dev EC2 → prod IAM',cve:null,asset:'cloud-graph',owner:'Cloud Security',status:'Open',sla:'24h left',kev:false,internet:false,tool:'Orca Security'},
     {id:'CSPM-004',score:8.9,title:'Public Postgres RDS weak password',cve:null,asset:'analytics-rds-prod',owner:'Analytics',status:'Open',sla:'12h left',kev:true,internet:true,tool:'Microsoft Defender for Cloud'},
@@ -140,7 +140,7 @@ window.EXPOSURE_SEEDS = {
     {id:'CSPM-018',score:5.4,title:'Logging bucket not immutable',cve:null,asset:'siem-archive',owner:'SecOps',status:'Compensating control',sla:'9d',kev:false,internet:false,tool:'Microsoft Defender for Cloud'}
   ],
   easm: [
-    {id:'EASM-001',score:9.1,title:'Exposed Jenkins instance',cve:null,asset:'ci-old.example.com',owner:'DevEx',status:'Open',sla:'12h left',kev:true,internet:true,tool:'Censys'},
+    {id:'EASM-001',score:9.1,title:'Exposed Jenkins 2.414 LTS',cve:null,asset:'ci-old.acmepay.com',owner:'DevEx',status:'Open',sla:'12h left',kev:true,internet:true,tool:'Censys ASM',discovered:'2h ago',jira:'DEVX-882'},
     {id:'EASM-002',score:7.6,title:'Subdomain takeover (dangling CNAME)',cve:null,asset:'coupons.example.com',owner:'Marketing Web',status:'In progress',sla:'3d left',kev:false,internet:true,tool:'Randori'},
     {id:'EASM-003',score:9.3,title:'Public Elasticsearch no auth',cve:null,asset:'acme-acquired.example.net',owner:'M&A Integration',status:'Open',sla:'8h left',kev:false,internet:true,tool:'Palo Alto Xpanse'},
     {id:'EASM-004',score:5.5,title:'Expired wildcard certificate',cve:null,asset:'*.partners.example.com',owner:'Partner Integrations',status:'Open',sla:'7d',kev:false,internet:true,tool:'Censys'},
@@ -160,7 +160,7 @@ window.EXPOSURE_SEEDS = {
     {id:'EASM-018',score:6.6,title:'M&A asset: exposed SonarQube',cve:null,asset:'sonar.acme-acquired.net',owner:'M&A Integration',status:'Open',sla:'5d',kev:false,internet:true,tool:'Randori'}
   ],
   secrets: [
-    {id:'SEC-001',score:10.0,title:'AWS access key in public gist',cve:null,asset:'github-gist AKIA...',owner:'Payments Platform',status:'Open',sla:'1h left',kev:false,internet:true,tool:'GitGuardian'},
+    {id:'SEC-001',score:10.0,title:'AWS AKIA key in public gist',cve:null,asset:'gist.github.com/anonymous/8f2a9c1e',owner:'Payments Platform',status:'Open',sla:'47m left',kev:false,internet:true,tool:'GitGuardian',jira:'PAY-4910',discovered:'23m ago'},
     {id:'SEC-002',score:7.4,title:'OAuth token in commit history',cve:null,asset:'backend-svc repo',owner:'Platform Engineering',status:'In progress',sla:'2d left',kev:false,internet:false,tool:'TruffleHog'},
     {id:'SEC-003',score:8.0,title:'DB connection string with password',cve:null,asset:'config-old.json',owner:'Data Platform',status:'Open',sla:'24h left',kev:false,internet:false,tool:'GitHub Advanced Security'},
     {id:'SEC-004',score:8.7,title:'Private SSH key in repo',cve:null,asset:'deployment-scripts',owner:'DevEx',status:'Open',sla:'12h left',kev:false,internet:false,tool:'GitGuardian'},

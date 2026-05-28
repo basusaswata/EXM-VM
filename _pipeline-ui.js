@@ -34,7 +34,7 @@ function renderBuildPipelineCard(e){
   if(!bp) return '';
   const sid=e.scannerId;
   const stages=[
-    {icon:'git',title:'Source repo',mono:`${bp.repo.name} · ${bp.repo.branch} · ${bp.repo.commitShort} · ${bp.repo.author} · ${bpAge(bp.repo.ageHours)}`,pill:null},
+    {icon:'git',title:'Git repository',mono:`${bp.repo.name} · ${bp.repo.branch} · ${bp.repo.commitShort} · ${bp.repo.author} · ${bpAge(bp.repo.ageHours)}`,pill:null},
     {icon:'git',title:'PR / merge status',mono:bp.prStatus.detail+(bp.prStatus.prNumber?` · PR #${bp.prStatus.prNumber}`:''),pill:bpPill(bp.prStatus.state)},
     {icon:'server',title:'Build',mono:`${bp.build.buildId} · ${bpBuildEnvLine(bp.build)} · ${bpAge(bp.build.ageHours)}${bp.build.note?' · '+bp.build.note:''}`,pill:bpPill(bp.build.status)},
     {icon:'package',title:'Artifact',mono:`${bp.artifact.name}${bp.artifact.version?':'+bp.artifact.version:''} · ${bp.artifact.registry} · digest ${bp.artifact.digest}`,pill:null},
