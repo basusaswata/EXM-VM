@@ -641,32 +641,35 @@ function applySvgZoom(svg,scale){
   svg.style.display='block';
 }
 function bindDiagramZoom(panel){
-  const wrap=panel.querySelector('.corr-graph-wrap');
-  const controls=panel.querySelector('[data-zoom-controls]');
-  const svg=panel.querySelector('svg.corr-graph');
-  if(!wrap||!controls||!svg) return;
-  if(controls.dataset.bound==='1') return;
-  controls.dataset.bound='1';
-  const key='em-diagram-scale';
-  let scale=1;
-  try{scale=parseFloat(localStorage.getItem(key)||'1');}catch(e){}
-  scale=clamp(scale,0.6,2.5);
-  applySvgZoom(svg,scale);
-  const setScale=(next)=>{
-    scale=clamp(next,0.6,2.5);
+  panel.querySelectorAll('[data-zoom-controls]').forEach(controls=>{
+    if(controls.dataset.bound==='1') return;
+    const block=controls.closest('.corr-hub-wrap, .ap-hub-wrap');
+    const canvas=block?.querySelector('[data-zoom-canvas]');
+    const svg=canvas?.querySelector('svg.corr-graph, svg.attack-path-svg');
+    if(!svg) return;
+    controls.dataset.bound='1';
+    const key='em-diagram-scale-'+(controls.dataset.zoomTarget||'correlation');
+    let scale=1;
+    try{scale=parseFloat(localStorage.getItem(key)||'1');}catch(e){}
+    scale=clamp(scale,0.6,2.5);
     applySvgZoom(svg,scale);
-    try{localStorage.setItem(key,String(scale));}catch(e){}
-  };
-  controls.querySelectorAll('button[data-zoom]').forEach(btn=>{
-    btn.onclick=()=>{
-      const dir=btn.dataset.zoom;
-      setScale(scale + (dir==='in'?0.15:-0.15));
+    const setScale=(next)=>{
+      scale=clamp(next,0.6,2.5);
+      applySvgZoom(svg,scale);
+      try{localStorage.setItem(key,String(scale));}catch(e){}
     };
+    controls.querySelectorAll('button[data-zoom]').forEach(btn=>{
+      btn.onclick=()=>{
+        const dir=btn.dataset.zoom;
+        setScale(scale + (dir==='in'?0.15:-0.15));
+      };
+    });
+    controls.querySelector('[data-zoom-reset]')?.addEventListener('click',()=>setScale(1));
   });
-  controls.querySelector('[data-zoom-reset]')?.addEventListener('click',()=>setScale(1));
 }
 
 function bindCorrelationPanel(panel, stations, exposure){
+  if(panel.querySelector('.attack-path-view')) bindAttackPathPanel(panel, exposure);
   const detailEl=panel.querySelector('.corr-node-detail');
   const sc=SCANNERS.find(x=>x.id===exposure.scannerId);
   const clearSel=()=>panel.querySelectorAll('.corr-box-wrap').forEach(w=>w.classList.remove('selected'));
@@ -715,15 +718,17 @@ function bindCorrelationPanel(panel, stations, exposure){
     wrap.onclick=fn;
     wrap.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();fn();}};
   };
-  panel.querySelectorAll('.corr-box-wrap[data-station-idx]').forEach(w=>{
+  panel.querySelectorAll('.corr-hub-wrap .corr-box-wrap[data-station-idx]').forEach(w=>{
     bindWrap(w,()=>showStation(+w.dataset.stationIdx));
   });
-  const finding=panel.querySelector('.corr-box-wrap[data-finding]');
+  const finding=panel.querySelector('.corr-hub-wrap .corr-box-wrap[data-finding]');
   if(finding) bindWrap(finding,showFinding);
   const assetIdx=stations.findIndex(s=>s.k==='asset');
-  if(assetIdx>=0) showStation(assetIdx);
-  else if(stations.length) showStation(0);
-  else showFinding();
+  if(detailEl){
+    if(assetIdx>=0) showStation(assetIdx);
+    else if(stations.length) showStation(0);
+    else showFinding();
+  }
   panel.querySelectorAll('[data-corr-view]').forEach(btn=>{
     btn.onclick=()=>{
       const v=btn.dataset.corrView;
@@ -733,6 +738,48 @@ function bindCorrelationPanel(panel, stations, exposure){
     };
   });
   bindDiagramZoom(panel);
+  bindAttackPathResize(panel);
+}
+
+function bindAttackPathResize(panel){
+  const wrap=panel.querySelector('[data-ap-resize-wrap]');
+  const handle=panel.querySelector('[data-ap-resize-handle]');
+  if(!wrap||!handle||handle.dataset.bound==='1') return;
+  handle.dataset.bound='1';
+  const key='em-ap-graph-height';
+  try{
+    const h=parseInt(localStorage.getItem(key),10);
+    if(h>=160&&h<=560) wrap.style.height=h+'px';
+  }catch(e){}
+  let startY=0,startH=0;
+  const onMove=ev=>{
+    const y=ev.clientY??ev.touches?.[0]?.clientY??startY;
+    wrap.style.height=clamp(startH+(y-startY),160,560)+'px';
+  };
+  const onUp=()=>{
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    handle.classList.remove('is-dragging');
+    wrap.classList.remove('is-resizing');
+    try{localStorage.setItem(key,String(wrap.offsetHeight));}catch(e){}
+  };
+  const onDown=ev=>{
+    ev.preventDefault();
+    startY=ev.clientY??ev.touches?.[0]?.clientY??0;
+    startH=wrap.offsetHeight;
+    handle.classList.add('is-dragging');
+    wrap.classList.add('is-resizing');
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  };
+  handle.addEventListener('mousedown',onDown);
+  handle.addEventListener('keydown',ev=>{
+    if(ev.key!=='ArrowUp'&&ev.key!=='ArrowDown') return;
+    ev.preventDefault();
+    const d=ev.key==='ArrowDown'?24:-24;
+    wrap.style.height=clamp(wrap.offsetHeight+d,160,560)+'px';
+    try{localStorage.setItem(key,String(wrap.offsetHeight));}catch(e){}
+  });
 }
 
 function renderStationCard(s){
@@ -790,20 +837,38 @@ function renderDetail(e){
               <p class="corr-section-sub">${stationCountLabel(e)}${corrSub}</p>
             </div>
             <div class="corr-view-toggle">
-              <button type="button" class="corr-view-btn on" data-corr-view="graph">Path view</button>
+              <button type="button" class="corr-view-btn on" data-corr-view="graph">Diagrams</button>
               <button type="button" class="corr-view-btn" data-corr-view="cards">Cards</button>
             </div>
           </div>
-          <div class="corr-graph-wrap corr-graph-panel">
-          <div class="diagram-zoom-controls" data-zoom-controls>
-            <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
-            <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
-            <button type="button" data-zoom-reset aria-label="Reset zoom">Reset</button>
-          </div>
-          <div class="diagram-zoom-canvas" data-zoom-canvas>
-            ${renderCorrelationGraph(e)}
-          </div>
-          <div class="corr-node-detail"></div>
+          <div class="corr-graph-panel">
+            <div class="viz-stack">
+              <section class="viz-block viz-block--correlation" aria-label="Exposure correlation map">
+                <div class="viz-block-head">
+                  <h5 class="viz-block-title">Exposure correlation map</h5>
+                  <p class="viz-block-hint">How this finding connects to asset, build, identity, runtime &amp; business context</p>
+                </div>
+                <div class="corr-hub-wrap">
+                  <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="correlation">
+                    <button type="button" data-zoom="out" aria-label="Zoom correlation map out">−</button>
+                    <button type="button" data-zoom="in" aria-label="Zoom correlation map in">+</button>
+                    <button type="button" data-zoom-reset aria-label="Reset correlation zoom">Reset</button>
+                  </div>
+                  <div class="diagram-zoom-canvas" data-zoom-canvas="correlation">
+                    ${renderCorrelationGraph(e)}
+                  </div>
+                  <div class="corr-node-detail"></div>
+                </div>
+              </section>
+              <div class="viz-divider" role="separator" aria-label="Attack path section"></div>
+              <section class="viz-block viz-block--attack" aria-label="Lateral attack path">
+                <div class="viz-block-head">
+                  <h5 class="viz-block-title">Lateral attack path</h5>
+                  <p class="viz-block-hint">End-to-end movement from entry to crown-jewel impact · drag handle below graph to resize</p>
+                </div>
+                ${renderAttackPathView(e)}
+              </section>
+            </div>
           </div>
           <div class="corr-cards-panel" hidden>${e.buildPipeline?renderStationCards(e):`<div class="station-grid">${e.stations.map(s=>renderStationCard(s)).join('')}</div>`}</div>
         </div>
@@ -921,6 +986,8 @@ APP_JS = (
     + (ROOT / "_pipeline-ui.js").read_text()
     + "\n"
     + APP_JS_BODY
+    + "\n"
+    + (ROOT / "_attack-path.js").read_text()
 )
 
 CSS = open(ROOT / "_dashboard_css.txt").read() if (ROOT / "_dashboard_css.txt").exists() else ""

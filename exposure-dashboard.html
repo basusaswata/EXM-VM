@@ -177,7 +177,176 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 .corr-view-toggle { display: inline-flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
 .corr-view-btn { border: none; background: transparent; color: var(--muted); font-size: 10px; font-weight: 800; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
 .corr-view-btn.on { background: var(--panel); color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
-.corr-graph-wrap { position: relative; background: transparent; border: none; border-radius: 0; padding: 12px 14px 14px; overflow: auto; }
+
+.corr-graph-panel { padding: 0 14px 16px; }
+.viz-stack { display: flex; flex-direction: column; gap: 0; }
+.viz-block {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px 16px 16px;
+  box-shadow: 0 1px 3px rgba(15,23,42,.04);
+}
+.viz-block--attack {
+  border-color: color-mix(in srgb, #7c3aed 22%, var(--border));
+  background: linear-gradient(180deg, color-mix(in srgb, #7c3aed 4%, var(--panel)) 0%, var(--panel) 48px);
+}
+.viz-block--correlation {
+  border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, var(--panel)) 0%, var(--panel) 52px);
+}
+.viz-block-head { margin-bottom: 12px; text-align: center; }
+.viz-block-title {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.viz-block--attack .viz-block-title { color: #6d28d9; }
+[data-theme="dark"] .viz-block--attack .viz-block-title { color: #c4b5fd; }
+.viz-block--correlation .viz-block-title { color: var(--accent); }
+.viz-block-hint { margin: 4px 0 0; font-size: 10px; color: var(--muted); font-weight: 600; line-height: 1.35; }
+.viz-divider {
+  height: 1px;
+  margin: 16px 8%;
+  background: linear-gradient(90deg, transparent, var(--border), transparent);
+  position: relative;
+}
+.viz-divider::after {
+  content: '◆';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 8px;
+  color: var(--muted);
+  background: var(--panel-2);
+  padding: 0 8px;
+  line-height: 1;
+}
+.corr-hub-wrap {
+  position: relative;
+  background: color-mix(in srgb, var(--correlation-soft) 35%, var(--panel-2));
+  border: 1px solid color-mix(in srgb, var(--correlation) 25%, var(--border));
+  border-radius: 12px;
+  padding: 12px 12px 10px;
+  overflow: auto;
+}
+.corr-hub-wrap .diagram-zoom-controls { top: 8px; right: 8px; }
+.corr-hub-wrap .corr-graph { margin: 0 auto; }
+.corr-hub-wrap .corr-node-detail { margin-top: 12px; }
+
+.ap-hub-wrap {
+  position: relative;
+  height: 248px;
+  min-height: 160px;
+  max-height: 560px;
+  overflow: auto;
+  background: color-mix(in srgb, #7c3aed 6%, var(--panel-2));
+  border: 1px solid color-mix(in srgb, #7c3aed 22%, var(--border));
+  border-radius: 12px;
+  padding: 10px 10px 8px;
+}
+.ap-hub-wrap .diagram-zoom-controls { top: 8px; right: 8px; z-index: 3; }
+.ap-hub-wrap.is-resizing { user-select: none; }
+.ap-hub-wrap .attack-path-graph-scroll {
+  overflow: auto;
+  height: 100%;
+  min-height: 140px;
+  -webkit-overflow-scrolling: touch;
+}
+.ap-hub-wrap .attack-path-svg { margin: 0 auto; }
+.viz-resize-handle {
+  flex: 0 0 auto;
+  height: 12px;
+  margin: 8px 0 4px;
+  cursor: row-resize;
+  border-radius: 6px;
+  position: relative;
+  touch-action: none;
+}
+.viz-resize-handle::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 48px;
+  height: 4px;
+  border-radius: 4px;
+  background: color-mix(in srgb, #7c3aed 35%, var(--border));
+  transition: background .15s, width .15s;
+}
+.viz-resize-handle:hover::before,
+.viz-resize-handle:focus-visible::before,
+.viz-resize-handle.is-dragging::before {
+  width: 72px;
+  background: #7c3aed;
+}
+.viz-resize-handle:focus-visible { outline: 2px solid #7c3aed; outline-offset: 2px; }
+
+/* Attack path graph (lateral-movement style) */
+.attack-path-view { width: 100%; min-width: 0; }
+.attack-path-summary {
+  display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 12px;
+  padding: 12px 14px; margin-bottom: 10px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 12px;
+}
+.attack-path-summary-text { flex: 1 1 320px; display: flex; gap: 10px; align-items: flex-start; }
+.attack-path-ai-badge {
+  flex-shrink: 0; font-size: 9px; font-weight: 900; letter-spacing: .06em;
+  padding: 3px 7px; border-radius: 6px; background: linear-gradient(135deg, #7c3aed, #2563eb); color: #fff;
+}
+.attack-path-narrative { margin: 0; font-size: 13px; line-height: 1.55; color: var(--text); font-weight: 550; }
+.attack-path-narrative strong { font-weight: 850; color: var(--text); }
+.attack-path-findings-btn {
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--accent);
+  font-size: 11px; font-weight: 800; padding: 8px 14px; border-radius: 10px; cursor: pointer; white-space: nowrap;
+}
+.attack-path-findings-btn:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(37,99,235,.1); }
+.attack-path-svg { display: block; min-width: 720px; }
+.attack-path-legend {
+  display: flex; flex-wrap: wrap; gap: 16px; padding: 8px 6px 12px; font-size: 10px; font-weight: 700; color: var(--muted);
+}
+.ap-legend-item { display: inline-flex; align-items: center; gap: 6px; }
+.ap-legend-swatch { width: 14px; height: 14px; border-radius: 4px; border: 2px solid transparent; }
+.ap-legend-exposed { border-color: #7c3aed; background: color-mix(in srgb, #7c3aed 12%, transparent); }
+.ap-legend-crown { border-color: #dc2626; background: color-mix(in srgb, #dc2626 12%, transparent); }
+.ap-edge line { stroke: #94a3b8; stroke-width: 1.75; }
+.ap-edge-label { font-size: 9px; font-weight: 750; fill: var(--muted); text-anchor: middle; }
+.ap-node { cursor: pointer; outline: none; }
+.ap-node:focus-visible .ap-hex { filter: drop-shadow(0 0 0 2px var(--accent)); }
+.ap-node.selected .ap-hex { stroke-width: 3; filter: drop-shadow(0 2px 6px rgba(37,99,235,.25)); }
+.ap-hex { fill: var(--panel); stroke: #cbd5e1; stroke-width: 2; transition: stroke .15s, fill .15s; }
+[data-theme="dark"] .ap-hex { stroke: #475569; fill: var(--panel-2); }
+.ap-node-exposed .ap-hex { stroke: #7c3aed; fill: color-mix(in srgb, #7c3aed 10%, var(--panel)); }
+.ap-node-crown .ap-hex { stroke: #dc2626; fill: color-mix(in srgb, #dc2626 10%, var(--panel)); }
+.ap-node-edge .ap-hex { stroke: #64748b; }
+.ap-hex-icon { width: 44px; height: 44px; display: grid; place-items: center; color: var(--text); }
+.ap-crown-mark { font-size: 14px; fill: #dc2626; }
+.ap-stage rect { fill: #2563eb; stroke: none; }
+.ap-stage text { font-size: 8px; font-weight: 800; fill: #fff; text-transform: capitalize; }
+.ap-stage-warn rect { fill: #ca8a04; }
+.ap-node-label { font-size: 10px; font-weight: 850; fill: var(--text); }
+.ap-node-sub { font-size: 8.5px; font-weight: 650; fill: var(--muted); }
+.attack-path-info {
+  margin-top: 4px; padding: 12px 14px; background: var(--panel);
+  border: 1px solid var(--border); border-radius: 12px; min-height: 100px;
+}
+.attack-path-info-tabs { margin-bottom: 10px; }
+.ap-info-tab {
+  font-size: 10px; font-weight: 850; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--accent); border-bottom: 2px solid var(--accent); padding-bottom: 4px;
+}
+.ap-info-title { margin: 0 0 6px; font-size: 13px; font-weight: 850; }
+.ap-info-stage { margin: 0 0 8px; font-size: 11px; color: var(--muted); }
+.ap-info-desc { margin: 0 0 10px; font-size: 12px; line-height: 1.5; color: var(--text); }
+.ap-info-evidence { font-size: 11px; }
+.ap-info-evidence ul { margin: 6px 0 0; padding-left: 18px; color: var(--muted); line-height: 1.45; }
+.ap-info-placeholder { margin: 0; font-size: 12px; color: var(--muted); font-style: italic; }
+
 .corr-cards-panel { margin: 0; padding: 12px 14px 16px; }
 .corr-graph { width: 100%; max-width: 1120px; min-width: 720px; height: auto; display: block; margin: 0 auto; }
 
@@ -1322,32 +1491,35 @@ function applySvgZoom(svg,scale){
   svg.style.display='block';
 }
 function bindDiagramZoom(panel){
-  const wrap=panel.querySelector('.corr-graph-wrap');
-  const controls=panel.querySelector('[data-zoom-controls]');
-  const svg=panel.querySelector('svg.corr-graph');
-  if(!wrap||!controls||!svg) return;
-  if(controls.dataset.bound==='1') return;
-  controls.dataset.bound='1';
-  const key='em-diagram-scale';
-  let scale=1;
-  try{scale=parseFloat(localStorage.getItem(key)||'1');}catch(e){}
-  scale=clamp(scale,0.6,2.5);
-  applySvgZoom(svg,scale);
-  const setScale=(next)=>{
-    scale=clamp(next,0.6,2.5);
+  panel.querySelectorAll('[data-zoom-controls]').forEach(controls=>{
+    if(controls.dataset.bound==='1') return;
+    const block=controls.closest('.corr-hub-wrap, .ap-hub-wrap');
+    const canvas=block?.querySelector('[data-zoom-canvas]');
+    const svg=canvas?.querySelector('svg.corr-graph, svg.attack-path-svg');
+    if(!svg) return;
+    controls.dataset.bound='1';
+    const key='em-diagram-scale-'+(controls.dataset.zoomTarget||'correlation');
+    let scale=1;
+    try{scale=parseFloat(localStorage.getItem(key)||'1');}catch(e){}
+    scale=clamp(scale,0.6,2.5);
     applySvgZoom(svg,scale);
-    try{localStorage.setItem(key,String(scale));}catch(e){}
-  };
-  controls.querySelectorAll('button[data-zoom]').forEach(btn=>{
-    btn.onclick=()=>{
-      const dir=btn.dataset.zoom;
-      setScale(scale + (dir==='in'?0.15:-0.15));
+    const setScale=(next)=>{
+      scale=clamp(next,0.6,2.5);
+      applySvgZoom(svg,scale);
+      try{localStorage.setItem(key,String(scale));}catch(e){}
     };
+    controls.querySelectorAll('button[data-zoom]').forEach(btn=>{
+      btn.onclick=()=>{
+        const dir=btn.dataset.zoom;
+        setScale(scale + (dir==='in'?0.15:-0.15));
+      };
+    });
+    controls.querySelector('[data-zoom-reset]')?.addEventListener('click',()=>setScale(1));
   });
-  controls.querySelector('[data-zoom-reset]')?.addEventListener('click',()=>setScale(1));
 }
 
 function bindCorrelationPanel(panel, stations, exposure){
+  if(panel.querySelector('.attack-path-view')) bindAttackPathPanel(panel, exposure);
   const detailEl=panel.querySelector('.corr-node-detail');
   const sc=SCANNERS.find(x=>x.id===exposure.scannerId);
   const clearSel=()=>panel.querySelectorAll('.corr-box-wrap').forEach(w=>w.classList.remove('selected'));
@@ -1396,15 +1568,17 @@ function bindCorrelationPanel(panel, stations, exposure){
     wrap.onclick=fn;
     wrap.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();fn();}};
   };
-  panel.querySelectorAll('.corr-box-wrap[data-station-idx]').forEach(w=>{
+  panel.querySelectorAll('.corr-hub-wrap .corr-box-wrap[data-station-idx]').forEach(w=>{
     bindWrap(w,()=>showStation(+w.dataset.stationIdx));
   });
-  const finding=panel.querySelector('.corr-box-wrap[data-finding]');
+  const finding=panel.querySelector('.corr-hub-wrap .corr-box-wrap[data-finding]');
   if(finding) bindWrap(finding,showFinding);
   const assetIdx=stations.findIndex(s=>s.k==='asset');
-  if(assetIdx>=0) showStation(assetIdx);
-  else if(stations.length) showStation(0);
-  else showFinding();
+  if(detailEl){
+    if(assetIdx>=0) showStation(assetIdx);
+    else if(stations.length) showStation(0);
+    else showFinding();
+  }
   panel.querySelectorAll('[data-corr-view]').forEach(btn=>{
     btn.onclick=()=>{
       const v=btn.dataset.corrView;
@@ -1414,6 +1588,48 @@ function bindCorrelationPanel(panel, stations, exposure){
     };
   });
   bindDiagramZoom(panel);
+  bindAttackPathResize(panel);
+}
+
+function bindAttackPathResize(panel){
+  const wrap=panel.querySelector('[data-ap-resize-wrap]');
+  const handle=panel.querySelector('[data-ap-resize-handle]');
+  if(!wrap||!handle||handle.dataset.bound==='1') return;
+  handle.dataset.bound='1';
+  const key='em-ap-graph-height';
+  try{
+    const h=parseInt(localStorage.getItem(key),10);
+    if(h>=160&&h<=560) wrap.style.height=h+'px';
+  }catch(e){}
+  let startY=0,startH=0;
+  const onMove=ev=>{
+    const y=ev.clientY??ev.touches?.[0]?.clientY??startY;
+    wrap.style.height=clamp(startH+(y-startY),160,560)+'px';
+  };
+  const onUp=()=>{
+    document.removeEventListener('mousemove',onMove);
+    document.removeEventListener('mouseup',onUp);
+    handle.classList.remove('is-dragging');
+    wrap.classList.remove('is-resizing');
+    try{localStorage.setItem(key,String(wrap.offsetHeight));}catch(e){}
+  };
+  const onDown=ev=>{
+    ev.preventDefault();
+    startY=ev.clientY??ev.touches?.[0]?.clientY??0;
+    startH=wrap.offsetHeight;
+    handle.classList.add('is-dragging');
+    wrap.classList.add('is-resizing');
+    document.addEventListener('mousemove',onMove);
+    document.addEventListener('mouseup',onUp);
+  };
+  handle.addEventListener('mousedown',onDown);
+  handle.addEventListener('keydown',ev=>{
+    if(ev.key!=='ArrowUp'&&ev.key!=='ArrowDown') return;
+    ev.preventDefault();
+    const d=ev.key==='ArrowDown'?24:-24;
+    wrap.style.height=clamp(wrap.offsetHeight+d,160,560)+'px';
+    try{localStorage.setItem(key,String(wrap.offsetHeight));}catch(e){}
+  });
 }
 
 function renderStationCard(s){
@@ -1471,20 +1687,38 @@ function renderDetail(e){
               <p class="corr-section-sub">${stationCountLabel(e)}${corrSub}</p>
             </div>
             <div class="corr-view-toggle">
-              <button type="button" class="corr-view-btn on" data-corr-view="graph">Path view</button>
+              <button type="button" class="corr-view-btn on" data-corr-view="graph">Diagrams</button>
               <button type="button" class="corr-view-btn" data-corr-view="cards">Cards</button>
             </div>
           </div>
-          <div class="corr-graph-wrap corr-graph-panel">
-          <div class="diagram-zoom-controls" data-zoom-controls>
-            <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
-            <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
-            <button type="button" data-zoom-reset aria-label="Reset zoom">Reset</button>
-          </div>
-          <div class="diagram-zoom-canvas" data-zoom-canvas>
-            ${renderCorrelationGraph(e)}
-          </div>
-          <div class="corr-node-detail"></div>
+          <div class="corr-graph-panel">
+            <div class="viz-stack">
+              <section class="viz-block viz-block--correlation" aria-label="Exposure correlation map">
+                <div class="viz-block-head">
+                  <h5 class="viz-block-title">Exposure correlation map</h5>
+                  <p class="viz-block-hint">How this finding connects to asset, build, identity, runtime &amp; business context</p>
+                </div>
+                <div class="corr-hub-wrap">
+                  <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="correlation">
+                    <button type="button" data-zoom="out" aria-label="Zoom correlation map out">−</button>
+                    <button type="button" data-zoom="in" aria-label="Zoom correlation map in">+</button>
+                    <button type="button" data-zoom-reset aria-label="Reset correlation zoom">Reset</button>
+                  </div>
+                  <div class="diagram-zoom-canvas" data-zoom-canvas="correlation">
+                    ${renderCorrelationGraph(e)}
+                  </div>
+                  <div class="corr-node-detail"></div>
+                </div>
+              </section>
+              <div class="viz-divider" role="separator" aria-label="Attack path section"></div>
+              <section class="viz-block viz-block--attack" aria-label="Lateral attack path">
+                <div class="viz-block-head">
+                  <h5 class="viz-block-title">Lateral attack path</h5>
+                  <p class="viz-block-hint">End-to-end movement from entry to crown-jewel impact · drag handle below graph to resize</p>
+                </div>
+                ${renderAttackPathView(e)}
+              </section>
+            </div>
           </div>
           <div class="corr-cards-panel" hidden>${e.buildPipeline?renderStationCards(e):`<div class="station-grid">${e.stations.map(s=>renderStationCard(s)).join('')}</div>`}</div>
         </div>
@@ -1594,6 +1828,331 @@ document.addEventListener('keydown',e=>{
 });
 
 render();
+
+/** Horizontal attack-path graph (lateral-movement style) per exposure. */
+
+function pathHash(s){
+  let h=0;
+  for(let i=0;i<s.length;i++) h=((h<<5)-h+s.charCodeAt(i))|0;
+  return Math.abs(h);
+}
+
+function shortHost(e){
+  const h=e.host||e.asset;
+  if(!h) return 'asset';
+  return String(h).split('.')[0].slice(0,22);
+}
+
+function shortAsset(e){
+  const a=String(e.asset);
+  if(a.length<=28) return a;
+  return a.slice(0,26)+'…';
+}
+
+function buildAttackPath(e){
+  const h=pathHash(e.id);
+  const meta=seedMeta(e);
+  const host=shortHost(e);
+  const crown=e.scannerId==='network'?'rds-payments-primary':e.scannerId==='sca'||e.scannerId==='container'?'cardholder-data-store':e.scannerId==='cspm'?'pci-audit-logs':e.scannerId==='secrets'?'prod-aws-account':'payments-ledger';
+  const crownLabel=e.scannerId==='network'?'RDS payments':e.scannerId==='dast'?'Customer PII API':e.scannerId==='sast'?'Ledger DB':e.scannerId==='iac'?'PCI S3 bucket':e.scannerId==='easm'?'Shadow admin API':e.scannerId==='secrets'?'IAM admin plane':'Crown jewel';
+
+  const mk=(id,type,icon,label,sub,stage,info,evidence)=>({id,type,icon,label,sub,stage,info,evidence});
+
+  if(e.scannerId==='network'){
+    const svc=`svc-${host.replace(/^pay-/,'').slice(0,10)}`;
+    const nodes=[
+      mk('ap0','entry','globe','Public Internet','0.0.0.0','Reconnaissance','Entry point for opportunistic and targeted scans against acmepay perimeter.',[`Scanner: ${e.tool}`,`${e.discovered} discovery`]),
+      mk('ap1','exposed','server',host,meta.ip||'10.42.x.x','Initial Access',`Vulnerable host where ${e.cve||'finding'} was detected.`,[`${e.cve||e.title}`,`Plugin ${meta.plugin||'—'}`,`KEV: ${e.kev?'yes':'no'}`]),
+      mk('ap2','actor','user',svc,`TENANT\\${svc}`,'Credential Access',`Service account running on ${host} — lateral movement pivot.`,[`Instance profile attached`,`${2+(h%3)} wildcards in policy`]),
+      mk('ap3','group','shield','Domain Admins','AD security group','Privilege Escalation','Group membership path discovered via bloodhound-style graph.',[`'${svc}' effective admin path`,`Hop count: ${2+(h%2)}`]),
+      mk('ap4','crown','database',crownLabel.split(' ')[0]||'RDS',meta.ip?.replace(/\d+$/,'200')||'10.10.10.200','Impact',`Tier-0 datastore reachable after host compromise.`,[`CMDB: ${meta.cmdb}`,`Tier 0 · PCI in scope`]),
+      mk('ap5','exit','globe','Data exfiltration','HTTPS egress','Exfiltration','Outbound channel if attacker establishes C2 or bulk export.',[`DLP: ${e.internet?'alerting':'monitoring'}`,`NetFlow to external`])
+    ];
+    const narrative=`An attacker on the <strong>public internet</strong> can reach <strong>${esc(host)}</strong> by exploiting <strong>${esc(e.cve||e.title)}</strong>, harvest credentials for <strong>${esc(svc)}</strong>, escalate via privileged groups, and access <strong>${esc(crownLabel)}</strong> for data exfiltration over HTTPS.`;
+    return {narrative, nodes, edges:edgeChain(nodes,['Scan / exploit','Control service','Member of','Lateral move','Query / export','HTTPS exfil']),findings:1+(e.crossLinks?.length||0)};
+  }
+
+  if(e.scannerId==='sca'){
+    const repo=deriveRepo(e.asset);
+    const img=e.assetDeploy||e.asset.split(':').pop()||'app-image';
+    const nodes=[
+      mk('ap0','entry','globe','Threat actor','Supply chain','Reconnaissance','Attacker targets dependency in software supply chain.',[`EPSS ${(e.epss??0.9).toFixed(2)}`]),
+      mk('ap1','exposed','git',repo,`${ORG}/${repo}`,'Dependency flaw',`Vulnerable package introduced in source — ${e.cve||'CVE'}.`,[`${e.cve||e.title}`,`Reachable in call graph`]),
+      mk('ap2','actor','flow','CI build',e.buildPipeline?.build?.buildId||`build-${1200+(h%800)}`,'Build','Pipeline packages vulnerable dependency into artifact.',[`${e.buildPipeline?.build?.system||'Jenkins'}`,`Commit ${e.commit||'—'}`]),
+      mk('ap3','resource','container',img,e.buildPipeline?.artifact?.digest?.slice(0,18)||'sha256:…','Deploy artifact','Image running in production cluster.',[`${e.buildPipeline?.deployment?.cluster||'eks-prod-use1'}`,`${e.buildPipeline?.deployment?.podCount||12} pods`]),
+      mk('ap4','crown','database',crownLabel,'In-cluster','Impact',`Loaded vulnerable library serves payment traffic.`,[`Runtime SBOM match`,`Jira ${e.jira||meta.jira}`]),
+      mk('ap5','exit','zap','Exploit attempt','KEV / EPSS','Exploitation',`Active exploitation risk if JNDI or RCE chain succeeds.`,[`KEV: ${e.kev?'listed':'—'}`,`WAF ${e.internet?'compensating':''}`])
+    ];
+    const narrative=`An attacker can chain <strong>${esc(e.cve||'the vulnerable dependency')}</strong> from <strong>${esc(repo)}</strong> through the <strong>CI/CD pipeline</strong> into <strong>${esc(img)}</strong> running in prod, then reach <strong>${esc(crownLabel)}</strong> via the payments API path.`;
+    return {narrative, nodes, edges:edgeChain(nodes,['Poison dep','Merge / build','Push image','Deploy pods','Invoke vuln lib','Exploit / exfil']),findings:1+(e.crossLinks?.length||0)};
+  }
+
+  if(e.scannerId==='sast'){
+    const repo=deriveRepo(e.asset);
+    const file=e.title.includes('·')?e.title.split('·').pop().trim():'src/.../handler.java';
+    const nodes=[
+      mk('ap0','entry','globe','Internet client',e.internet?'ALB path':'Internal','Initial access','User-controlled input reaches vulnerable sink.',[`${e.tool} rule hit`]),
+      mk('ap1','exposed','git',repo,`${ORG}/${repo}`,'Code flaw',`Static flaw in ${file}.`,[`PR #${e.pr||1100+(h%200)}`,`Commit ${e.commit||'—'}`]),
+      mk('ap2','actor','code',shortAsset(e),e.internet?'prod':'staging','Deployed service','Vulnerable code path ships to runtime.',[`Branch: main → prod`,`Contrast / IAST optional`]),
+      mk('ap3','resource','api','/api/v1/charge','payments-api','Exploit path',`HTTP entry invokes taint sink thousands of times per day.`,[`Taint: source → sink`,`~${2400+(h%800)} calls/day`]),
+      mk('ap4','crown','database',crownLabel,'Tier 0','Impact',`Successful exploitation yields query or modify on ledger data.`,[`${e.jira||meta.jira}`,`Owner: ${e.owner}`]),
+      mk('ap5','exit','shield','WAF / RASP',e.internet?'Edge control':'N/A','Compensating',`Runtime control may block exploit until patch lands.`,[`Virtual patch optional`])
+    ];
+    const narrative=`An attacker can send crafted input to <strong>${esc(shortAsset(e))}</strong>, trigger the flaw in <strong>${esc(file)}</strong> on <strong>${esc(repo)}</strong>, and reach <strong>${esc(crownLabel)}</strong> through the production API path.`;
+    return {narrative, nodes, edges:edgeChain(nodes,['HTTP request','Merged PR','Deploy','Invoke sink','SQL/XXE impact','Blocked?']),findings:1+(e.crossLinks?.length||0)};
+  }
+
+  if(e.scannerId==='dast'){
+    const url=e.asset.startsWith('http')?e.asset.replace(/^https?:\/\//,'').split('/')[0]:shortAsset(e);
+    const path=e.asset.includes('/')?('/'+e.asset.split('/').slice(3).join('/').slice(0,40)):e.title.includes('·')?e.title.split('·')[1]?.trim():'/api/...';
+    const nodes=[
+      mk('ap0','entry','globe','Public Internet','Attacker','Reconnaissance','External probe discovers exploitable behavior.',[`${e.tool} live test`]),
+      mk('ap1','exposed','globe',url,path.slice(0,36),'Exploit surface',`${e.title} confirmed against running app.`,[`Live exploit proof`,`Internet-facing: ${e.internet?'yes':'no'}`]),
+      mk('ap2','actor','api','API gateway','Apigee / ALB','AuthZ bypass',`Gateway routes to backend with weak authorization.`,[`Shadow API check`,`BOLA / authz`]),
+      mk('ap3','resource','server','payments-api','K8s service','Backend','Microservice executes vulnerable handler.',[`Owner: ${e.owner}`,`${e.jira||''}`]),
+      mk('ap4','crown','database',crownLabel,'Customer data','Impact',`Successful attack reads or mutates customer records.`,[`PCI / PII tags`,`P1 SLA`]),
+      mk('ap5','exit','shield','WAF rule',e.internet?'Virtual patch':'Policy','Containment',`Edge control can block pattern while code fix ships.`,[`SecOps runbook`])
+    ];
+    const narrative=`An attacker on the <strong>internet</strong> can exploit <strong>${esc(e.title)}</strong> at <strong>${esc(path)}</strong> on <strong>${esc(url)}</strong>, pivot through the API tier, and access <strong>${esc(crownLabel)}</strong>.`;
+    return {narrative, nodes, edges:edgeChain(nodes,['Probe','Exploit','Route','Backend call','Data access','WAF block']),findings:1+(e.crossLinks?.length||0)};
+  }
+
+  if(e.scannerId==='container'){
+    const repo=deriveRepo(e.asset);
+    const img=shortAsset(e);
+    const nodes=[
+      mk('ap0','entry','git',repo,`${ORG}/${repo}`,'Build context','Image built from repo — vuln introduced in layer.',[`Dockerfile / CI`,`Commit ${e.commit||'—'}`]),
+      mk('ap1','exposed','container',img.split(':')[0]||img,e.buildPipeline?.artifact?.digest?.slice(0,20)||'image:tag','Vulnerable image',`${e.cve||e.title} in running image.`,[`Registry scan`,`Layer: app`]),
+      mk('ap2','actor','container','JFrog prod',e.buildPipeline?.artifact?.registry||'registry','Registry','Artifact promoted to prod registry.',[`Digest pinned`]),
+      mk('ap3','resource','cloud',e.buildPipeline?.deployment?.cluster||'eks-prod-use1',e.buildPipeline?.deployment?.namespace||'payments','Runtime','Pods execute vulnerable image.',[`${e.buildPipeline?.deployment?.podCount||12} pods`,`Falco watch`]),
+      mk('ap4','crown','database',crownLabel,'In-cluster','Impact',`Compromised workload reaches sensitive volumes or APIs.`,[`CNAPP path length ${2+(h%2)}`]),
+      mk('ap5','exit','zap','C2 / exfil',e.internet?'Egress':'Lateral','Post-exploit',`Outbound from cluster if runtime compromised.`,[`NetworkPolicy gap?`])
+    ];
+    const narrative=`An attacker who compromises <strong>${esc(img)}</strong> (built from <strong>${esc(repo)}</strong>) can escape the container boundary, move through <strong>${esc(e.buildPipeline?.deployment?.cluster||'the prod cluster')}</strong>, and reach <strong>${esc(crownLabel)}</strong>.`;
+    return {narrative, nodes, edges:edgeChain(nodes,['Build','Scan fail','Push','Deploy','Privilege / API','Exfil']),findings:1+(e.crossLinks?.length||0)};
+  }
+
+  if(e.scannerId==='iac'){
+    const repo=deriveRepo(e.asset);
+    const nodes=[
+      mk('ap0','entry','git',repo,`terraform/…`,'Misconfig in code',`Policy violation in IaC before apply.`,[`${e.tool}`,`PR gate`]),
+      mk('ap1','exposed','code','tf module',shortAsset(e).slice(0,24),'Plan / apply',`Terraform plans risky change to ${shortAsset(e).slice(0,30)}.`,[`Checkov / tfsec`]),
+      mk('ap2','actor','cloud','prod-payments','112233445566','Target account',`Change targets production payments account.`,[`Account criticality: high`]),
+      mk('ap3','resource','database',shortAsset(e).replace(/^arn:aws:[^:]+::/,'').slice(0,22),'Cloud resource','Deployed resource exposes data or ingress.',[`Drift: ${h%3?'none':'possible'}`]),
+      mk('ap4','crown','database',crownLabel,'PCI scope','Impact',`Public exposure or weak encryption on crown-jewel store.`,[`Blast radius: internet`]),
+      mk('ap5','exit','shield','Policy guard','CI block','Prevent','Pipeline can block apply before deploy.',[`OPA / Sentinel`])
+    ];
+    const narrative=`If <strong>${esc(e.title)}</strong> in <strong>${esc(repo)}</strong> is applied, an attacker could reach <strong>${esc(crownLabel)}</strong> via <strong>${esc(shortAsset(e).slice(0,40))}</strong> in the production account.`;
+    return {narrative, nodes, edges:edgeChain(nodes,['Commit','Plan','Apply','Misconfig live','Data exposure','Guardrail']),findings:1};
+  }
+
+  if(e.scannerId==='cspm'){
+    const nodes=[
+      mk('ap0','entry','globe','Internet','0.0.0.0/0','Initial access','Public exposure or toxic combination entry.',[`CNAPP graph`]),
+      mk('ap1','exposed','cloud',shortAsset(e).slice(0,20),'AWS resource','Misconfiguration',`${e.title} — posture finding.`,[`Toxic combo: ${h%2?'yes':'review'}`]),
+      mk('ap2','actor','user','over-priv role','IAM *:*','Identity','Role bridges resources in attack graph.',[`IAM analyzer`]),
+      mk('ap3','resource','server','workload','EKS / EC2','Lateral','Compute can reach datastore via network + identity.',[`Attack path len ${3+(h%3)}`]),
+      mk('ap4','crown','database',crownLabel,'Data plane','Impact',`Crown-jewel data store at end of graph path.`,[`${e.jira||meta.jira}`]),
+      mk('ap5','exit','shield','Auto-remediate','Lambda','Containment',`Runbook can isolate SG or policy while ticket open.`,[`Wiz / Prisma`])
+    ];
+    const narrative=`An attacker can abuse <strong>${esc(e.title)}</strong> on <strong>${esc(shortAsset(e))}</strong>, chain IAM and network edges in the cloud graph, and reach <strong>${esc(crownLabel)}</strong>.`;
+    return {narrative, nodes, edges:edgeChain(nodes,['Discover','Exploit misconfig','Assume role','Pivot','Read data','Remediate']),findings:1+(e.crossLinks?.length||0)};
+  }
+
+  if(e.scannerId==='easm'){
+    const nodes=[
+      mk('ap0','entry','globe','Internet','Scanner','Discovery',`Outside-in discovery of exposed asset.`,[`EASM / Randori`]),
+      mk('ap1','exposed','globe',shortHost(e),e.internet?'Public':'Unknown',`Exposed service`,`Asset not in CMDB or forgotten surface.`,[`Shadow IT confidence: medium`]),
+      mk('ap2','actor','user','attacker','Opportunistic','Exploitation',`Known CVE or weak auth on exposed service.`,[`${e.cve||'misconfig'}`]),
+      mk('ap3','resource','server','internal-bridge','VPN / peer','Pivot',`May bridge to internal acmepay network.`,[`WHOIS / CT logs`]),
+      mk('ap4','crown','database',crownLabel,'Internal API','Impact',`Reach internal admin or payment APIs.`,[`Attribution pending`]),
+      mk('ap5','exit','shield','Takedown','Brand / Net','Response',`Perimeter block or decommission asset.`,[`SecOps + owner`])
+    ];
+    const narrative=`An external attacker can discover <strong>${esc(shortHost(e))}</strong>, exploit the exposure, and pivot toward <strong>${esc(crownLabel)}</strong> — often via shadow infrastructure.`;
+    return {narrative, nodes, edges:edgeChain(nodes,['OSINT','Scan','Exploit','Bridge','Internal API','Takedown']),findings:1};
+  }
+
+  if(e.scannerId==='secrets'){
+    const repo=deriveRepo(e.asset);
+    const nodes=[
+      mk('ap0','entry','git',repo,'History / branch','Leak origin',`Secret committed to version control.`,[`${e.tool}`,`Valid: live`]),
+      mk('ap1','exposed','git','leaked key','AKIA… / token','Credential',`Credential maps to cloud or SaaS principal.`,[`Rotation SLA: urgent`]),
+      mk('ap2','actor','user','svc-deploy-prod','IAM user','Identity',`Principal has broad permissions.`,[`AdminAccess: ${h%2?'yes':'review'}`]),
+      mk('ap3','resource','cloud','AWS APIs','us-east-1','API abuse',`Attacker invokes APIs with stolen key.`,[`CloudTrail audit`]),
+      mk('ap4','crown','database',crownLabel,'Data exfil','Impact',`Read S3, RDS, or secrets manager.`,[`P0 incident`]),
+      mk('ap5','exit','shield','Revoke + rotate','Vault','Remediation',`Only fix is revocation — no virtual patch.`,[`Pre-receive block`])
+    ];
+    const narrative=`An attacker with the leaked secret from <strong>${esc(repo)}</strong> can authenticate as <strong>production IAM</strong>, invoke cloud APIs, and exfiltrate from <strong>${esc(crownLabel)}</strong>.`;
+    return {narrative, nodes, edges:edgeChain(nodes,['Commit secret','Clone repo','Use key','API calls','Exfil','Rotate']),findings:1};
+  }
+
+  const nodes=[
+    mk('ap0','entry','globe','Entry','Attacker','Start','Attack path entry.',[]),
+    mk('ap1','exposed','server',shortHost(e),meta.ip||'—','Vulnerability',e.title,[]),
+    mk('ap2','crown','database',crownLabel,'Target','Impact','Critical asset.',[])
+  ];
+  return {narrative:`Attack path for <strong>${esc(e.title)}</strong> on <strong>${esc(shortHost(e))}</strong>.`,nodes,edges:edgeChain(nodes,['Step 1','Step 2']),findings:1};
+}
+
+function edgeChain(nodes,labels){
+  const edges=[];
+  for(let i=0;i<nodes.length-1;i++){
+    edges.push({from:nodes[i].id,to:nodes[i+1].id,label:labels[i]||'Next'});
+  }
+  return edges;
+}
+
+function apNodeClass(type){
+  if(type==='exposed') return 'ap-node-exposed';
+  if(type==='crown') return 'ap-node-crown';
+  if(type==='entry'||type==='exit') return 'ap-node-edge';
+  return 'ap-node-mid';
+}
+
+function apHexPoints(cx,cy,r){
+  const pts=[];
+  for(let i=0;i<6;i++){
+    const a=Math.PI/180*(60*i-30);
+    pts.push(`${(cx+r*Math.cos(a)).toFixed(1)},${(cy+r*Math.sin(a)).toFixed(1)}`);
+  }
+  return pts.join(' ');
+}
+
+function renderAttackPathSvg(e,path){
+  const nodes=path.nodes;
+  const edges=path.edges;
+  const gap=148;
+  const r=34;
+  const y=118;
+  const stageY=52;
+  const labelY=168;
+  const W=Math.max(920,80+gap*(nodes.length-1)+80);
+  const H=220;
+  const uid=e.id.replace(/[^a-zA-Z0-9]/g,'');
+
+  const positions={};
+  nodes.forEach((n,i)=>{
+    positions[n.id]={x:90+i*gap,y,cy:y};
+  });
+
+  const edgeSvg=edges.map(ed=>{
+    const a=positions[ed.from],b=positions[ed.to];
+    if(!a||!b) return '';
+    const x1=a.x+r+8,x2=b.x-r-8;
+    const mx=(x1+x2)/2;
+    return `<g class="ap-edge">
+      <line x1="${x1}" y1="${a.y}" x2="${x2}" y2="${b.y}" marker-end="url(#ap-arrow-${uid})"/>
+      <text x="${mx}" y="${a.y-10}" class="ap-edge-label">${esc(ed.label)}</text>
+    </g>`;
+  }).join('');
+
+  const nodeSvg=nodes.map(n=>{
+    const p=positions[n.id];
+    const cls=apNodeClass(n.type);
+    const crown=n.type==='crown'?`<text x="${p.x}" y="${p.y-44}" class="ap-crown-mark" text-anchor="middle">♛</text>`:'';
+    const stageLabel=n.stage?esc(n.stage.length>22?n.stage.slice(0,21)+'…':n.stage):'';
+    const stageWarn=['Credential Access','Privilege Escalation','Exploitation','Identity'].some(s=>(n.stage||'').includes(s));
+    const stage=n.stage?`<g class="ap-stage${stageWarn?' ap-stage-warn':''}"><rect x="${p.x-54}" y="${stageY}" width="108" height="20" rx="10"/><text x="${p.x}" y="${stageY+14}" text-anchor="middle">${stageLabel}</text></g>`:'';
+    return `<g class="ap-node ${cls}" data-ap-node="${n.id}" tabindex="0" role="button" aria-label="${esc(n.label)}">
+      ${stage}
+      ${crown}
+      <polygon points="${apHexPoints(p.x,p.y,r)}" class="ap-hex"/>
+      <foreignObject x="${p.x-22}" y="${p.y-22}" width="44" height="44">
+        <div xmlns="http://www.w3.org/1999/xhtml" class="ap-hex-icon">${icon(n.icon,22)}</div>
+      </foreignObject>
+      <text x="${p.x}" y="${labelY}" class="ap-node-label" text-anchor="middle">${esc(n.label)}</text>
+      <text x="${p.x}" y="${labelY+14}" class="ap-node-sub" text-anchor="middle">${esc(n.sub||'')}</text>
+    </g>`;
+  }).join('');
+
+  return `<svg class="attack-path-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" aria-label="Attack path for ${esc(e.id)}">
+    <defs>
+      <marker id="ap-arrow-${uid}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#64748b"/></marker>
+    </defs>
+    <g class="ap-edges">${edgeSvg}</g>
+    <g class="ap-nodes">${nodeSvg}</g>
+  </svg>`;
+}
+
+function renderAttackPathView(e){
+  const path=buildAttackPath(e);
+  return `
+    <div class="attack-path-view" data-exp-id="${e.id}">
+      <div class="attack-path-summary">
+        <div class="attack-path-summary-text">
+          <span class="attack-path-ai-badge">AI</span>
+          <p class="attack-path-narrative">${path.narrative}</p>
+        </div>
+        <button type="button" class="attack-path-findings-btn" data-findings-jump="${e.id}">View Findings (${path.findings})</button>
+      </div>
+      <div class="ap-hub-wrap" data-ap-resize-wrap>
+        <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="attack-path">
+          <button type="button" data-zoom="out" aria-label="Zoom attack path out">−</button>
+          <button type="button" data-zoom="in" aria-label="Zoom attack path in">+</button>
+          <button type="button" data-zoom-reset aria-label="Reset attack path zoom">Reset</button>
+        </div>
+        <div class="diagram-zoom-canvas attack-path-graph-scroll" data-zoom-canvas="attack-path">
+          ${renderAttackPathSvg(e,path)}
+        </div>
+      </div>
+      <div class="viz-resize-handle" data-ap-resize-handle role="separator" aria-orientation="horizontal" aria-label="Resize attack path diagram" tabindex="0"></div>
+      <div class="attack-path-legend">
+        <span class="ap-legend-item"><span class="ap-legend-swatch ap-legend-exposed"></span> Exposed asset</span>
+        <span class="ap-legend-item"><span class="ap-legend-swatch ap-legend-crown"></span> Critical asset</span>
+      </div>
+      <div class="attack-path-info">
+        <div class="attack-path-info-tabs"><span class="ap-info-tab on">Information</span></div>
+        <div class="attack-path-info-body" data-ap-info>
+          <p class="ap-info-placeholder">Select a step in the attack path to see technique context and evidence.</p>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderAttackPathNodeInfo(node){
+  const ev=(node.evidence||[]).map(x=>`<li>${esc(x)}</li>`).join('');
+  return `
+    <h5 class="ap-info-title">${esc(node.label)}</h5>
+    <p class="ap-info-stage"><strong>Stage:</strong> ${esc(node.stage||'—')}</p>
+    <p class="ap-info-desc">${esc(node.info||'')}</p>
+    ${ev?`<div class="ap-info-evidence"><strong>Evidence</strong><ul>${ev}</ul></div>`:''}`;
+}
+
+function bindAttackPathPanel(panel,e){
+  const view=panel.querySelector('.attack-path-view');
+  if(!view) return;
+  const path=buildAttackPath(e);
+  const infoEl=view.querySelector('[data-ap-info]');
+  const selectNode=(nodeId)=>{
+    const node=path.nodes.find(n=>n.id===nodeId);
+    if(!node||!infoEl) return;
+    view.querySelectorAll('.ap-node').forEach(g=>g.classList.toggle('selected',g.dataset.apNode===nodeId));
+    infoEl.innerHTML=renderAttackPathNodeInfo(node);
+  };
+  view.querySelectorAll('.ap-node').forEach(g=>{
+    const fn=()=>selectNode(g.dataset.apNode);
+    g.onclick=fn;
+    g.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();fn();}};
+  });
+  if(path.nodes[1]) selectNode(path.nodes[1].id);
+  view.querySelector('[data-findings-jump]')?.addEventListener('click',()=>{
+    if(infoEl){
+      infoEl.innerHTML=`
+        <h5 class="ap-info-title">Scanner finding</h5>
+        <p class="ap-info-desc">${esc(e.tool)} — ${esc(e.title)}</p>
+        <div class="ap-info-evidence"><strong>Evidence</strong><ul>
+          <li>${e.cve?esc(e.cve):`Severity: ${esc(e.severity)}`}</li>
+          <li>Exposure ${esc(e.id)} · score ${e.score.toFixed(1)}</li>
+          ${(e.crossLinks||[]).map(c=>`<li>Also: ${esc(c.id)} (${esc(c.by)})</li>`).join('')}
+        </ul></div>`;
+      view.querySelectorAll('.ap-node').forEach(g=>g.classList.remove('selected'));
+    }
+    const hub=panel.querySelector('.corr-hub-wrap');
+    hub?.scrollIntoView({behavior:'smooth',block:'nearest'});
+    const finding=panel.querySelector('.corr-hub-wrap .corr-box-wrap[data-finding]');
+    finding?.click();
+  });
+}
 
 </script>
 </body>
