@@ -48,9 +48,25 @@ const ICONS = {
 const SCM_SCANNERS = new Set(['sca','sast','secrets','container']);
 /** Vulns discovered in code/IaC — asset has origin (source) + deploy artifact. */
 const CODE_ORIGIN_SCANNERS = new Set(['sca','sast','container','iac']);
+/** Per-scanner title for the correlation / attack-path diagram in exposure detail. */
+const ATTACK_PATH_TITLES = {
+  network: 'Infrastructure Attack Path Analysis',
+  sca: 'Supply Chain Attack Path Analysis',
+  sast: 'Application Code Path Analysis',
+  dast: 'Web Exploit Path Analysis',
+  container: 'Container & Image Attack Path Analysis',
+  iac: 'IaC Deploy Blast Path Analysis',
+  cspm: 'Cloud Toxic Path Analysis',
+  easm: 'External Attack Surface Path Analysis',
+  secrets: 'Secret Exposure Path Analysis'
+};
 const SCM_PLATFORM = { sca:'GitHub Enterprise', sast:'GitHub Enterprise', secrets:'GitHub · GitLab', container:'GitHub Actions → JFrog', iac:'GitHub Enterprise' };
 const ORG = 'acme-payments';
 const DOMAIN = 'acmepay.com';
+
+function attackPathSectionTitle(scannerId){
+  return ATTACK_PATH_TITLES[scannerId] || 'Attack Path Analysis';
+}
 
 function seedMeta(seed){
   const n=(seed.id.charCodeAt(4)||48)*19+(seed.id.charCodeAt(5)||48);
@@ -593,7 +609,7 @@ function renderCorrelationGraph(e){
     </div>
   </foreignObject>`;
 
-  return `<svg class="corr-graph" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" aria-label="Correlation graph for ${esc(e.id)}">
+  return `<svg class="corr-graph" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" aria-label="${esc(attackPathSectionTitle(e.scannerId))} for ${esc(e.id)}">
     <defs>
       <marker id="corr-flow-${uid}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="var(--correlation)"/></marker>
       <marker id="corr-spoke-${uid}" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0,0 L7,3.5 L0,7 Z" fill="var(--correlation)" opacity=".8"/></marker>
@@ -767,14 +783,18 @@ function renderDetail(e){
         <button type="button" class="detail-close" aria-label="Close detail" data-close>&times;</button>
       </div>
       <div class="detail-section corr-panel" data-exp-id="${e.id}">
-        <div class="corr-section-head">
-          <h4>Correlation breakdown (${stationCountLabel(e)}${corrSub})</h4>
-          <div class="corr-view-toggle">
-            <button type="button" class="corr-view-btn on" data-corr-view="graph">Graph</button>
-            <button type="button" class="corr-view-btn" data-corr-view="cards">Cards</button>
+        <div class="corr-panel-shell">
+          <div class="corr-panel-header">
+            <div class="corr-diagram-banner" aria-labelledby="attack-path-${e.id}">
+              <h4 class="attack-path-title" id="attack-path-${e.id}">${esc(attackPathSectionTitle(e.scannerId))}</h4>
+              <p class="corr-section-sub">${stationCountLabel(e)}${corrSub}</p>
+            </div>
+            <div class="corr-view-toggle">
+              <button type="button" class="corr-view-btn on" data-corr-view="graph">Path view</button>
+              <button type="button" class="corr-view-btn" data-corr-view="cards">Cards</button>
+            </div>
           </div>
-        </div>
-        <div class="corr-graph-wrap corr-graph-panel">
+          <div class="corr-graph-wrap corr-graph-panel">
           <div class="diagram-zoom-controls" data-zoom-controls>
             <button type="button" data-zoom="out" aria-label="Zoom out">−</button>
             <button type="button" data-zoom="in" aria-label="Zoom in">+</button>
@@ -784,8 +804,9 @@ function renderDetail(e){
             ${renderCorrelationGraph(e)}
           </div>
           <div class="corr-node-detail"></div>
+          </div>
+          <div class="corr-cards-panel" hidden>${e.buildPipeline?renderStationCards(e):`<div class="station-grid">${e.stations.map(s=>renderStationCard(s)).join('')}</div>`}</div>
         </div>
-        <div class="corr-cards-panel" hidden>${e.buildPipeline?renderStationCards(e):`<div class="station-grid">${e.stations.map(s=>renderStationCard(s)).join('')}</div>`}</div>
       </div>
       <div class="detail-section"><h4>Scoring formula</h4><div class="formula-chain">${pills}<span class="formula-eq">= ${e.score.toFixed(1)}</span></div></div>
       <div class="detail-section"><h4>Mobilization plan</h4><div class="outcome-row">${outs}</div></div>
