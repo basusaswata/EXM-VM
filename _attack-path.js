@@ -43,17 +43,23 @@ function buildAttackPath(e){
 
   if(e.scannerId==='sca'){
     const repo=deriveRepo(e.asset);
-    const img=e.assetDeploy||e.asset.split(':').pop()||'app-image';
+    const svc=repo||shortAsset(e).split(':')[0];
+    const img=e.assetDeploy||e.asset;
+    const pkg=e.title.toLowerCase().includes('log4j')?'log4j-core 2.14.1'
+      :e.title.includes('·')?e.title.split('·')[0].trim().slice(0,28)
+      :'vulnerable dependency';
+    const edgeHost=e.internet?`api.${DOMAIN}`:'internal-gateway.acmepay.internal';
+    const entryPath=e.title.toLowerCase().includes('log4j')?'/api/v1/charge · JNDI':'HTTP entry · reachable';
     const nodes=[
-      mk('ap0','entry','globe','Threat actor','Supply chain','Reconnaissance','Attacker targets dependency in software supply chain.',[`EPSS ${(e.epss??0.9).toFixed(2)}`]),
-      mk('ap1','exposed','git',repo,`${ORG}/${repo}`,'Dependency flaw',`Vulnerable package introduced in source — ${e.cve||'CVE'}.`,[`${e.cve||e.title}`,`Reachable in call graph`]),
-      mk('ap2','actor','flow','CI build',e.buildPipeline?.build?.buildId||`build-${1200+(h%800)}`,'Build','Pipeline packages vulnerable dependency into artifact.',[`${e.buildPipeline?.build?.system||'Jenkins'}`,`Commit ${e.commit||'—'}`]),
-      mk('ap3','resource','container',img,e.buildPipeline?.artifact?.digest?.slice(0,18)||'sha256:…','Deploy artifact','Image running in production cluster.',[`${e.buildPipeline?.deployment?.cluster||'eks-prod-use1'}`,`${e.buildPipeline?.deployment?.podCount||12} pods`]),
-      mk('ap4','crown','database',crownLabel,'In-cluster','Impact',`Loaded vulnerable library serves payment traffic.`,[`Runtime SBOM match`,`Jira ${e.jira||meta.jira}`]),
-      mk('ap5','exit','zap','Exploit attempt','KEV / EPSS','Exploitation',`Active exploitation risk if JNDI or RCE chain succeeds.`,[`KEV: ${e.kev?'listed':'—'}`,`WAF ${e.internet?'compensating':''}`])
+      mk('ap0','entry','globe','Public Internet','0.0.0.0','Initial access','Attacker reaches the app from outside — not the supply-chain path where SCA found the dependency.',[`Internet-facing: ${e.internet?'yes':'no'}`,`EPSS ${(e.epss??0.9).toFixed(2)}`]),
+      mk('ap1','exposed','globe',edgeHost,entryPath,'Exploit surface',`Internet-facing route to the service that loads ${pkg}.`,[`ALB / API gateway`,`${e.cve||e.title}`]),
+      mk('ap2','actor','server',svc,e.internet?'prod pods':'runtime','Application',`Running service contains the vulnerable component (image ${img}).`,[`${e.buildPipeline?.deployment?.cluster||'eks-prod-use1'}`,`${e.buildPipeline?.deployment?.podCount||12} pods`]),
+      mk('ap3','resource','package',pkg.split(' ')[0]||pkg,'Loaded in JVM','Component exploit',`${pkg} is loaded and invoked from an attacker-reachable path — where exploitation happens.`,[`Runtime SBOM match`,`Reachable: call graph`,`Introduced in ${ORG}/${repo} · see correlation map`]),
+      mk('ap4','crown','database',crownLabel,'Tier 0','Impact',`Successful RCE or data access from compromised app tier.`,[`Jira ${e.jira||meta.jira}`,`KEV: ${e.kev?'listed':'—'}`]),
+      mk('ap5','exit','globe','Data exfiltration','HTTPS egress','Exfiltration',`Outbound channel if attacker establishes shell or queries datastore.`,[`WAF ${e.internet?'may compensate':''}`,`Runtime sensor watch`])
     ];
-    const narrative=`An attacker can chain <strong>${esc(e.cve||'the vulnerable dependency')}</strong> from <strong>${esc(repo)}</strong> through the <strong>CI/CD pipeline</strong> into <strong>${esc(img)}</strong> running in prod, then reach <strong>${esc(crownLabel)}</strong> via the payments API path.`;
-    return {narrative, nodes, edges:edgeChain(nodes,['Poison dep','Merge / build','Push image','Deploy pods','Invoke vuln lib','Exploit / exfil']),findings:1+(e.crossLinks?.length||0)};
+    const narrative=`An attacker on the <strong>public internet</strong> can reach <strong>${esc(edgeHost)}</strong>, exploit <strong>${esc(e.cve||pkg)}</strong> in the running <strong>${esc(svc)}</strong> workload (component already deployed in prod), and access <strong>${esc(crownLabel)}</strong>. The dependency was introduced in source at <strong>${esc(repo)}</strong> — that lineage is in the correlation map, not this runtime attack path.`;
+    return {narrative, nodes, edges:edgeChain(nodes,['Probe / scan','HTTP request','Route to app','Trigger vuln lib','Access datastore','HTTPS exfil']),findings:1+(e.crossLinks?.length||0)};
   }
 
   if(e.scannerId==='sast'){
@@ -252,7 +258,10 @@ function renderAttackPathView(e){
           <span class="attack-path-ai-badge">AI</span>
           <p class="attack-path-narrative">${path.narrative}</p>
         </div>
-        <button type="button" class="attack-path-findings-btn" data-findings-jump="${e.id}">View Findings (${path.findings})</button>
+        <div class="attack-path-summary-actions">
+          <button type="button" class="attack-path-ai-open-btn" data-ai-open>Ask AI</button>
+          <button type="button" class="attack-path-findings-btn" data-findings-jump="${e.id}">View Findings (${path.findings})</button>
+        </div>
       </div>
       <div class="ap-hub-wrap" data-ap-resize-wrap>
         <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="attack-path">

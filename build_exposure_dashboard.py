@@ -643,7 +643,7 @@ function applySvgZoom(svg,scale){
 function bindDiagramZoom(panel){
   panel.querySelectorAll('[data-zoom-controls]').forEach(controls=>{
     if(controls.dataset.bound==='1') return;
-    const block=controls.closest('.corr-hub-wrap, .ap-hub-wrap');
+    const block=controls.closest('.corr-hub-main, .ap-hub-wrap');
     const canvas=block?.querySelector('[data-zoom-canvas]');
     const svg=canvas?.querySelector('svg.corr-graph, svg.attack-path-svg');
     if(!svg) return;
@@ -670,6 +670,8 @@ function bindDiagramZoom(panel){
 
 function bindCorrelationPanel(panel, stations, exposure){
   if(panel.querySelector('.attack-path-view')) bindAttackPathPanel(panel, exposure);
+  bindAiExplainChat(panel, exposure);
+  bindRemediationPanel(panel, exposure);
   const detailEl=panel.querySelector('.corr-node-detail');
   const sc=SCANNERS.find(x=>x.id===exposure.scannerId);
   const clearSel=()=>panel.querySelectorAll('.corr-box-wrap').forEach(w=>w.classList.remove('selected'));
@@ -848,16 +850,19 @@ function renderDetail(e){
                   <h5 class="viz-block-title">Exposure correlation map</h5>
                   <p class="viz-block-hint">How this finding connects to asset, build, identity, runtime &amp; business context</p>
                 </div>
-                <div class="corr-hub-wrap">
-                  <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="correlation">
-                    <button type="button" data-zoom="out" aria-label="Zoom correlation map out">−</button>
-                    <button type="button" data-zoom="in" aria-label="Zoom correlation map in">+</button>
-                    <button type="button" data-zoom-reset aria-label="Reset correlation zoom">Reset</button>
+                <div class="corr-hub-wrap corr-hub-split">
+                  <div class="corr-hub-main">
+                    <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="correlation">
+                      <button type="button" data-zoom="out" aria-label="Zoom correlation map out">−</button>
+                      <button type="button" data-zoom="in" aria-label="Zoom correlation map in">+</button>
+                      <button type="button" data-zoom-reset aria-label="Reset correlation zoom">Reset</button>
+                    </div>
+                    <div class="diagram-zoom-canvas" data-zoom-canvas="correlation">
+                      ${renderCorrelationGraph(e)}
+                    </div>
+                    <div class="corr-node-detail"></div>
                   </div>
-                  <div class="diagram-zoom-canvas" data-zoom-canvas="correlation">
-                    ${renderCorrelationGraph(e)}
-                  </div>
-                  <div class="corr-node-detail"></div>
+                  ${renderRemediationPanel(e)}
                 </div>
               </section>
               <div class="viz-divider" role="separator" aria-label="Attack path section"></div>
@@ -871,6 +876,7 @@ function renderDetail(e){
             </div>
           </div>
           <div class="corr-cards-panel" hidden>${e.buildPipeline?renderStationCards(e):`<div class="station-grid">${e.stations.map(s=>renderStationCard(s)).join('')}</div>`}</div>
+          ${renderAiExplainChat(e)}
         </div>
       </div>
       <div class="detail-section"><h4>Scoring formula</h4><div class="formula-chain">${pills}<span class="formula-eq">= ${e.score.toFixed(1)}</span></div></div>
@@ -988,6 +994,10 @@ APP_JS = (
     + APP_JS_BODY
     + "\n"
     + (ROOT / "_attack-path.js").read_text()
+    + "\n"
+    + (ROOT / "_ai-chat.js").read_text()
+    + "\n"
+    + (ROOT / "_remediation.js").read_text()
 )
 
 CSS = open(ROOT / "_dashboard_css.txt").read() if (ROOT / "_dashboard_css.txt").exists() else ""
@@ -995,6 +1005,26 @@ CSS = open(ROOT / "_dashboard_css.txt").read() if (ROOT / "_dashboard_css.txt").
 # inline CSS if file missing - write css in same script
 if not CSS:
     CSS = (ROOT / "exposure-dashboard.css").read_text() if (ROOT / "exposure-dashboard.css").exists() else ""
+
+PRODUCT_BANNER = '''
+<div class="product-banner" role="banner" aria-label="Exposure Management capabilities">
+  <div class="product-banner-inner">
+    <div class="product-banner-item">
+      <span class="product-banner-mark" aria-hidden="true">1</span>
+      <span class="product-banner-label">Comprehensive Visibility</span>
+    </div>
+    <span class="product-banner-sep" aria-hidden="true"></span>
+    <div class="product-banner-item">
+      <span class="product-banner-mark" aria-hidden="true">2</span>
+      <span class="product-banner-label">Contextual Intelligence</span>
+    </div>
+    <span class="product-banner-sep" aria-hidden="true"></span>
+    <div class="product-banner-item">
+      <span class="product-banner-mark" aria-hidden="true">3</span>
+      <span class="product-banner-label">Coordinated Remediation</span>
+    </div>
+  </div>
+</div>'''
 
 HTML = f'''<!DOCTYPE html>
 <html lang="en">
@@ -1014,6 +1044,7 @@ HTML = f'''<!DOCTYPE html>
 <div class="sidebar-footer"><button class="theme-toggle" id="themeToggle" type="button">Toggle dark mode</button></div>
 </aside>
 <main class="main">
+{PRODUCT_BANNER}
 <div class="disclaimer" role="note"><strong>Synthetic demo data</strong> modeled on production exposure-management patterns (Acme Payments / acmepay.com). Names, IDs, and scores are fictional — not your environment.</div>
 <header class="topbar"><div><h2 id="mainTitle">Exposure triage queue</h2><p id="mainSub"></p></div></header>
 <div class="filter-bar">

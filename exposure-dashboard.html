@@ -45,6 +45,78 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 .theme-toggle { width: 100%; border: 1px solid var(--border); background: var(--panel-2); color: var(--text); border-radius: 10px; padding: 9px 10px; cursor: pointer; font-size: 12px; font-weight: 700; }
 .theme-toggle:hover { background: var(--panel-3); }
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.product-banner {
+  flex: 0 0 auto;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--accent) 10%, var(--panel)) 0%,
+    var(--panel) 42%,
+    color-mix(in srgb, #7c3aed 8%, var(--panel)) 100%);
+  border-bottom: 1px solid var(--border);
+  padding: 11px 18px;
+  box-shadow: 0 1px 0 rgba(255,255,255,.6) inset;
+}
+[data-theme="dark"] .product-banner {
+  box-shadow: none;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--accent) 14%, var(--panel)) 0%,
+    var(--panel) 50%,
+    color-mix(in srgb, #7c3aed 12%, var(--panel)) 100%);
+}
+.product-banner-inner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0;
+  flex-wrap: wrap;
+  max-width: 960px;
+  margin: 0 auto;
+}
+.product-banner-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 22px;
+}
+.product-banner-mark {
+  width: 24px;
+  height: 24px;
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-size: 11px;
+  font-weight: 900;
+  color: #fff;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.product-banner-item:nth-child(1) .product-banner-mark {
+  background: linear-gradient(135deg, #2563eb, #0891b2);
+}
+.product-banner-item:nth-child(3) .product-banner-mark {
+  background: linear-gradient(135deg, #7c3aed, #6366f1);
+}
+.product-banner-item:nth-child(5) .product-banner-mark {
+  background: linear-gradient(135deg, #059669, #16a34a);
+}
+.product-banner-label {
+  font-size: 12.5px;
+  font-weight: 850;
+  letter-spacing: -.015em;
+  color: var(--text);
+  white-space: nowrap;
+}
+.product-banner-sep {
+  width: 1px;
+  height: 26px;
+  background: color-mix(in srgb, var(--border) 80%, var(--muted));
+  flex-shrink: 0;
+}
+@media (max-width: 720px) {
+  .product-banner-sep { display: none; }
+  .product-banner-item { padding: 6px 12px; }
+  .product-banner-label { font-size: 11px; white-space: normal; text-align: center; }
+  .product-banner-inner { gap: 4px; justify-content: space-around; }
+}
 .disclaimer { font-size: 11px; font-weight: 700; padding: 8px 18px; background: color-mix(in srgb, #ea580c 12%, var(--panel)); border-bottom: 1px solid var(--border); line-height: 1.4; }
 .topbar { padding: 12px 18px; border-bottom: 1px solid var(--border); background: var(--panel); }
 .topbar h2 { margin: 0; font-size: 17px; font-weight: 800; }
@@ -234,9 +306,134 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
   padding: 12px 12px 10px;
   overflow: auto;
 }
-.corr-hub-wrap .diagram-zoom-controls { top: 8px; right: 8px; }
-.corr-hub-wrap .corr-graph { margin: 0 auto; }
-.corr-hub-wrap .corr-node-detail { margin-top: 12px; }
+.corr-hub-split {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 12px;
+  overflow: visible;
+}
+.corr-hub-main {
+  position: relative;
+  flex: 1 1 480px;
+  min-width: 0;
+  overflow: auto;
+}
+.corr-hub-main .diagram-zoom-controls { top: 8px; right: 8px; }
+.corr-hub-main .corr-graph { margin: 0 auto; }
+.corr-hub-main .corr-node-detail { margin-top: 12px; }
+
+.corr-remediation-panel {
+  flex: 0 0 220px;
+  width: 220px;
+  max-width: 100%;
+  align-self: stretch;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 14px;
+  background: linear-gradient(165deg, color-mix(in srgb, #16a34a 8%, var(--panel)) 0%, var(--panel) 100%);
+  border: 1.5px solid color-mix(in srgb, #16a34a 35%, var(--border));
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(22,163,74,.08);
+}
+.corr-remediation-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 9px;
+  font-weight: 850;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #15803d;
+}
+[data-theme="dark"] .corr-remediation-head { color: #86efac; }
+.corr-remediation-auto {
+  margin-left: auto;
+  font-size: 8px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+  background: color-mix(in srgb, #16a34a 14%, var(--panel-2));
+  border: 1px solid color-mix(in srgb, #16a34a 30%, var(--border));
+  color: #166534;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.corr-remediation-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--text);
+  line-height: 1.25;
+}
+.corr-remediation-summary {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.45;
+  color: var(--muted);
+  font-weight: 600;
+}
+.corr-remediation-steps {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 10px;
+  line-height: 1.45;
+  color: var(--text);
+  flex: 1 1 auto;
+}
+.corr-remediation-steps li { margin-bottom: 4px; }
+.corr-apply-patch-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: auto;
+  padding: 10px 14px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 850;
+  color: #fff;
+  background: linear-gradient(135deg, #16a34a 0%, #059669 100%);
+  box-shadow: 0 3px 10px rgba(22,163,74,.25);
+  transition: filter .15s, transform .15s, opacity .15s;
+}
+.corr-apply-patch-btn:hover:not(:disabled) { filter: brightness(1.06); transform: translateY(-1px); }
+.corr-apply-patch-btn:disabled { cursor: default; opacity: .92; }
+.corr-apply-patch-btn.is-busy { opacity: .75; }
+.corr-apply-patch-btn.is-done {
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  box-shadow: none;
+}
+.corr-remediation-status {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 8px 10px;
+  border-radius: 8px;
+}
+.corr-remediation-status.is-pending {
+  background: color-mix(in srgb, var(--accent) 10%, var(--panel-2));
+  color: var(--text);
+}
+.corr-remediation-status.is-success {
+  background: color-mix(in srgb, #16a34a 12%, var(--panel-2));
+  border: 1px solid color-mix(in srgb, #16a34a 25%, var(--border));
+  color: var(--text);
+}
+.corr-remediation-note {
+  margin: 0;
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1.35;
+  text-align: center;
+}
+@media (max-width: 900px) {
+  .corr-remediation-panel { flex: 1 1 100%; width: 100%; }
+}
 
 .ap-hub-wrap {
   position: relative;
@@ -301,11 +498,166 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 }
 .attack-path-narrative { margin: 0; font-size: 13px; line-height: 1.55; color: var(--text); font-weight: 550; }
 .attack-path-narrative strong { font-weight: 850; color: var(--text); }
-.attack-path-findings-btn {
+.attack-path-summary-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.attack-path-findings-btn,
+.attack-path-ai-open-btn {
   border: 1px solid var(--border); background: var(--panel-2); color: var(--accent);
   font-size: 11px; font-weight: 800; padding: 8px 14px; border-radius: 10px; cursor: pointer; white-space: nowrap;
 }
+.attack-path-ai-open-btn {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+}
 .attack-path-findings-btn:hover { border-color: var(--accent); box-shadow: 0 2px 8px rgba(37,99,235,.1); }
+.attack-path-ai-open-btn:hover { filter: brightness(1.06); box-shadow: 0 4px 12px rgba(124,58,237,.25); }
+
+/* AI explainability chat (dummy / no LLM) */
+.corr-panel-shell { position: relative; }
+.ai-chat-dock {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none;
+}
+.ai-chat-dock > * { pointer-events: auto; }
+.ai-chat-fab {
+  display: inline-flex; align-items: center; gap: 8px;
+  border: none; cursor: pointer;
+  padding: 10px 16px 10px 12px;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #7c3aed 0%, #2563eb 100%);
+  color: #fff;
+  font-size: 12px; font-weight: 850;
+  box-shadow: 0 6px 20px rgba(37,99,235,.28);
+  transition: transform .15s, box-shadow .15s;
+}
+.ai-chat-fab:hover { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(37,99,235,.35); }
+.ai-chat-dock.is-open .ai-chat-fab { opacity: 0; pointer-events: none; transform: scale(.9); }
+.ai-chat-fab-icon { display: grid; place-items: center; }
+.ai-chat-panel {
+  width: min(380px, calc(100vw - 48px));
+  max-height: min(420px, 55vh);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid color-mix(in srgb, #7c3aed 30%, var(--border));
+  border-radius: 14px;
+  box-shadow: 0 12px 40px rgba(15,23,42,.14), 0 0 0 1px rgba(124,58,237,.08);
+  overflow: hidden;
+}
+.ai-chat-header {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, color-mix(in srgb, #7c3aed 12%, var(--panel)) 0%, var(--panel) 100%);
+  border-bottom: 1px solid var(--border);
+}
+.ai-chat-header-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 900; }
+.ai-chat-close {
+  border: none; background: var(--panel-2); color: var(--text);
+  width: 28px; height: 28px; border-radius: 8px; font-size: 18px; cursor: pointer; line-height: 1;
+}
+.ai-chat-close:hover { background: var(--border); }
+.ai-chat-messages {
+  flex: 1 1 auto;
+  min-height: 160px;
+  max-height: 240px;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: color-mix(in srgb, var(--panel-2) 50%, var(--panel));
+}
+.ai-chat-msg { display: flex; }
+.ai-chat-msg--user { justify-content: flex-end; }
+.ai-chat-msg--assistant { justify-content: flex-start; }
+.ai-chat-bubble {
+  max-width: 92%;
+  padding: 9px 12px;
+  border-radius: 12px;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.ai-chat-msg--user .ai-chat-bubble {
+  background: color-mix(in srgb, var(--accent) 14%, var(--panel));
+  border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  border-bottom-right-radius: 4px;
+}
+.ai-chat-msg--assistant .ai-chat-bubble {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+}
+.ai-chat-msg--typing .ai-chat-bubble { padding: 12px 16px; }
+.ai-chat-dots { display: inline-flex; gap: 4px; align-items: center; }
+.ai-chat-dots span {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--muted);
+  animation: aiChatDot 1s ease-in-out infinite;
+}
+.ai-chat-dots span:nth-child(2) { animation-delay: .15s; }
+.ai-chat-dots span:nth-child(3) { animation-delay: .3s; }
+@keyframes aiChatDot {
+  0%, 80%, 100% { opacity: .35; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+.ai-chat-chips {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  padding: 8px 10px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+.ai-chat-chip {
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 700;
+  padding: 5px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  text-align: left;
+  line-height: 1.3;
+}
+.ai-chat-chip:hover { border-color: #7c3aed; color: #6d28d9; }
+.ai-chat-form {
+  display: flex; gap: 8px; padding: 10px 12px;
+  border-top: 1px solid var(--border);
+  background: var(--panel);
+}
+.ai-chat-input {
+  flex: 1; min-width: 0;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: var(--text);
+}
+.ai-chat-input:focus { outline: 2px solid color-mix(in srgb, #7c3aed 40%, transparent); border-color: #7c3aed; }
+.ai-chat-send {
+  border: none;
+  background: linear-gradient(135deg, #7c3aed, #2563eb);
+  color: #fff;
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  cursor: pointer;
+  display: grid; place-items: center;
+}
+.ai-chat-send:hover { filter: brightness(1.08); }
+.ai-chat-disclaimer {
+  margin: 0; padding: 6px 12px 10px;
+  font-size: 9px; color: var(--muted); text-align: center;
+}
+@media (max-width: 720px) {
+  .ai-chat-dock { right: 8px; bottom: 8px; }
+  .ai-chat-panel { width: calc(100vw - 32px); }
+}
 .attack-path-svg { display: block; min-width: 720px; }
 .attack-path-legend {
   display: flex; flex-wrap: wrap; gap: 16px; padding: 8px 6px 12px; font-size: 10px; font-weight: 700; color: var(--muted);
@@ -463,6 +815,25 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 <div class="sidebar-footer"><button class="theme-toggle" id="themeToggle" type="button">Toggle dark mode</button></div>
 </aside>
 <main class="main">
+
+<div class="product-banner" role="banner" aria-label="Exposure Management capabilities">
+  <div class="product-banner-inner">
+    <div class="product-banner-item">
+      <span class="product-banner-mark" aria-hidden="true">1</span>
+      <span class="product-banner-label">Comprehensive Visibility</span>
+    </div>
+    <span class="product-banner-sep" aria-hidden="true"></span>
+    <div class="product-banner-item">
+      <span class="product-banner-mark" aria-hidden="true">2</span>
+      <span class="product-banner-label">Contextual Intelligence</span>
+    </div>
+    <span class="product-banner-sep" aria-hidden="true"></span>
+    <div class="product-banner-item">
+      <span class="product-banner-mark" aria-hidden="true">3</span>
+      <span class="product-banner-label">Coordinated Remediation</span>
+    </div>
+  </div>
+</div>
 <div class="disclaimer" role="note"><strong>Synthetic demo data</strong> modeled on production exposure-management patterns (Acme Payments / acmepay.com). Names, IDs, and scores are fictional — not your environment.</div>
 <header class="topbar"><div><h2 id="mainTitle">Exposure triage queue</h2><p id="mainSub"></p></div></header>
 <div class="filter-bar">
@@ -1493,7 +1864,7 @@ function applySvgZoom(svg,scale){
 function bindDiagramZoom(panel){
   panel.querySelectorAll('[data-zoom-controls]').forEach(controls=>{
     if(controls.dataset.bound==='1') return;
-    const block=controls.closest('.corr-hub-wrap, .ap-hub-wrap');
+    const block=controls.closest('.corr-hub-main, .ap-hub-wrap');
     const canvas=block?.querySelector('[data-zoom-canvas]');
     const svg=canvas?.querySelector('svg.corr-graph, svg.attack-path-svg');
     if(!svg) return;
@@ -1520,6 +1891,8 @@ function bindDiagramZoom(panel){
 
 function bindCorrelationPanel(panel, stations, exposure){
   if(panel.querySelector('.attack-path-view')) bindAttackPathPanel(panel, exposure);
+  bindAiExplainChat(panel, exposure);
+  bindRemediationPanel(panel, exposure);
   const detailEl=panel.querySelector('.corr-node-detail');
   const sc=SCANNERS.find(x=>x.id===exposure.scannerId);
   const clearSel=()=>panel.querySelectorAll('.corr-box-wrap').forEach(w=>w.classList.remove('selected'));
@@ -1698,16 +2071,19 @@ function renderDetail(e){
                   <h5 class="viz-block-title">Exposure correlation map</h5>
                   <p class="viz-block-hint">How this finding connects to asset, build, identity, runtime &amp; business context</p>
                 </div>
-                <div class="corr-hub-wrap">
-                  <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="correlation">
-                    <button type="button" data-zoom="out" aria-label="Zoom correlation map out">−</button>
-                    <button type="button" data-zoom="in" aria-label="Zoom correlation map in">+</button>
-                    <button type="button" data-zoom-reset aria-label="Reset correlation zoom">Reset</button>
+                <div class="corr-hub-wrap corr-hub-split">
+                  <div class="corr-hub-main">
+                    <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="correlation">
+                      <button type="button" data-zoom="out" aria-label="Zoom correlation map out">−</button>
+                      <button type="button" data-zoom="in" aria-label="Zoom correlation map in">+</button>
+                      <button type="button" data-zoom-reset aria-label="Reset correlation zoom">Reset</button>
+                    </div>
+                    <div class="diagram-zoom-canvas" data-zoom-canvas="correlation">
+                      ${renderCorrelationGraph(e)}
+                    </div>
+                    <div class="corr-node-detail"></div>
                   </div>
-                  <div class="diagram-zoom-canvas" data-zoom-canvas="correlation">
-                    ${renderCorrelationGraph(e)}
-                  </div>
-                  <div class="corr-node-detail"></div>
+                  ${renderRemediationPanel(e)}
                 </div>
               </section>
               <div class="viz-divider" role="separator" aria-label="Attack path section"></div>
@@ -1721,6 +2097,7 @@ function renderDetail(e){
             </div>
           </div>
           <div class="corr-cards-panel" hidden>${e.buildPipeline?renderStationCards(e):`<div class="station-grid">${e.stations.map(s=>renderStationCard(s)).join('')}</div>`}</div>
+          ${renderAiExplainChat(e)}
         </div>
       </div>
       <div class="detail-section"><h4>Scoring formula</h4><div class="formula-chain">${pills}<span class="formula-eq">= ${e.score.toFixed(1)}</span></div></div>
@@ -1874,17 +2251,23 @@ function buildAttackPath(e){
 
   if(e.scannerId==='sca'){
     const repo=deriveRepo(e.asset);
-    const img=e.assetDeploy||e.asset.split(':').pop()||'app-image';
+    const svc=repo||shortAsset(e).split(':')[0];
+    const img=e.assetDeploy||e.asset;
+    const pkg=e.title.toLowerCase().includes('log4j')?'log4j-core 2.14.1'
+      :e.title.includes('·')?e.title.split('·')[0].trim().slice(0,28)
+      :'vulnerable dependency';
+    const edgeHost=e.internet?`api.${DOMAIN}`:'internal-gateway.acmepay.internal';
+    const entryPath=e.title.toLowerCase().includes('log4j')?'/api/v1/charge · JNDI':'HTTP entry · reachable';
     const nodes=[
-      mk('ap0','entry','globe','Threat actor','Supply chain','Reconnaissance','Attacker targets dependency in software supply chain.',[`EPSS ${(e.epss??0.9).toFixed(2)}`]),
-      mk('ap1','exposed','git',repo,`${ORG}/${repo}`,'Dependency flaw',`Vulnerable package introduced in source — ${e.cve||'CVE'}.`,[`${e.cve||e.title}`,`Reachable in call graph`]),
-      mk('ap2','actor','flow','CI build',e.buildPipeline?.build?.buildId||`build-${1200+(h%800)}`,'Build','Pipeline packages vulnerable dependency into artifact.',[`${e.buildPipeline?.build?.system||'Jenkins'}`,`Commit ${e.commit||'—'}`]),
-      mk('ap3','resource','container',img,e.buildPipeline?.artifact?.digest?.slice(0,18)||'sha256:…','Deploy artifact','Image running in production cluster.',[`${e.buildPipeline?.deployment?.cluster||'eks-prod-use1'}`,`${e.buildPipeline?.deployment?.podCount||12} pods`]),
-      mk('ap4','crown','database',crownLabel,'In-cluster','Impact',`Loaded vulnerable library serves payment traffic.`,[`Runtime SBOM match`,`Jira ${e.jira||meta.jira}`]),
-      mk('ap5','exit','zap','Exploit attempt','KEV / EPSS','Exploitation',`Active exploitation risk if JNDI or RCE chain succeeds.`,[`KEV: ${e.kev?'listed':'—'}`,`WAF ${e.internet?'compensating':''}`])
+      mk('ap0','entry','globe','Public Internet','0.0.0.0','Initial access','Attacker reaches the app from outside — not the supply-chain path where SCA found the dependency.',[`Internet-facing: ${e.internet?'yes':'no'}`,`EPSS ${(e.epss??0.9).toFixed(2)}`]),
+      mk('ap1','exposed','globe',edgeHost,entryPath,'Exploit surface',`Internet-facing route to the service that loads ${pkg}.`,[`ALB / API gateway`,`${e.cve||e.title}`]),
+      mk('ap2','actor','server',svc,e.internet?'prod pods':'runtime','Application',`Running service contains the vulnerable component (image ${img}).`,[`${e.buildPipeline?.deployment?.cluster||'eks-prod-use1'}`,`${e.buildPipeline?.deployment?.podCount||12} pods`]),
+      mk('ap3','resource','package',pkg.split(' ')[0]||pkg,'Loaded in JVM','Component exploit',`${pkg} is loaded and invoked from an attacker-reachable path — where exploitation happens.`,[`Runtime SBOM match`,`Reachable: call graph`,`Introduced in ${ORG}/${repo} · see correlation map`]),
+      mk('ap4','crown','database',crownLabel,'Tier 0','Impact',`Successful RCE or data access from compromised app tier.`,[`Jira ${e.jira||meta.jira}`,`KEV: ${e.kev?'listed':'—'}`]),
+      mk('ap5','exit','globe','Data exfiltration','HTTPS egress','Exfiltration',`Outbound channel if attacker establishes shell or queries datastore.`,[`WAF ${e.internet?'may compensate':''}`,`Runtime sensor watch`])
     ];
-    const narrative=`An attacker can chain <strong>${esc(e.cve||'the vulnerable dependency')}</strong> from <strong>${esc(repo)}</strong> through the <strong>CI/CD pipeline</strong> into <strong>${esc(img)}</strong> running in prod, then reach <strong>${esc(crownLabel)}</strong> via the payments API path.`;
-    return {narrative, nodes, edges:edgeChain(nodes,['Poison dep','Merge / build','Push image','Deploy pods','Invoke vuln lib','Exploit / exfil']),findings:1+(e.crossLinks?.length||0)};
+    const narrative=`An attacker on the <strong>public internet</strong> can reach <strong>${esc(edgeHost)}</strong>, exploit <strong>${esc(e.cve||pkg)}</strong> in the running <strong>${esc(svc)}</strong> workload (component already deployed in prod), and access <strong>${esc(crownLabel)}</strong>. The dependency was introduced in source at <strong>${esc(repo)}</strong> — that lineage is in the correlation map, not this runtime attack path.`;
+    return {narrative, nodes, edges:edgeChain(nodes,['Probe / scan','HTTP request','Route to app','Trigger vuln lib','Access datastore','HTTPS exfil']),findings:1+(e.crossLinks?.length||0)};
   }
 
   if(e.scannerId==='sast'){
@@ -2083,7 +2466,10 @@ function renderAttackPathView(e){
           <span class="attack-path-ai-badge">AI</span>
           <p class="attack-path-narrative">${path.narrative}</p>
         </div>
-        <button type="button" class="attack-path-findings-btn" data-findings-jump="${e.id}">View Findings (${path.findings})</button>
+        <div class="attack-path-summary-actions">
+          <button type="button" class="attack-path-ai-open-btn" data-ai-open>Ask AI</button>
+          <button type="button" class="attack-path-findings-btn" data-findings-jump="${e.id}">View Findings (${path.findings})</button>
+        </div>
       </div>
       <div class="ap-hub-wrap" data-ap-resize-wrap>
         <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="attack-path">
@@ -2151,6 +2537,369 @@ function bindAttackPathPanel(panel,e){
     hub?.scrollIntoView({behavior:'smooth',block:'nearest'});
     const finding=panel.querySelector('.corr-hub-wrap .corr-box-wrap[data-finding]');
     finding?.click();
+  });
+}
+
+/** Dummy AI explainability chat (no LLM — canned contextual replies). */
+
+function aiChatSuggestions(e){
+  return [
+    'Why is this exposure prioritized?',
+    'Explain the attack path',
+    'What should we fix first?',
+    e.crossLinks?.length ? `How does ${e.crossLinks[0].id} relate?` : 'What is the blast radius?'
+  ];
+}
+
+function aiChatInitialMessage(e){
+  const pathTitle=attackPathSectionTitle(e.scannerId);
+  return `I'm reviewing <strong>${esc(e.id)}</strong> (${esc(e.title)}). This ${esc(pathTitle.toLowerCase())} shows score <strong>${e.score.toFixed(1)}</strong> with ${e.kev ? 'KEV match' : 'no KEV'}${e.internet ? ' on an internet-facing path' : ''}. Ask about scoring, remediation, or any step in the diagrams.`;
+}
+
+function aiChatReply(e, raw){
+  const q=String(raw||'').toLowerCase().trim();
+  const host=shortHost(e);
+  const meta=seedMeta(e);
+  const links=(e.crossLinks||[]).map(c=>`${c.id} (${c.by})`).join(', ');
+
+  if(!q) return 'Type a question or pick a suggested prompt below.';
+
+  if(/score|priorit|why.*high|severity|rank/.test(q)){
+    return `Exposure <strong>${esc(e.id)}</strong> is <strong>${e.score.toFixed(1)}</strong> (${esc(e.severity)}) because correlation weighted ${e.kev ? '<strong>KEV</strong>, ' : ''}${e.internet ? '<strong>internet reachability</strong>, ' : ''}asset criticality, and ${esc(e.scoring.expr)}. ${e.kev ? 'CISA KEV listing pushes this above CVSS-only backlog items.' : 'Without KEV, reachability and business tier drive rank.'}`;
+  }
+  if(/attack path|lateral|movement|chain|step/.test(q)){
+    const scaNote=e.scannerId==='sca'
+      ? ' For SCA, the attack path is <strong>internet → app → loaded component → impact</strong>. Repo/CI/build is where the dependency was <em>introduced</em> — see the correlation map and origin asset, not this lateral path.'
+      : '';
+    return `The lateral path starts at the exposed entry (${esc(host)}), moves through identity and pivot points, and ends at a crown-jewel target. Click hex nodes in the attack path diagram for stage-specific evidence. ${e.cve ? `Root issue: <strong>${esc(e.cve)}</strong>.` : ''}${scaNote}`;
+  }
+  if(/fix|remediat|patch|mitigat|what should|first/.test(q)){
+    const fix=e.status==='Patched' ? 'Rescan shows clean — maintain regression tests.'
+      : e.status==='Compensating control' ? 'Virtual patch is active; schedule permanent fix in next change window.'
+      : `Assign to <strong>${esc(e.owner)}</strong> (${esc(e.jira || meta.jira)}). Target SLA: ${esc(e.sla)}.`;
+    return `Recommended order: (1) confirm exploitability in prod, (2) ${fix} (3) validate with ${esc(e.tool)} rescan. ${e.buildPipeline ? 'Rebuild and promote artifact via the linked CI/CD pipeline.' : ''}`;
+  }
+  if(/correlat|hub|station|asset|build|identity/.test(q)){
+    return `The correlation map links the scanner <strong>finding</strong> to <strong>asset</strong>${e.buildPipeline ? ', <strong>build pipeline</strong>' : ''}, <strong>identity</strong>, <strong>runtime</strong>, plus ownership, threat intel, and business context. Click any box to see station-level detail below the hub.`;
+  }
+  if(e.crossLinks?.length && (/cross|related|also found/.test(q) || e.crossLinks.some(c=>q.includes(c.id.toLowerCase())))){
+    return `Related exposures: <strong>${esc(links)}</strong>. These share the same payments platform storyline — triage as one incident to avoid duplicate work.`;
+  }
+  if(/blast|radius|impact|crown|data/.test(q)){
+    return `Blast radius includes ${esc(host)} and downstream Tier-0 dependencies (payments data, PCI-scoped stores). Identity paths amplify impact if service accounts have broad IAM or AD membership.`;
+  }
+  if(/kev|epss|cve|exploit/.test(q)){
+    return `${e.cve ? `<strong>${esc(e.cve)}</strong> — ` : ''}KEV: ${e.kev ? '<strong>listed</strong>' : 'not listed'}. EPSS: ${e.epss != null ? e.epss.toFixed(2) : 'n/a'}. CVSS: ${e.cvss != null ? e.cvss : 'n/a'}. ${e.kev ? 'Treat as imminent patching candidate.' : 'Prioritize by reachability and asset tier.'}`;
+  }
+  if(/lsa|secret|credential|password/.test(q)){
+    return `LSA secrets and cached credentials let an attacker escalate from a single host compromise to domain-wide access. Rotate service accounts, restrict lateral RDP/SMB, and verify EDR coverage on the path nodes.`;
+  }
+  if(/owner|jira|ticket|sla/.test(q)){
+    return `Owner: <strong>${esc(e.owner)}</strong>. Ticket: <strong>${esc(e.jira || meta.jira)}</strong>. SLA: ${esc(e.sla)}. Status: ${esc(e.status)}.`;
+  }
+
+  const sc=SCANNERS.find(x=>x.id===e.scannerId);
+  return `For <strong>${esc(e.id)}</strong> (${esc(sc?.name || e.scannerName)}), I can explain scoring, the correlation map, attack path steps, remediation order, or related findings. Try: "Why is this exposure prioritized?" or "Explain the attack path."`;
+}
+
+function renderAiExplainChat(e){
+  const chips=aiChatSuggestions(e).map(s=>`<button type="button" class="ai-chat-chip" data-ai-chip>${esc(s)}</button>`).join('');
+  return `
+    <div class="ai-chat-dock" data-ai-chat>
+      <button type="button" class="ai-chat-fab" data-ai-toggle aria-expanded="false" aria-controls="ai-chat-panel-${e.id}">
+        <span class="ai-chat-fab-icon">${icon('zap',18)}</span>
+        <span class="ai-chat-fab-label">Ask AI</span>
+      </button>
+      <div class="ai-chat-panel" id="ai-chat-panel-${e.id}" data-ai-panel hidden>
+        <header class="ai-chat-header">
+          <div class="ai-chat-header-title">
+            <span class="attack-path-ai-badge">AI</span>
+            <span>Explainability</span>
+          </div>
+          <button type="button" class="ai-chat-close" data-ai-close aria-label="Close chat">&times;</button>
+        </header>
+        <div class="ai-chat-messages" data-ai-messages role="log" aria-live="polite"></div>
+        <div class="ai-chat-chips" data-ai-chips>${chips}</div>
+        <form class="ai-chat-form" data-ai-form>
+          <input type="text" class="ai-chat-input" data-ai-input placeholder="Ask about this exposure…" autocomplete="off" aria-label="Chat message"/>
+          <button type="submit" class="ai-chat-send" aria-label="Send message">${icon('flow',16)}</button>
+        </form>
+        <p class="ai-chat-disclaimer">Demo assistant — scripted replies only, no live model.</p>
+      </div>
+    </div>`;
+}
+
+function aiChatAppendMessage(container, role, html){
+  const row=document.createElement('div');
+  row.className=`ai-chat-msg ai-chat-msg--${role}`;
+  row.innerHTML=`<div class="ai-chat-bubble">${html}</div>`;
+  container.appendChild(row);
+  container.scrollTop=container.scrollHeight;
+}
+
+function aiChatShowTyping(container){
+  const row=document.createElement('div');
+  row.className='ai-chat-msg ai-chat-msg--assistant ai-chat-msg--typing';
+  row.dataset.typing='1';
+  row.innerHTML='<div class="ai-chat-bubble"><span class="ai-chat-dots"><span></span><span></span><span></span></span></div>';
+  container.appendChild(row);
+  container.scrollTop=container.scrollHeight;
+  return row;
+}
+
+function bindAiExplainChat(panel, e){
+  const dock=panel.querySelector('[data-ai-chat]');
+  if(!dock||dock.dataset.bound==='1') return;
+  dock.dataset.bound='1';
+
+  const fab=dock.querySelector('[data-ai-toggle]');
+  const chatPanel=dock.querySelector('[data-ai-panel]');
+  const messages=dock.querySelector('[data-ai-messages]');
+  const form=dock.querySelector('[data-ai-form]');
+  const input=dock.querySelector('[data-ai-input]');
+  let seeded=false;
+
+  const setOpen=(open)=>{
+    chatPanel.hidden=!open;
+    fab.setAttribute('aria-expanded',open?'true':'false');
+    dock.classList.toggle('is-open',open);
+    if(open&&!seeded){
+      seeded=true;
+      aiChatAppendMessage(messages,'assistant',aiChatInitialMessage(e));
+    }
+    if(open) setTimeout(()=>input?.focus(),80);
+  };
+
+  const sendUser=(text)=>{
+    const t=String(text||'').trim();
+    if(!t) return;
+    aiChatAppendMessage(messages,'user',esc(t));
+    const typing=aiChatShowTyping(messages);
+    window.setTimeout(()=>{
+      typing.remove();
+      aiChatAppendMessage(messages,'assistant',aiChatReply(e,t));
+    }, 520 + Math.min(t.length * 8, 400));
+  };
+
+  fab.onclick=()=>setOpen(chatPanel.hidden);
+  dock.querySelector('[data-ai-close]')?.addEventListener('click',()=>setOpen(false));
+  form?.addEventListener('submit',ev=>{
+    ev.preventDefault();
+    const t=input.value;
+    input.value='';
+    sendUser(t);
+  });
+  dock.querySelectorAll('[data-ai-chip]').forEach(chip=>{
+    chip.onclick=()=>{
+      setOpen(true);
+      sendUser(chip.textContent);
+    };
+  });
+
+  panel.querySelector('[data-ai-open]')?.addEventListener('click',()=>setOpen(true));
+}
+
+/** Remediation / patch suggestion panel (demo — no real patch integration). */
+
+function buildRemediationSuggestion(e){
+  const meta=seedMeta(e);
+  const repo=deriveRepo(e.asset);
+  const h=pathHash(e.id);
+
+  if(e.scannerId==='sca'){
+    const pkg=e.title.toLowerCase().includes('log4j')?'log4j-core':'dependency';
+    const ver=e.title.toLowerCase().includes('log4j')?'2.14.1 → 2.17.2':'bump to fixed version';
+    return {
+      title:'Dependency patch',
+      summary:`Upgrade ${pkg} in ${repo} and redeploy the production artifact.`,
+      steps:[
+        `Bump ${pkg} ${ver} in pom.xml / lockfile`,
+        `Open auto-fix PR #${e.pr||(1240+(h%80))} → ${ORG}/${repo}`,
+        e.buildPipeline?`Rebuild ${e.buildPipeline.artifact.version} · ${e.buildPipeline.build.system}`:'Run CI build + SBOM scan',
+        `Promote to ${e.buildPipeline?.deployment?.cluster||'eks-prod-use1'} via ArgoCD`
+      ],
+      action:'Apply patch',
+      actionDetail:`Queues dependency bump PR and ${e.buildPipeline?'pipeline rebuild':'CI validation'}.`,
+      auto:'Auto PR'
+    };
+  }
+  if(e.scannerId==='sast'){
+    const file=e.title.includes('·')?e.title.split('·').pop().trim():'vulnerable sink';
+    return {
+      title:'Code fix',
+      summary:`Remediate static finding in source before next deploy.`,
+      steps:[
+        `Fix ${file} — use parameterized queries / sanitization`,
+        `Semgrep rule suppress only if false positive confirmed`,
+        `PR review → merge to main`,
+        `Verify with Contrast IAST on ${shortAsset(e)}`
+      ],
+      action:'Apply patch',
+      actionDetail:'Opens fix PR with suggested code change (demo).',
+      auto:'Semi-auto'
+    };
+  }
+  if(e.scannerId==='network'){
+    return {
+      title:'OS / vendor patch',
+      summary:`Apply vendor fix for ${e.cve||e.title} on ${shortHost(e)}.`,
+      steps:[
+        e.cve?`Install vendor patch for ${e.cve}`:'Apply configuration hardening',
+        `Maintenance window · ${meta.jira||e.jira}`,
+        `CrowdStrike IOA template watch post-patch`,
+        `Rescan with ${e.tool} to close ${e.id}`
+      ],
+      action:'Apply patch',
+      actionDetail:'Schedules patch job via Tanium / WSUS runbook (demo).',
+      auto:'Semi-auto'
+    };
+  }
+  if(e.scannerId==='container'){
+    return {
+      title:'Image rebuild',
+      summary:`Rebuild ${shortAsset(e)} with patched layers and roll pods.`,
+      steps:[
+        `Update Dockerfile / base image digest`,
+        `Trigger ${e.buildPipeline?.build?.system||'GitHub Actions'} rebuild`,
+        `Push to registry · pin digest in Helm/ArgoCD`,
+        `Rolling restart · ${e.buildPipeline?.deployment?.podCount||12} pods`
+      ],
+      action:'Apply patch',
+      actionDetail:'Queues image rebuild and staged deploy (demo).',
+      auto:'Auto rebuild'
+    };
+  }
+  if(e.scannerId==='dast'){
+    return {
+      title:'App + edge fix',
+      summary:`Close exploitable path on ${shortAsset(e)}.`,
+      steps:[
+        `Patch handler for ${e.title.slice(0,40)}`,
+        `Deploy to ${e.internet?'prod':'staging'} after regression tests`,
+        e.internet?'Enable WAF virtual patch until code ships':'Validate internal-only route',
+        `Re-run ${e.tool} probe to confirm`
+      ],
+      action:'Apply patch',
+      actionDetail:'Creates change ticket + optional WAF rule (demo).',
+      auto:'Manual'
+    };
+  }
+  if(e.scannerId==='iac'){
+    return {
+      title:'IaC policy fix',
+      summary:`Correct misconfiguration in Terraform before apply.`,
+      steps:[
+        `Update module per Checkov/tfsec suggestion`,
+        `PR to ${ORG}/${repo||'infra'}`,
+        `Plan/apply in prod-payments after approval`,
+        `Drift scan confirms prod matches code`
+      ],
+      action:'Apply patch',
+      actionDetail:'Opens PR with HCL fix snippet (demo).',
+      auto:'Auto PR'
+    };
+  }
+  if(e.scannerId==='cspm'){
+    return {
+      title:'Cloud posture fix',
+      summary:`Remediate ${e.title.slice(0,50)} in AWS prod account.`,
+      steps:[
+        `Apply least-privilege / encryption policy`,
+        `Run approved module or Lambda runbook`,
+        `Validate attack path broken in CNAPP graph`,
+        `Close ${meta.jira||e.jira} after rescan`
+      ],
+      action:'Apply patch',
+      actionDetail:'Triggers posture auto-remediation runbook (demo).',
+      auto:'Auto-fix'
+    };
+  }
+  if(e.scannerId==='secrets'){
+    return {
+      title:'Secret rotation',
+      summary:`Revoke leaked credential and rotate immediately.`,
+      steps:[
+        `Revoke key in IAM / Vault`,
+        `Issue new dynamic credential`,
+        `Audit CloudTrail for abuse`,
+        `Enable pre-receive hook block`
+      ],
+      action:'Apply patch',
+      actionDetail:'Starts rotation workflow P0 (demo).',
+      auto:'Auto rotate'
+    };
+  }
+  if(e.scannerId==='easm'){
+    return {
+      title:'Surface reduction',
+      summary:`Remove or restrict exposed ${shortHost(e)}.`,
+      steps:[
+        `Confirm owner via WHOIS / CMDB`,
+        `Firewall, decom, or move behind VPN`,
+        `Update EASM inventory`,
+        `Perimeter rescan in 24h`
+      ],
+      action:'Apply patch',
+      actionDetail:'Creates takedown / firewall change request (demo).',
+      auto:'Manual'
+    };
+  }
+  return {
+    title:'Remediation',
+    summary:`Address ${e.title.slice(0,60)} per ${e.owner} runbook.`,
+    steps:[`Assign ${meta.jira||e.jira}`,`Implement fix`,`Validate with ${e.tool}`,`Close exposure`],
+    action:'Apply patch',
+    actionDetail:'Queues standard remediation workflow (demo).',
+    auto:'Semi-auto'
+  };
+}
+
+function renderRemediationPanel(e){
+  const r=buildRemediationSuggestion(e);
+  const steps=r.steps.map(s=>`<li>${esc(s)}</li>`).join('');
+  return `
+    <aside class="corr-remediation-panel" data-remediation aria-label="Remediation suggestion">
+      <div class="corr-remediation-head">
+        ${icon('shield',16)}
+        <span>Patch suggestion</span>
+        <span class="corr-remediation-auto">${esc(r.auto)}</span>
+      </div>
+      <h6 class="corr-remediation-title">${esc(r.title)}</h6>
+      <p class="corr-remediation-summary">${esc(r.summary)}</p>
+      <ol class="corr-remediation-steps">${steps}</ol>
+      <button type="button" class="corr-apply-patch-btn" data-apply-patch data-exp-id="${e.id}">
+        ${icon('flow',14)}<span>${esc(r.action)}</span>
+      </button>
+      <p class="corr-remediation-status" data-patch-status hidden role="status"></p>
+      <p class="corr-remediation-note">${esc(r.actionDetail)} Demo only — no changes applied.</p>
+    </aside>`;
+}
+
+function bindRemediationPanel(panel,e){
+  const btn=panel.querySelector('[data-apply-patch]');
+  const status=panel.querySelector('[data-patch-status]');
+  if(!btn||btn.dataset.bound==='1') return;
+  btn.dataset.bound='1';
+  const r=buildRemediationSuggestion(e);
+  btn.addEventListener('click',()=>{
+    if(btn.disabled) return;
+    btn.disabled=true;
+    btn.classList.add('is-busy');
+    btn.querySelector('span').textContent='Queuing…';
+    if(status){
+      status.hidden=false;
+      status.className='corr-remediation-status is-pending';
+      status.textContent='Submitting patch request…';
+    }
+    window.setTimeout(()=>{
+      btn.classList.remove('is-busy');
+      btn.classList.add('is-done');
+      btn.querySelector('span').textContent='Patch queued';
+      if(status){
+        status.className='corr-remediation-status is-success';
+        status.innerHTML=`<strong>${esc(e.id)}</strong> · ${esc(r.title)} queued for ${esc(e.owner)} · ${esc(e.jira||seedMeta(e).jira)}`;
+      }
+    },900);
   });
 }
 
