@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Exposure Management · Analyst Dashboard</title>
+<title>Exposure Management · Insights</title>
 <style>
 :root {
   --bg: #f7f8fb; --panel: #fff; --panel-2: #f1f4f8; --panel-3: #e8ecf4;
@@ -1133,7 +1133,10 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 <body>
 <div class="app" id="app" data-theme="light">
 <aside class="sidebar" aria-label="Scanner filter">
-<div class="brand"><h1>Exposure Management</h1><a class="sibling-link" href="vulnerability-scanner-journey-explorer_4.html">← Process view</a></div>
+<div class="brand"><h1>Exposure Management</h1>
+<a class="sibling-link" id="triageSidebarLink" href="exposure-dashboard.html?scanner=network">← Triage queue</a>
+<a class="sibling-link" href="vulnerability-scanner-journey-explorer_4.html">Process view →</a>
+</div>
 <div class="scanner-list" id="scannerList" role="listbox"></div>
 <div class="sidebar-footer"><button class="theme-toggle" id="themeToggle" type="button">Toggle dark mode</button></div>
 </aside>
@@ -1157,20 +1160,17 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
     </div>
   </div>
 </div>
-<div class="disclaimer" role="note"><strong>Synthetic demo data</strong> modeled on production exposure-management patterns (Acme Payments / acmepay.com). Names, IDs, and scores are fictional — not your environment.</div>
+<div class="disclaimer" role="note"><strong>Synthetic demo data</strong> — charts reflect the filtered exposure slice for the selected scanner.</div>
 <header class="topbar">
-<div><h2 id="mainTitle">Exposure triage queue</h2><p id="mainSub"></p></div>
-<a class="insights-nav-link" id="insightsNavLink" href="exposure-insights.html?scanner=network" title="Open charts for the current scanner">Insights &amp; charts →</a>
+<div><h2 id="mainTitle">Exposure insights</h2><p id="mainSub"></p></div>
+<a class="insights-nav-link insights-nav-link--back" id="triageNavLink" href="exposure-dashboard.html?scanner=network">← Back to triage queue</a>
 </header>
 <div class="filter-bar">
 <input type="search" id="searchInput" placeholder="Filter by CVE, asset, owner…" aria-label="Filter exposures"/>
 <div class="filter-chips" id="filterChips"></div>
 <div class="summary-line" id="summaryLine"></div>
 </div>
-<div class="list-head" aria-hidden="true">
-<span>Score</span><span>Finding</span><span>Asset</span><span></span><span>Owner</span><span>Status</span><span>SLA</span><span></span>
-</div>
-<div class="list-scroll" id="exposureList" role="list" aria-label="Exposure list"></div>
+<section class="insights-panel insights-page" id="insightsPanel" aria-label="Exposure insights"></section>
 </main>
 </div>
 <script>
@@ -2579,701 +2579,421 @@ document.addEventListener('keydown',e=>{
 });
 
 
-/** Horizontal attack-path graph (lateral-movement style) per exposure. */
+/** Exposure insights — charts, KPIs & top open risks from current scanner / filter slice. */
 
-function pathHash(s){
-  let h=0;
-  for(let i=0;i<s.length;i++) h=((h<<5)-h+s.charCodeAt(i))|0;
-  return Math.abs(h);
-}
+const SEV_COLORS={Critical:'#dc2626',High:'#ea580c',Medium:'#ca8a04',Low:'#64748b'};
+const STATUS_COLORS={
+  'Open':'#2563eb','In progress':'#7c3aed','Compensating control':'#0891b2',
+  'Patched':'#16a34a','Risk accepted':'#64748b'
+};
+const RANK_STYLES=['insight-risk--gold','insight-risk--silver','insight-risk--bronze'];
 
-function shortHost(e){
-  const h=e.host||e.asset;
-  if(!h) return 'asset';
-  return String(h).split('.')[0].slice(0,22);
-}
-
-function shortAsset(e){
-  const a=String(e.asset);
-  if(a.length<=28) return a;
-  return a.slice(0,26)+'…';
-}
-
-function buildAttackPath(e){
-  const h=pathHash(e.id);
-  const meta=seedMeta(e);
-  const host=shortHost(e);
-  const crown=e.scannerId==='network'?'rds-payments-primary':e.scannerId==='sca'||e.scannerId==='container'?'cardholder-data-store':e.scannerId==='cspm'?'pci-audit-logs':e.scannerId==='secrets'?'prod-aws-account':'payments-ledger';
-  const crownLabel=e.scannerId==='network'?'RDS payments':e.scannerId==='dast'?'Customer PII API':e.scannerId==='sast'?'Ledger DB':e.scannerId==='iac'?'PCI S3 bucket':e.scannerId==='easm'?'Shadow admin API':e.scannerId==='secrets'?'IAM admin plane':'Crown jewel';
-
-  const mk=(id,type,icon,label,sub,stage,info,evidence)=>({id,type,icon,label,sub,stage,info,evidence});
-
-  if(e.scannerId==='network'){
-    const svc=`svc-${host.replace(/^pay-/,'').slice(0,10)}`;
-    const nodes=[
-      mk('ap0','entry','globe','Public Internet','0.0.0.0','Reconnaissance','Entry point for opportunistic and targeted scans against acmepay perimeter.',[`Scanner: ${e.tool}`,`${e.discovered} discovery`]),
-      mk('ap1','exposed','server',host,meta.ip||'10.42.x.x','Initial Access',`Vulnerable host where ${e.cve||'finding'} was detected.`,[`${e.cve||e.title}`,`Plugin ${meta.plugin||'—'}`,`KEV: ${e.kev?'yes':'no'}`]),
-      mk('ap2','actor','user',svc,`TENANT\\${svc}`,'Credential Access',`Service account running on ${host} — lateral movement pivot.`,[`Instance profile attached`,`${2+(h%3)} wildcards in policy`]),
-      mk('ap3','group','shield','Domain Admins','AD security group','Privilege Escalation','Group membership path discovered via bloodhound-style graph.',[`'${svc}' effective admin path`,`Hop count: ${2+(h%2)}`]),
-      mk('ap4','crown','database',crownLabel.split(' ')[0]||'RDS',meta.ip?.replace(/\d+$/,'200')||'10.10.10.200','Impact',`Tier-0 datastore reachable after host compromise.`,[`CMDB: ${meta.cmdb}`,`Tier 0 · PCI in scope`]),
-      mk('ap5','exit','globe','Data exfiltration','HTTPS egress','Exfiltration','Outbound channel if attacker establishes C2 or bulk export.',[`DLP: ${e.internet?'alerting':'monitoring'}`,`NetFlow to external`])
-    ];
-    const narrative=`An attacker on the <strong>public internet</strong> can reach <strong>${esc(host)}</strong> by exploiting <strong>${esc(e.cve||e.title)}</strong>, harvest credentials for <strong>${esc(svc)}</strong>, escalate via privileged groups, and access <strong>${esc(crownLabel)}</strong> for data exfiltration over HTTPS.`;
-    return {narrative, nodes, edges:edgeChain(nodes,['Scan / exploit','Control service','Member of','Lateral move','Query / export','HTTPS exfil']),findings:1+(e.crossLinks?.length||0)};
-  }
-
-  if(e.scannerId==='sca'){
-    const repo=deriveRepo(e.asset);
-    const svc=repo||shortAsset(e).split(':')[0];
-    const img=e.assetDeploy||e.asset;
-    const pkg=e.title.toLowerCase().includes('log4j')?'log4j-core 2.14.1'
-      :e.title.includes('·')?e.title.split('·')[0].trim().slice(0,28)
-      :'vulnerable dependency';
-    const edgeHost=e.internet?`api.${DOMAIN}`:'internal-gateway.acmepay.internal';
-    const entryPath=e.title.toLowerCase().includes('log4j')?'/api/v1/charge · JNDI':'HTTP entry · reachable';
-    const nodes=[
-      mk('ap0','entry','globe','Public Internet','0.0.0.0','Initial access','Attacker reaches the app from outside — not the supply-chain path where SCA found the dependency.',[`Internet-facing: ${e.internet?'yes':'no'}`,`EPSS ${(e.epss??0.9).toFixed(2)}`]),
-      mk('ap1','exposed','globe',edgeHost,entryPath,'Exploit surface',`Internet-facing route to the service that loads ${pkg}.`,[`ALB / API gateway`,`${e.cve||e.title}`]),
-      mk('ap2','actor','server',svc,e.internet?'prod pods':'runtime','Application',`Running service contains the vulnerable component (image ${img}).`,[`${e.buildPipeline?.deployment?.cluster||'eks-prod-use1'}`,`${e.buildPipeline?.deployment?.podCount||12} pods`]),
-      mk('ap3','resource','package',pkg.split(' ')[0]||pkg,'Loaded in JVM','Component exploit',`${pkg} is loaded and invoked from an attacker-reachable path — where exploitation happens.`,[`Runtime SBOM match`,`Reachable: call graph`,`Introduced in ${ORG}/${repo} · see correlation map`]),
-      mk('ap4','crown','database',crownLabel,'Tier 0','Impact',`Successful RCE or data access from compromised app tier.`,[`Jira ${e.jira||meta.jira}`,`KEV: ${e.kev?'listed':'—'}`]),
-      mk('ap5','exit','globe','Data exfiltration','HTTPS egress','Exfiltration',`Outbound channel if attacker establishes shell or queries datastore.`,[`WAF ${e.internet?'may compensate':''}`,`Runtime sensor watch`])
-    ];
-    const narrative=`An attacker on the <strong>public internet</strong> can reach <strong>${esc(edgeHost)}</strong>, exploit <strong>${esc(e.cve||pkg)}</strong> in the running <strong>${esc(svc)}</strong> workload (component already deployed in prod), and access <strong>${esc(crownLabel)}</strong>. The dependency was introduced in source at <strong>${esc(repo)}</strong> — that lineage is in the correlation map, not this runtime attack path.`;
-    return {narrative, nodes, edges:edgeChain(nodes,['Probe / scan','HTTP request','Route to app','Trigger vuln lib','Access datastore','HTTPS exfil']),findings:1+(e.crossLinks?.length||0)};
-  }
-
-  if(e.scannerId==='sast'){
-    const repo=deriveRepo(e.asset);
-    const file=e.title.includes('·')?e.title.split('·').pop().trim():'src/.../handler.java';
-    const nodes=[
-      mk('ap0','entry','globe','Internet client',e.internet?'ALB path':'Internal','Initial access','User-controlled input reaches vulnerable sink.',[`${e.tool} rule hit`]),
-      mk('ap1','exposed','git',repo,`${ORG}/${repo}`,'Code flaw',`Static flaw in ${file}.`,[`PR #${e.pr||1100+(h%200)}`,`Commit ${e.commit||'—'}`]),
-      mk('ap2','actor','code',shortAsset(e),e.internet?'prod':'staging','Deployed service','Vulnerable code path ships to runtime.',[`Branch: main → prod`,`Contrast / IAST optional`]),
-      mk('ap3','resource','api','/api/v1/charge','payments-api','Exploit path',`HTTP entry invokes taint sink thousands of times per day.`,[`Taint: source → sink`,`~${2400+(h%800)} calls/day`]),
-      mk('ap4','crown','database',crownLabel,'Tier 0','Impact',`Successful exploitation yields query or modify on ledger data.`,[`${e.jira||meta.jira}`,`Owner: ${e.owner}`]),
-      mk('ap5','exit','shield','WAF / RASP',e.internet?'Edge control':'N/A','Compensating',`Runtime control may block exploit until patch lands.`,[`Virtual patch optional`])
-    ];
-    const narrative=`An attacker can send crafted input to <strong>${esc(shortAsset(e))}</strong>, trigger the flaw in <strong>${esc(file)}</strong> on <strong>${esc(repo)}</strong>, and reach <strong>${esc(crownLabel)}</strong> through the production API path.`;
-    return {narrative, nodes, edges:edgeChain(nodes,['HTTP request','Merged PR','Deploy','Invoke sink','SQL/XXE impact','Blocked?']),findings:1+(e.crossLinks?.length||0)};
-  }
-
-  if(e.scannerId==='dast'){
-    const url=e.asset.startsWith('http')?e.asset.replace(/^https?:\/\//,'').split('/')[0]:shortAsset(e);
-    const path=e.asset.includes('/')?('/'+e.asset.split('/').slice(3).join('/').slice(0,40)):e.title.includes('·')?e.title.split('·')[1]?.trim():'/api/...';
-    const nodes=[
-      mk('ap0','entry','globe','Public Internet','Attacker','Reconnaissance','External probe discovers exploitable behavior.',[`${e.tool} live test`]),
-      mk('ap1','exposed','globe',url,path.slice(0,36),'Exploit surface',`${e.title} confirmed against running app.`,[`Live exploit proof`,`Internet-facing: ${e.internet?'yes':'no'}`]),
-      mk('ap2','actor','api','API gateway','Apigee / ALB','AuthZ bypass',`Gateway routes to backend with weak authorization.`,[`Shadow API check`,`BOLA / authz`]),
-      mk('ap3','resource','server','payments-api','K8s service','Backend','Microservice executes vulnerable handler.',[`Owner: ${e.owner}`,`${e.jira||''}`]),
-      mk('ap4','crown','database',crownLabel,'Customer data','Impact',`Successful attack reads or mutates customer records.`,[`PCI / PII tags`,`P1 SLA`]),
-      mk('ap5','exit','shield','WAF rule',e.internet?'Virtual patch':'Policy','Containment',`Edge control can block pattern while code fix ships.`,[`SecOps runbook`])
-    ];
-    const narrative=`An attacker on the <strong>internet</strong> can exploit <strong>${esc(e.title)}</strong> at <strong>${esc(path)}</strong> on <strong>${esc(url)}</strong>, pivot through the API tier, and access <strong>${esc(crownLabel)}</strong>.`;
-    return {narrative, nodes, edges:edgeChain(nodes,['Probe','Exploit','Route','Backend call','Data access','WAF block']),findings:1+(e.crossLinks?.length||0)};
-  }
-
-  if(e.scannerId==='container'){
-    const repo=deriveRepo(e.asset);
-    const img=shortAsset(e);
-    const nodes=[
-      mk('ap0','entry','git',repo,`${ORG}/${repo}`,'Build context','Image built from repo — vuln introduced in layer.',[`Dockerfile / CI`,`Commit ${e.commit||'—'}`]),
-      mk('ap1','exposed','container',img.split(':')[0]||img,e.buildPipeline?.artifact?.digest?.slice(0,20)||'image:tag','Vulnerable image',`${e.cve||e.title} in running image.`,[`Registry scan`,`Layer: app`]),
-      mk('ap2','actor','container','JFrog prod',e.buildPipeline?.artifact?.registry||'registry','Registry','Artifact promoted to prod registry.',[`Digest pinned`]),
-      mk('ap3','resource','cloud',e.buildPipeline?.deployment?.cluster||'eks-prod-use1',e.buildPipeline?.deployment?.namespace||'payments','Runtime','Pods execute vulnerable image.',[`${e.buildPipeline?.deployment?.podCount||12} pods`,`Falco watch`]),
-      mk('ap4','crown','database',crownLabel,'In-cluster','Impact',`Compromised workload reaches sensitive volumes or APIs.`,[`CNAPP path length ${2+(h%2)}`]),
-      mk('ap5','exit','zap','C2 / exfil',e.internet?'Egress':'Lateral','Post-exploit',`Outbound from cluster if runtime compromised.`,[`NetworkPolicy gap?`])
-    ];
-    const narrative=`An attacker who compromises <strong>${esc(img)}</strong> (built from <strong>${esc(repo)}</strong>) can escape the container boundary, move through <strong>${esc(e.buildPipeline?.deployment?.cluster||'the prod cluster')}</strong>, and reach <strong>${esc(crownLabel)}</strong>.`;
-    return {narrative, nodes, edges:edgeChain(nodes,['Build','Scan fail','Push','Deploy','Privilege / API','Exfil']),findings:1+(e.crossLinks?.length||0)};
-  }
-
-  if(e.scannerId==='iac'){
-    const repo=deriveRepo(e.asset);
-    const nodes=[
-      mk('ap0','entry','git',repo,`terraform/…`,'Misconfig in code',`Policy violation in IaC before apply.`,[`${e.tool}`,`PR gate`]),
-      mk('ap1','exposed','code','tf module',shortAsset(e).slice(0,24),'Plan / apply',`Terraform plans risky change to ${shortAsset(e).slice(0,30)}.`,[`Checkov / tfsec`]),
-      mk('ap2','actor','cloud','prod-payments','112233445566','Target account',`Change targets production payments account.`,[`Account criticality: high`]),
-      mk('ap3','resource','database',shortAsset(e).replace(/^arn:aws:[^:]+::/,'').slice(0,22),'Cloud resource','Deployed resource exposes data or ingress.',[`Drift: ${h%3?'none':'possible'}`]),
-      mk('ap4','crown','database',crownLabel,'PCI scope','Impact',`Public exposure or weak encryption on crown-jewel store.`,[`Blast radius: internet`]),
-      mk('ap5','exit','shield','Policy guard','CI block','Prevent','Pipeline can block apply before deploy.',[`OPA / Sentinel`])
-    ];
-    const narrative=`If <strong>${esc(e.title)}</strong> in <strong>${esc(repo)}</strong> is applied, an attacker could reach <strong>${esc(crownLabel)}</strong> via <strong>${esc(shortAsset(e).slice(0,40))}</strong> in the production account.`;
-    return {narrative, nodes, edges:edgeChain(nodes,['Commit','Plan','Apply','Misconfig live','Data exposure','Guardrail']),findings:1};
-  }
-
-  if(e.scannerId==='cspm'){
-    const nodes=[
-      mk('ap0','entry','globe','Internet','0.0.0.0/0','Initial access','Public exposure or toxic combination entry.',[`CNAPP graph`]),
-      mk('ap1','exposed','cloud',shortAsset(e).slice(0,20),'AWS resource','Misconfiguration',`${e.title} — posture finding.`,[`Toxic combo: ${h%2?'yes':'review'}`]),
-      mk('ap2','actor','user','over-priv role','IAM *:*','Identity','Role bridges resources in attack graph.',[`IAM analyzer`]),
-      mk('ap3','resource','server','workload','EKS / EC2','Lateral','Compute can reach datastore via network + identity.',[`Attack path len ${3+(h%3)}`]),
-      mk('ap4','crown','database',crownLabel,'Data plane','Impact',`Crown-jewel data store at end of graph path.`,[`${e.jira||meta.jira}`]),
-      mk('ap5','exit','shield','Auto-remediate','Lambda','Containment',`Runbook can isolate SG or policy while ticket open.`,[`Wiz / Prisma`])
-    ];
-    const narrative=`An attacker can abuse <strong>${esc(e.title)}</strong> on <strong>${esc(shortAsset(e))}</strong>, chain IAM and network edges in the cloud graph, and reach <strong>${esc(crownLabel)}</strong>.`;
-    return {narrative, nodes, edges:edgeChain(nodes,['Discover','Exploit misconfig','Assume role','Pivot','Read data','Remediate']),findings:1+(e.crossLinks?.length||0)};
-  }
-
-  if(e.scannerId==='easm'){
-    const nodes=[
-      mk('ap0','entry','globe','Internet','Scanner','Discovery',`Outside-in discovery of exposed asset.`,[`EASM / Randori`]),
-      mk('ap1','exposed','globe',shortHost(e),e.internet?'Public':'Unknown',`Exposed service`,`Asset not in CMDB or forgotten surface.`,[`Shadow IT confidence: medium`]),
-      mk('ap2','actor','user','attacker','Opportunistic','Exploitation',`Known CVE or weak auth on exposed service.`,[`${e.cve||'misconfig'}`]),
-      mk('ap3','resource','server','internal-bridge','VPN / peer','Pivot',`May bridge to internal acmepay network.`,[`WHOIS / CT logs`]),
-      mk('ap4','crown','database',crownLabel,'Internal API','Impact',`Reach internal admin or payment APIs.`,[`Attribution pending`]),
-      mk('ap5','exit','shield','Takedown','Brand / Net','Response',`Perimeter block or decommission asset.`,[`SecOps + owner`])
-    ];
-    const narrative=`An external attacker can discover <strong>${esc(shortHost(e))}</strong>, exploit the exposure, and pivot toward <strong>${esc(crownLabel)}</strong> — often via shadow infrastructure.`;
-    return {narrative, nodes, edges:edgeChain(nodes,['OSINT','Scan','Exploit','Bridge','Internal API','Takedown']),findings:1};
-  }
-
-  if(e.scannerId==='secrets'){
-    const repo=deriveRepo(e.asset);
-    const nodes=[
-      mk('ap0','entry','git',repo,'History / branch','Leak origin',`Secret committed to version control.`,[`${e.tool}`,`Valid: live`]),
-      mk('ap1','exposed','git','leaked key','AKIA… / token','Credential',`Credential maps to cloud or SaaS principal.`,[`Rotation SLA: urgent`]),
-      mk('ap2','actor','user','svc-deploy-prod','IAM user','Identity',`Principal has broad permissions.`,[`AdminAccess: ${h%2?'yes':'review'}`]),
-      mk('ap3','resource','cloud','AWS APIs','us-east-1','API abuse',`Attacker invokes APIs with stolen key.`,[`CloudTrail audit`]),
-      mk('ap4','crown','database',crownLabel,'Data exfil','Impact',`Read S3, RDS, or secrets manager.`,[`P0 incident`]),
-      mk('ap5','exit','shield','Revoke + rotate','Vault','Remediation',`Only fix is revocation — no virtual patch.`,[`Pre-receive block`])
-    ];
-    const narrative=`An attacker with the leaked secret from <strong>${esc(repo)}</strong> can authenticate as <strong>production IAM</strong>, invoke cloud APIs, and exfiltrate from <strong>${esc(crownLabel)}</strong>.`;
-    return {narrative, nodes, edges:edgeChain(nodes,['Commit secret','Clone repo','Use key','API calls','Exfil','Rotate']),findings:1};
-  }
-
-  const nodes=[
-    mk('ap0','entry','globe','Entry','Attacker','Start','Attack path entry.',[]),
-    mk('ap1','exposed','server',shortHost(e),meta.ip||'—','Vulnerability',e.title,[]),
-    mk('ap2','crown','database',crownLabel,'Target','Impact','Critical asset.',[])
-  ];
-  return {narrative:`Attack path for <strong>${esc(e.title)}</strong> on <strong>${esc(shortHost(e))}</strong>.`,nodes,edges:edgeChain(nodes,['Step 1','Step 2']),findings:1};
-}
-
-function edgeChain(nodes,labels){
-  const edges=[];
-  for(let i=0;i<nodes.length-1;i++){
-    edges.push({from:nodes[i].id,to:nodes[i+1].id,label:labels[i]||'Next'});
-  }
-  return edges;
-}
-
-function apNodeClass(type){
-  if(type==='exposed') return 'ap-node-exposed';
-  if(type==='crown') return 'ap-node-crown';
-  if(type==='entry'||type==='exit') return 'ap-node-edge';
-  return 'ap-node-mid';
-}
-
-function apHexPoints(cx,cy,r){
-  const pts=[];
-  for(let i=0;i<6;i++){
-    const a=Math.PI/180*(60*i-30);
-    pts.push(`${(cx+r*Math.cos(a)).toFixed(1)},${(cy+r*Math.sin(a)).toFixed(1)}`);
-  }
-  return pts.join(' ');
-}
-
-function renderAttackPathSvg(e,path){
-  const nodes=path.nodes;
-  const edges=path.edges;
-  const gap=148;
-  const r=34;
-  const y=118;
-  const stageY=52;
-  const labelY=168;
-  const W=Math.max(920,80+gap*(nodes.length-1)+80);
-  const H=220;
-  const uid=e.id.replace(/[^a-zA-Z0-9]/g,'');
-
-  const positions={};
-  nodes.forEach((n,i)=>{
-    positions[n.id]={x:90+i*gap,y,cy:y};
+function computeInsightMetrics(rows){
+  const sev={Critical:0,High:0,Medium:0,Low:0};
+  const status={};
+  const scoreBuckets=[0,0,0,0];
+  const ownerMap={};
+  let kev=0,internet=0,overdue=0,urgent=0,open=0,scoreSum=0,epssSum=0,epssN=0;
+  rows.forEach(r=>{
+    sev[r.severity]=(sev[r.severity]||0)+1;
+    status[r.status]=(status[r.status]||0)+1;
+    scoreSum+=r.score;
+    const bi=r.score>=8?3:r.score>=6?2:r.score>=4?1:0;
+    scoreBuckets[bi]++;
+    if(r.kev) kev++;
+    if(r.internet) internet++;
+    if(r.sla.includes('Overdue')) overdue++;
+    else if(r.sla.includes('h left')) urgent++;
+    if(r.status==='Open') open++;
+    if(r.epss!=null){epssSum+=r.epss;epssN++;}
+    ownerMap[r.owner]=ownerMap[r.owner]||{n:0,score:0};
+    ownerMap[r.owner].n++;
+    ownerMap[r.owner].score+=r.score;
   });
+  const n=rows.length||1;
+  const topOwners=Object.entries(ownerMap)
+    .map(([name,v])=>({name,n:v.n,avg:v.score/v.n}))
+    .sort((a,b)=>b.n-a.n).slice(0,5);
+  const critHigh=sev.Critical+sev.High;
+  const kevOnInternet=rows.filter(r=>r.kev&&r.internet).length;
+  const matrix={
+    kevNet:rows.filter(r=>r.kev&&r.internet).length,
+    kevInt:rows.filter(r=>r.kev&&!r.internet).length,
+    noKevNet:rows.filter(r=>!r.kev&&r.internet).length,
+    noKevInt:rows.filter(r=>!r.kev&&!r.internet).length
+  };
+  return {
+    n:rows.length,sev,status,scoreBuckets,kev,internet,overdue,urgent,open,
+    avgScore:scoreSum/n,avgEpss:epssN?epssSum/epssN:null,critHigh,kevOnInternet,topOwners,matrix
+  };
+}
 
-  const edgeSvg=edges.map(ed=>{
-    const a=positions[ed.from],b=positions[ed.to];
-    if(!a||!b) return '';
-    const x1=a.x+r+8,x2=b.x-r-8;
-    const mx=(x1+x2)/2;
-    return `<g class="ap-edge">
-      <line x1="${x1}" y1="${a.y}" x2="${x2}" y2="${b.y}" marker-end="url(#ap-arrow-${uid})"/>
-      <text x="${mx}" y="${a.y-10}" class="ap-edge-label">${esc(ed.label)}</text>
-    </g>`;
+function topOpenRisks(rows,n=3){
+  return rows.filter(r=>r.status==='Open')
+    .sort((a,b)=>{
+      const pa=(b.kev?4:0)+(b.internet?2:0)+(b.sla.includes('Overdue')?1:0);
+      const pb=(a.kev?4:0)+(a.internet?2:0)+(a.sla.includes('Overdue')?1:0);
+      return b.score-a.score||pa-pb;
+    })
+    .slice(0,n);
+}
+
+function triageLink(sid,expId){
+  return 'exposure-dashboard.html?scanner='+encodeURIComponent(sid)+(expId?'&exp='+encodeURIComponent(expId):'');
+}
+
+function scoreColor(score){
+  if(score>=8) return '#dc2626';
+  if(score>=6) return '#ea580c';
+  if(score>=4) return '#ca8a04';
+  return '#64748b';
+}
+
+function insightCallout(m,rows){
+  if(!m.n) return 'No exposures in the current filter slice — adjust filters or pick another scanner.';
+  const parts=[];
+  const top=topOpenRisks(rows,1)[0];
+  if(top) parts.push(`highest open risk <strong>${esc(top.id)}</strong> (${top.score.toFixed(1)})`);
+  if(m.critHigh&&m.n) parts.push(`<strong>${Math.round(m.critHigh/m.n*100)}%</strong> are Critical/High severity`);
+  if(m.kevOnInternet) parts.push(`<strong>${m.kevOnInternet}</strong> KEV + internet-facing (highest priority)`);
+  if(m.overdue) parts.push(`<strong>${m.overdue}</strong> overdue SLA`);
+  if(m.avgEpss!=null&&m.avgEpss>0.5) parts.push(`avg EPSS <strong>${m.avgEpss.toFixed(2)}</strong> — active exploitation risk`);
+  return parts.length?parts.join(' · '):`Tracking <strong>${m.n}</strong> exposures · avg score <strong>${m.avgScore.toFixed(1)}</strong>`;
+}
+
+function renderTopOpenRisks(rows,sid,fullPage){
+  const risks=topOpenRisks(rows,3);
+  if(!risks.length){
+    return `<div class="insights-top-risks insights-top-risks--empty"><h4>Top open risks</h4><p class="insight-empty">No open exposures in this slice — great progress.</p></div>`;
+  }
+  const cards=risks.map((r,i)=>{
+    const rank=i+1;
+    const slaCls=r.sla.includes('Overdue')?'insight-risk-sla--overdue':r.sla.includes('h left')?'insight-risk-sla--urgent':'';
+    const badges=[
+      r.kev?'<span class="insight-risk-badge insight-risk-badge--kev">KEV</span>':'',
+      r.internet?'<span class="insight-risk-badge insight-risk-badge--net">Internet</span>':'',
+      r.epss!=null?`<span class="insight-risk-badge">EPSS ${r.epss.toFixed(2)}</span>`:''
+    ].filter(Boolean).join('');
+    const maxAsset=fullPage?42:28;
+    const assetDisp=r.asset.length>maxAsset?r.asset.slice(0,maxAsset-1)+'…':r.asset;
+    return `<a class="insight-risk-card ${RANK_STYLES[i]||''}" href="${triageLink(sid,r.id)}" title="Open in triage queue">
+      <div class="insight-risk-rank">#${rank}</div>
+      <div class="insight-risk-score" style="--risk-color:${scoreColor(r.score)}">${r.score.toFixed(1)}</div>
+      <div class="insight-risk-main">
+        <div class="insight-risk-id">${esc(r.id)}${r.cve?` · <span class="insight-risk-cve">${esc(r.cve)}</span>`:''}</div>
+        <div class="insight-risk-title">${esc(r.title)}</div>
+        <div class="insight-risk-meta">
+          <span>${esc(assetDisp)}</span>
+          <span class="insight-risk-owner">${esc(r.owner)}</span>
+        </div>
+        ${badges?`<div class="insight-risk-badges">${badges}</div>`:''}
+      </div>
+      <div class="insight-risk-foot">
+        <span class="insight-risk-sla ${slaCls}">${esc(r.sla)}</span>
+        <span class="insight-risk-cta">View in queue →</span>
+      </div>
+    </a>`;
   }).join('');
+  return `<section class="insights-top-risks" aria-label="Top open risks">
+    <div class="insights-top-risks-head">
+      <h4>Top 3 open risks</h4>
+      <p class="insight-card-hint">Ranked by score · KEV &amp; internet exposure boost priority</p>
+    </div>
+    <div class="insight-risk-grid">${cards}</div>
+  </section>`;
+}
 
-  const nodeSvg=nodes.map(n=>{
-    const p=positions[n.id];
-    const cls=apNodeClass(n.type);
-    const crown=n.type==='crown'?`<text x="${p.x}" y="${p.y-44}" class="ap-crown-mark" text-anchor="middle">♛</text>`:'';
-    const stageLabel=n.stage?esc(n.stage.length>22?n.stage.slice(0,21)+'…':n.stage):'';
-    const stageWarn=['Credential Access','Privilege Escalation','Exploitation','Identity'].some(s=>(n.stage||'').includes(s));
-    const stage=n.stage?`<g class="ap-stage${stageWarn?' ap-stage-warn':''}"><rect x="${p.x-54}" y="${stageY}" width="108" height="20" rx="10"/><text x="${p.x}" y="${stageY+14}" text-anchor="middle">${stageLabel}</text></g>`:'';
-    return `<g class="ap-node ${cls}" data-ap-node="${n.id}" tabindex="0" role="button" aria-label="${esc(n.label)}">
-      ${stage}
-      ${crown}
-      <polygon points="${apHexPoints(p.x,p.y,r)}" class="ap-hex"/>
-      <foreignObject x="${p.x-22}" y="${p.y-22}" width="44" height="44">
-        <div xmlns="http://www.w3.org/1999/xhtml" class="ap-hex-icon">${icon(n.icon,22)}</div>
-      </foreignObject>
-      <text x="${p.x}" y="${labelY}" class="ap-node-label" text-anchor="middle">${esc(n.label)}</text>
-      <text x="${p.x}" y="${labelY+14}" class="ap-node-sub" text-anchor="middle">${esc(n.sub||'')}</text>
-    </g>`;
+function svgDonut(segments,size=100,stroke=14){
+  const r=(size-stroke)/2,cx=size/2,cy=size/2;
+  const total=segments.reduce((s,x)=>s+x.value,0)||1;
+  let angle=-Math.PI/2;
+  const arcs=segments.filter(s=>s.value>0).map((s,i)=>{
+    const a=(s.value/total)*Math.PI*2;
+    const x1=cx+r*Math.cos(angle),y1=cy+r*Math.sin(angle);
+    angle+=a;
+    const x2=cx+r*Math.cos(angle),y2=cy+r*Math.sin(angle);
+    const large=a>Math.PI?1:0;
+    return `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}" fill="none" stroke="${s.color}" stroke-width="${stroke}" stroke-linecap="round" opacity=".92" class="insight-donut-arc"/>`;
   }).join('');
-
-  return `<svg class="attack-path-svg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" aria-label="Attack path for ${esc(e.id)}">
-    <defs>
-      <marker id="ap-arrow-${uid}" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#64748b"/></marker>
-    </defs>
-    <g class="ap-edges">${edgeSvg}</g>
-    <g class="ap-nodes">${nodeSvg}</g>
+  return `<svg class="insight-donut" viewBox="0 0 ${size} ${size}" width="${size}" height="${size}" aria-hidden="true">
+    <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="var(--border)" stroke-width="${stroke}" opacity=".35"/>
+    ${arcs}
+    <text x="${cx}" y="${cy-2}" text-anchor="middle" class="insight-donut-total">${total}</text>
+    <text x="${cx}" y="${cy+10}" text-anchor="middle" class="insight-donut-label">total</text>
   </svg>`;
 }
 
-function renderAttackPathView(e){
-  const path=buildAttackPath(e);
-  return `
-    <div class="attack-path-view" data-exp-id="${e.id}">
-      <div class="attack-path-summary">
-        <div class="attack-path-summary-text">
-          <span class="attack-path-ai-badge">AI</span>
-          <p class="attack-path-narrative">${path.narrative}</p>
-        </div>
-        <div class="attack-path-summary-actions">
-          <button type="button" class="attack-path-ai-open-btn" data-ai-open>Ask AI</button>
-          <button type="button" class="attack-path-findings-btn" data-findings-jump="${e.id}">View Findings (${path.findings})</button>
-        </div>
-      </div>
-      <div class="ap-hub-wrap" data-ap-resize-wrap>
-        <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="attack-path">
-          <button type="button" data-zoom="out" aria-label="Zoom attack path out">−</button>
-          <button type="button" data-zoom="in" aria-label="Zoom attack path in">+</button>
-          <button type="button" data-zoom-reset aria-label="Reset attack path zoom">Reset</button>
-        </div>
-        <div class="diagram-zoom-canvas attack-path-graph-scroll" data-zoom-canvas="attack-path">
-          ${renderAttackPathSvg(e,path)}
-        </div>
-      </div>
-      <div class="viz-resize-handle" data-ap-resize-handle role="separator" aria-orientation="horizontal" aria-label="Resize attack path diagram" tabindex="0"></div>
-      <div class="attack-path-legend">
-        <span class="ap-legend-item"><span class="ap-legend-swatch ap-legend-exposed"></span> Exposed asset</span>
-        <span class="ap-legend-item"><span class="ap-legend-swatch ap-legend-crown"></span> Critical asset</span>
-      </div>
-      <div class="attack-path-info">
-        <div class="attack-path-info-tabs"><span class="ap-info-tab on">Information</span></div>
-        <div class="attack-path-info-body" data-ap-info>
-          <p class="ap-info-placeholder">Select a step in the attack path to see technique context and evidence.</p>
-        </div>
-      </div>
-    </div>`;
+function renderRadialSeverity(sevSegs){
+  const active=sevSegs.filter(s=>s.value>0);
+  if(!active.length) return '<p class="insight-empty">—</p>';
+  const max=Math.max(...active.map(s=>s.value),1);
+  const cx=60,cy=60,R=42,r=24;
+  const bars=active.map((s,i)=>{
+    const a0=-Math.PI/2+(i/active.length)*Math.PI*2;
+    const a1=-Math.PI/2+((i+1)/active.length)*Math.PI*2;
+    const len=Math.max(0.12,(s.value/max)*0.88);
+    const mid=(a0+a1)/2;
+    const ir=R-len*(R-r);
+    const x0=cx+ir*Math.cos(mid),y0=cy+ir*Math.sin(mid);
+    const x1=cx+R*Math.cos(mid),y1=cy+R*Math.sin(mid);
+    return `<line x1="${x0.toFixed(1)}" y1="${y0.toFixed(1)}" x2="${x1.toFixed(1)}" y2="${y1.toFixed(1)}" stroke="${s.color}" stroke-width="10" stroke-linecap="round" opacity=".9"/>`;
+  }).join('');
+  const legend=sevSegs.map(s=>`<li><span style="background:${s.color}"></span>${s.label} <strong>${s.value}</strong></li>`).join('');
+  return `<div class="insight-radial-wrap">
+    <svg viewBox="0 0 120 120" width="120" height="120" class="insight-radial">${bars}<circle cx="${cx}" cy="${cy}" r="16" fill="var(--panel-2)" stroke="var(--border)"/></svg>
+    <ul class="insight-sev-legend">${legend}</ul>
+  </div>`;
 }
 
-function renderAttackPathNodeInfo(node){
-  const ev=(node.evidence||[]).map(x=>`<li>${esc(x)}</li>`).join('');
-  return `
-    <h5 class="ap-info-title">${esc(node.label)}</h5>
-    <p class="ap-info-stage"><strong>Stage:</strong> ${esc(node.stage||'—')}</p>
-    <p class="ap-info-desc">${esc(node.info||'')}</p>
-    ${ev?`<div class="ap-info-evidence"><strong>Evidence</strong><ul>${ev}</ul></div>`:''}`;
+function renderRiskGauge(score){
+  const W=160,H=96,cx=80,cy=82,r=58;
+  const pct=Math.min(1,Math.max(0,score/10));
+  const angle=-Math.PI+ pct*Math.PI;
+  const nx=cx+r*Math.cos(angle),ny=cy+r*Math.sin(angle);
+  const col=scoreColor(score);
+  const zones=[
+    {c:'#64748b',a0:-Math.PI,a1:-Math.PI+Math.PI*0.4},
+    {c:'#ca8a04',a0:-Math.PI+Math.PI*0.4,a1:-Math.PI+Math.PI*0.6},
+    {c:'#ea580c',a0:-Math.PI+Math.PI*0.6,a1:-Math.PI+Math.PI*0.8},
+    {c:'#dc2626',a0:-Math.PI+Math.PI*0.8,a1:0}
+  ].map(z=>{
+    const x1=cx+r*Math.cos(z.a0),y1=cy+r*Math.sin(z.a0);
+    const x2=cx+r*Math.cos(z.a1),y2=cy+r*Math.sin(z.a1);
+    const large=z.a1-z.a0>Math.PI?1:0;
+    return `<path d="M ${x1} ${y1} A ${r} ${r} 0 ${large} 1 ${x2} ${y2}" fill="none" stroke="${z.c}" stroke-width="10" stroke-linecap="butt" opacity=".35"/>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" class="insight-gauge">
+    ${zones}
+    <line x1="${cx}" y1="${cy}" x2="${nx.toFixed(1)}" y2="${ny.toFixed(1)}" stroke="${col}" stroke-width="3" stroke-linecap="round"/>
+    <circle cx="${cx}" cy="${cy}" r="5" fill="${col}"/>
+    <text x="${cx}" y="${cy-18}" text-anchor="middle" class="insight-gauge-val">${score.toFixed(1)}</text>
+    <text x="${cx}" y="${H-4}" text-anchor="middle" class="insight-gauge-lbl">Avg exposure score</text>
+  </svg>`;
 }
 
-function bindAttackPathPanel(panel,e){
-  const view=panel.querySelector('.attack-path-view');
-  if(!view) return;
-  const path=buildAttackPath(e);
-  const infoEl=view.querySelector('[data-ap-info]');
-  const selectNode=(nodeId)=>{
-    const node=path.nodes.find(n=>n.id===nodeId);
-    if(!node||!infoEl) return;
-    view.querySelectorAll('.ap-node').forEach(g=>g.classList.toggle('selected',g.dataset.apNode===nodeId));
-    infoEl.innerHTML=renderAttackPathNodeInfo(node);
-  };
-  view.querySelectorAll('.ap-node').forEach(g=>{
-    const fn=()=>selectNode(g.dataset.apNode);
-    g.onclick=fn;
-    g.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();fn();}};
-  });
-  if(path.nodes[1]) selectNode(path.nodes[1].id);
-  view.querySelector('[data-findings-jump]')?.addEventListener('click',()=>{
-    if(infoEl){
-      infoEl.innerHTML=`
-        <h5 class="ap-info-title">Scanner finding</h5>
-        <p class="ap-info-desc">${esc(e.tool)} — ${esc(e.title)}</p>
-        <div class="ap-info-evidence"><strong>Evidence</strong><ul>
-          <li>${e.cve?esc(e.cve):`Severity: ${esc(e.severity)}`}</li>
-          <li>Exposure ${esc(e.id)} · score ${e.score.toFixed(1)}</li>
-          ${(e.crossLinks||[]).map(c=>`<li>Also: ${esc(c.id)} (${esc(c.by)})</li>`).join('')}
-        </ul></div>`;
-      view.querySelectorAll('.ap-node').forEach(g=>g.classList.remove('selected'));
-    }
-    const hub=panel.querySelector('.corr-hub-wrap');
-    hub?.scrollIntoView({behavior:'smooth',block:'nearest'});
-    const finding=panel.querySelector('.corr-hub-wrap .corr-box-wrap[data-finding]');
-    finding?.click();
-  });
-}
-
-/** Dummy AI explainability chat (no LLM — canned contextual replies). */
-
-function aiChatSuggestions(e){
-  return [
-    'Why is this exposure prioritized?',
-    'Explain the attack path',
-    'What should we fix first?',
-    e.crossLinks?.length ? `How does ${e.crossLinks[0].id} relate?` : 'What is the blast radius?'
+function renderThreatMatrix(matrix){
+  const cells=[
+    {k:'kevNet',label:'KEV + Internet',hint:'Act now',cls:'insight-matrix--hot'},
+    {k:'kevInt',label:'KEV internal',hint:'Segment & patch',cls:'insight-matrix--warm'},
+    {k:'noKevNet',label:'Internet only',hint:'Monitor',cls:'insight-matrix--mid'},
+    {k:'noKevInt',label:'Internal only',hint:'Schedule',cls:'insight-matrix--cool'}
   ];
+  const max=Math.max(...cells.map(c=>matrix[c.k]),1);
+  const html=cells.map(c=>{
+    const v=matrix[c.k];
+    const intensity=0.15+(v/max)*0.75;
+    return `<div class="insight-matrix-cell ${c.cls}" style="--heat:${intensity}">
+      <span class="insight-matrix-val">${v}</span>
+      <span class="insight-matrix-label">${c.label}</span>
+      <span class="insight-matrix-hint">${c.hint}</span>
+    </div>`;
+  }).join('');
+  return `<div class="insight-matrix">${html}</div>`;
 }
 
-function aiChatInitialMessage(e){
-  const pathTitle=attackPathSectionTitle(e.scannerId);
-  return `I'm reviewing <strong>${esc(e.id)}</strong> (${esc(e.title)}). This ${esc(pathTitle.toLowerCase())} shows score <strong>${e.score.toFixed(1)}</strong> with ${e.kev ? 'KEV match' : 'no KEV'}${e.internet ? ' on an internet-facing path' : ''}. Ask about scoring, remediation, or any step in the diagrams.`;
+function renderTrendSparkline(rows){
+  const high=rows.filter(r=>r.score>=7).length||1;
+  const seed=rows.reduce((s,r)=>s+r.score*100,0)%997;
+  const factors=[0.68,0.74,0.81,0.77,0.88,0.92,1.0].map((f,i)=>Math.max(0,Math.round(high*f*(0.92+(seed+i*17)%20/100))));
+  const W=260,H=88,p=16;
+  const max=Math.max(...factors,1);
+  const pts=factors.map((v,i)=>{
+    const x=p+i*((W-2*p)/(factors.length-1));
+    const y=H-p-((v/max)*(H-2*p));
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
+  const area=pts+` ${W-p},${H-p} ${p},${H-p}`;
+  const last=factors[factors.length-1],prev=factors[factors.length-2];
+  const delta=last-prev;
+  const deltaCls=delta>0?'insight-trend--up':delta<0?'insight-trend--down':'';
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const labels=days.map((d,i)=>`<text x="${p+i*((W-2*p)/(days.length-1))}" y="${H+2}" text-anchor="middle" class="insight-trend-day">${d}</text>`).join('');
+  return `<div class="insight-trend-wrap">
+    <div class="insight-trend-head">
+      <span class="insight-trend-title">High-score trend (7d)</span>
+      <span class="insight-trend-delta ${deltaCls}">${delta>=0?'+':''}${delta} vs yesterday</span>
+    </div>
+    <svg viewBox="0 0 ${W} ${H+12}" width="100%" height="${H+12}" class="insight-trend">
+      <defs><linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="var(--accent)" stop-opacity=".35"/><stop offset="100%" stop-color="var(--accent)" stop-opacity="0"/></linearGradient></defs>
+      <polygon points="${area}" fill="url(#trendGrad)"/>
+      <polyline points="${pts}" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+      ${factors.map((v,i)=>{
+        const x=p+i*((W-2*p)/(factors.length-1));
+        const y=H-p-((v/max)*(H-2*p));
+        return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.5" fill="var(--panel-2)" stroke="var(--accent)" stroke-width="2"><title>${days[i]}: ${v} high-score</title></circle>`;
+      }).join('')}
+      ${labels}
+    </svg>
+  </div>`;
 }
 
-function aiChatReply(e, raw){
-  const q=String(raw||'').toLowerCase().trim();
-  const host=shortHost(e);
-  const meta=seedMeta(e);
-  const links=(e.crossLinks||[]).map(c=>`${c.id} (${c.by})`).join(', ');
-
-  if(!q) return 'Type a question or pick a suggested prompt below.';
-
-  if(/score|priorit|why.*high|severity|rank/.test(q)){
-    return `Exposure <strong>${esc(e.id)}</strong> is <strong>${e.score.toFixed(1)}</strong> (${esc(e.severity)}) because correlation weighted ${e.kev ? '<strong>KEV</strong>, ' : ''}${e.internet ? '<strong>internet reachability</strong>, ' : ''}asset criticality, and ${esc(e.scoring.expr)}. ${e.kev ? 'CISA KEV listing pushes this above CVSS-only backlog items.' : 'Without KEV, reachability and business tier drive rank.'}`;
-  }
-  if(/attack path|lateral|movement|chain|step/.test(q)){
-    const scaNote=e.scannerId==='sca'
-      ? ' For SCA, the attack path is <strong>internet → app → loaded component → impact</strong>. Repo/CI/build is where the dependency was <em>introduced</em> — see the correlation map and origin asset, not this lateral path.'
-      : '';
-    return `The lateral path starts at the exposed entry (${esc(host)}), moves through identity and pivot points, and ends at a crown-jewel target. Click hex nodes in the attack path diagram for stage-specific evidence. ${e.cve ? `Root issue: <strong>${esc(e.cve)}</strong>.` : ''}${scaNote}`;
-  }
-  if(/fix|remediat|patch|mitigat|what should|first/.test(q)){
-    const fix=e.status==='Patched' ? 'Rescan shows clean — maintain regression tests.'
-      : e.status==='Compensating control' ? 'Virtual patch is active; schedule permanent fix in next change window.'
-      : `Assign to <strong>${esc(e.owner)}</strong> (${esc(e.jira || meta.jira)}). Target SLA: ${esc(e.sla)}.`;
-    return `Recommended order: (1) confirm exploitability in prod, (2) ${fix} (3) validate with ${esc(e.tool)} rescan. ${e.buildPipeline ? 'Rebuild and promote artifact via the linked CI/CD pipeline.' : ''}`;
-  }
-  if(/correlat|hub|station|asset|build|identity/.test(q)){
-    return `The correlation map links the scanner <strong>finding</strong> to <strong>asset</strong>${e.buildPipeline ? ', <strong>build pipeline</strong>' : ''}, <strong>identity</strong>, <strong>runtime</strong>, plus ownership, threat intel, and business context. Click any box to see station-level detail below the hub.`;
-  }
-  if(e.crossLinks?.length && (/cross|related|also found/.test(q) || e.crossLinks.some(c=>q.includes(c.id.toLowerCase())))){
-    return `Related exposures: <strong>${esc(links)}</strong>. These share the same payments platform storyline — triage as one incident to avoid duplicate work.`;
-  }
-  if(/blast|radius|impact|crown|data/.test(q)){
-    return `Blast radius includes ${esc(host)} and downstream Tier-0 dependencies (payments data, PCI-scoped stores). Identity paths amplify impact if service accounts have broad IAM or AD membership.`;
-  }
-  if(/kev|epss|cve|exploit/.test(q)){
-    return `${e.cve ? `<strong>${esc(e.cve)}</strong> — ` : ''}KEV: ${e.kev ? '<strong>listed</strong>' : 'not listed'}. EPSS: ${e.epss != null ? e.epss.toFixed(2) : 'n/a'}. CVSS: ${e.cvss != null ? e.cvss : 'n/a'}. ${e.kev ? 'Treat as imminent patching candidate.' : 'Prioritize by reachability and asset tier.'}`;
-  }
-  if(/lsa|secret|credential|password/.test(q)){
-    return `LSA secrets and cached credentials let an attacker escalate from a single host compromise to domain-wide access. Rotate service accounts, restrict lateral RDP/SMB, and verify EDR coverage on the path nodes.`;
-  }
-  if(/owner|jira|ticket|sla/.test(q)){
-    return `Owner: <strong>${esc(e.owner)}</strong>. Ticket: <strong>${esc(e.jira || meta.jira)}</strong>. SLA: ${esc(e.sla)}. Status: ${esc(e.status)}.`;
-  }
-
-  const sc=SCANNERS.find(x=>x.id===e.scannerId);
-  return `For <strong>${esc(e.id)}</strong> (${esc(sc?.name || e.scannerName)}), I can explain scoring, the correlation map, attack path steps, remediation order, or related findings. Try: "Why is this exposure prioritized?" or "Explain the attack path."`;
+function renderBarChart(bars,{h=88,barH=10,gap=6,labelW=72}={}){
+  const max=Math.max(...bars.map(b=>b.value),1);
+  const W=280;
+  const rows=bars.map((b,i)=>{
+    const y=8+i*(barH+gap);
+    const w=Math.max(4,(b.value/max)*(W-labelW-24));
+    const grad=b.color&&b.color.startsWith('#')?b.color:'var(--accent)';
+    return `<g class="insight-bar-row">
+      <text x="0" y="${y+barH-2}" class="insight-bar-label">${esc(b.label.length>11?b.label.slice(0,10)+'…':b.label)}</text>
+      <rect x="${labelW}" y="${y}" width="${w}" height="${barH}" rx="4" fill="${grad}" class="insight-bar-fill" opacity=".88"/>
+      <text x="${labelW+w+6}" y="${y+barH-2}" class="insight-bar-val">${b.value}</text>
+    </g>`;
+  }).join('');
+  return `<svg class="insight-bars" viewBox="0 0 ${W} ${h}" width="100%" height="${h}" preserveAspectRatio="xMidYMid meet">${rows}</svg>`;
 }
 
-function renderAiExplainChat(e){
-  const chips=aiChatSuggestions(e).map(s=>`<button type="button" class="ai-chat-chip" data-ai-chip>${esc(s)}</button>`).join('');
+function renderScoreHistogram(buckets){
+  const labelsFix=['<4','4–6','6–8','8–10'];
+  const colors=['#64748b','#ca8a04','#ea580c','#dc2626'];
+  const max=Math.max(...buckets,1);
+  const W=240,H=90,bw=44,gap=12;
+  const bars=buckets.map((v,i)=>{
+    const bh=Math.max(4,(v/max)*(H-24));
+    const x=12+i*(bw+gap);
+    return `<rect x="${x}" y="${H-8-bh}" width="${bw}" height="${bh}" rx="5" fill="${colors[i]}" class="insight-hist-bar" opacity=".9"/>
+      <text x="${x+bw/2}" y="${H+4}" text-anchor="middle" class="insight-hist-label">${labelsFix[i]}</text>
+      <text x="${x+bw/2}" y="${H-12-bh}" text-anchor="middle" class="insight-hist-val">${v}</text>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H+14}" width="100%" height="${H+14}" class="insight-histogram">${bars}</svg>`;
+}
+
+function renderStatusStack(m){
+  const order=['Open','In progress','Compensating control','Patched','Risk accepted'];
+  const total=m.n||1;
+  let x=0;
+  const W=260,H=22;
+  const segs=order.filter(s=>m.status[s]).map(s=>{
+    const w=Math.max(2,(m.status[s]/total)*W);
+    const seg=`<rect x="${x}" y="0" width="${w}" height="${H}" fill="${STATUS_COLORS[s]||'#94a3b8'}" rx="0"/><title>${esc(s)}: ${m.status[s]}</title>`;
+    x+=w;
+    return seg;
+  }).join('');
+  const legend=order.filter(s=>m.status[s]).map(s=>
+    `<span class="insight-legend-item"><span class="insight-legend-dot" style="background:${STATUS_COLORS[s]}"></span>${esc(statusLabel(s))} (${m.status[s]})</span>`
+  ).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" class="insight-stack">${segs}</svg><div class="insight-legend">${legend}</div>`;
+}
+
+function renderEpssScatter(rows){
+  const pts=rows.filter(r=>r.epss!=null).slice(0,50);
+  if(!pts.length) return '<p class="insight-empty">No EPSS data in slice</p>';
+  const W=280,H=120,p=22;
+  const midX=p+(W-2*p)*0.55,midY=H-p-((7/10)*(H-2*p));
+  const zones=`
+    <rect x="${midX}" y="${p}" width="${W-p-midX}" height="${midY-p}" fill="#dc2626" opacity=".06" rx="4"/>
+    <rect x="${p}" y="${p}" width="${midX-p}" height="${midY-p}" fill="#ca8a04" opacity=".05" rx="4"/>
+    <text x="${W-p-4}" y="${p+10}" text-anchor="end" class="insight-quadrant insight-quadrant--hot">Exploit now</text>
+    <text x="${p+4}" y="${p+10}" class="insight-quadrant">Watch</text>`;
+  const dots=pts.map(r=>{
+    const x=p+(r.epss)*(W-2*p);
+    const y=H-p-((r.score/10)*(H-2*p));
+    const col=SEV_COLORS[r.severity]||scoreColor(r.score);
+    const pulse=r.kev&&r.internet?' insight-dot--pulse':'';
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="5" fill="${col}" opacity=".88" class="insight-dot${pulse}"><title>${esc(r.id)} · EPSS ${r.epss.toFixed(2)} · score ${r.score.toFixed(1)}</title></circle>`;
+  }).join('');
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" class="insight-scatter">
+    ${zones}
+    <line x1="${p}" y1="${midY}" x2="${W-p}" y2="${midY}" stroke="var(--border)" stroke-dasharray="3 3" opacity=".6"/>
+    <line x1="${midX}" y1="${p}" x2="${midX}" y2="${H-p}" stroke="var(--border)" stroke-dasharray="3 3" opacity=".6"/>
+    ${dots}
+    <text x="${W/2}" y="${H-4}" text-anchor="middle" class="insight-axis">EPSS (exploitation probability) →</text>
+    <text x="6" y="${H/2}" class="insight-axis" transform="rotate(-90 6 ${H/2})">Exposure score</text>
+  </svg>`;
+}
+
+function renderInsightsPanel(rows,total,sid,fullPage){
+  const m=computeInsightMetrics(rows);
+  const sevSegs=['Critical','High','Medium','Low'].map(k=>({label:k,value:m.sev[k],color:SEV_COLORS[k]}));
+  const ownerBars=m.topOwners.map((o,i)=>({label:o.name,value:o.n,color:['#2563eb','#7c3aed','#0891b2','#ea580c','#64748b'][i]}));
+  const sc=SCANNERS.find(s=>s.id===sid);
+
   return `
-    <div class="ai-chat-dock" data-ai-chat>
-      <button type="button" class="ai-chat-fab" data-ai-toggle aria-expanded="false" aria-controls="ai-chat-panel-${e.id}">
-        <span class="ai-chat-fab-icon">${icon('zap',18)}</span>
-        <span class="ai-chat-fab-label">Ask AI</span>
-      </button>
-      <div class="ai-chat-panel" id="ai-chat-panel-${e.id}" data-ai-panel hidden>
-        <header class="ai-chat-header">
-          <div class="ai-chat-header-title">
-            <span class="attack-path-ai-badge">AI</span>
-            <span>Explainability</span>
-          </div>
-          <button type="button" class="ai-chat-close" data-ai-close aria-label="Close chat">&times;</button>
-        </header>
-        <div class="ai-chat-messages" data-ai-messages role="log" aria-live="polite"></div>
-        <div class="ai-chat-chips" data-ai-chips>${chips}</div>
-        <form class="ai-chat-form" data-ai-form>
-          <input type="text" class="ai-chat-input" data-ai-input placeholder="Ask about this exposure…" autocomplete="off" aria-label="Chat message"/>
-          <button type="submit" class="ai-chat-send" aria-label="Send message">${icon('flow',16)}</button>
-        </form>
-        <p class="ai-chat-disclaimer">Demo assistant — scripted replies only, no live model.</p>
+    <div class="insights-header">
+      <div>
+        <h3 class="insights-title">${fullPage?'Analytics dashboard':'Exposure insights'}</h3>
+        <p class="insights-sub">${rows.length} of ${total} ${esc(sc?.name||'exposures')} · ${fullPage?'use filters above to refine charts':'filtered queue analytics'}</p>
       </div>
+      ${fullPage?'':`<button type="button" class="insights-toggle" id="insightsToggle" aria-expanded="true">Hide charts</button>`}
+    </div>
+    <div class="insights-body" id="insightsBody">
+      ${renderTopOpenRisks(rows,sid,fullPage)}
+      <div class="insights-kpis">
+        <div class="insight-kpi"><span class="insight-kpi-val">${m.avgScore.toFixed(1)}</span><span class="insight-kpi-lbl">Avg score</span></div>
+        <div class="insight-kpi insight-kpi--crit"><span class="insight-kpi-val">${m.critHigh}</span><span class="insight-kpi-lbl">Crit + High</span></div>
+        <div class="insight-kpi insight-kpi--kev"><span class="insight-kpi-val">${m.kev}</span><span class="insight-kpi-lbl">KEV listed</span></div>
+        <div class="insight-kpi insight-kpi--net"><span class="insight-kpi-val">${m.internet}</span><span class="insight-kpi-lbl">Internet</span></div>
+        <div class="insight-kpi insight-kpi--sla"><span class="insight-kpi-val">${m.overdue+m.urgent}</span><span class="insight-kpi-lbl">SLA urgent</span></div>
+        <div class="insight-kpi"><span class="insight-kpi-val">${m.open}</span><span class="insight-kpi-lbl">Open</span></div>
+      </div>
+      <div class="insights-grid">
+        <div class="insight-card">
+          <h4>Risk gauge</h4>
+          <div class="insight-card-body">${renderRiskGauge(m.avgScore)}</div>
+        </div>
+        <div class="insight-card">
+          <h4>Severity radar</h4>
+          <div class="insight-card-body">${renderRadialSeverity(sevSegs)}</div>
+        </div>
+        <div class="insight-card">
+          <h4>Threat matrix</h4>
+          <p class="insight-card-hint">KEV × internet exposure</p>
+          <div class="insight-card-body">${renderThreatMatrix(m.matrix)}</div>
+        </div>
+        <div class="insight-card">
+          <h4>7-day trend</h4>
+          <div class="insight-card-body">${renderTrendSparkline(rows)}</div>
+        </div>
+        <div class="insight-card">
+          <h4>Score distribution</h4>
+          <div class="insight-card-body">${renderScoreHistogram(m.scoreBuckets)}</div>
+        </div>
+        <div class="insight-card">
+          <h4>Top owners</h4>
+          <div class="insight-card-body">${ownerBars.length?renderBarChart(ownerBars):'<p class="insight-empty">—</p>'}</div>
+        </div>
+        <div class="insight-card">
+          <h4>Status pipeline</h4>
+          <div class="insight-card-body">${renderStatusStack(m)}</div>
+        </div>
+        <div class="insight-card insight-card--wide">
+          <h4>EPSS vs exposure score</h4>
+          <p class="insight-card-hint">Top-right quadrant = highest priority · pulsing dots = KEV + internet</p>
+          <div class="insight-card-body">${renderEpssScatter(rows)}</div>
+        </div>
+      </div>
+      <p class="insights-callout" id="insightsCallout">${insightCallout(m,rows)}</p>
     </div>`;
 }
 
-function aiChatAppendMessage(container, role, html){
-  const row=document.createElement('div');
-  row.className=`ai-chat-msg ai-chat-msg--${role}`;
-  row.innerHTML=`<div class="ai-chat-bubble">${html}</div>`;
-  container.appendChild(row);
-  container.scrollTop=container.scrollHeight;
-}
-
-function aiChatShowTyping(container){
-  const row=document.createElement('div');
-  row.className='ai-chat-msg ai-chat-msg--assistant ai-chat-msg--typing';
-  row.dataset.typing='1';
-  row.innerHTML='<div class="ai-chat-bubble"><span class="ai-chat-dots"><span></span><span></span><span></span></span></div>';
-  container.appendChild(row);
-  container.scrollTop=container.scrollHeight;
-  return row;
-}
-
-function bindAiExplainChat(panel, e){
-  const dock=panel.querySelector('[data-ai-chat]');
-  if(!dock||dock.dataset.bound==='1') return;
-  dock.dataset.bound='1';
-
-  const fab=dock.querySelector('[data-ai-toggle]');
-  const chatPanel=dock.querySelector('[data-ai-panel]');
-  const messages=dock.querySelector('[data-ai-messages]');
-  const form=dock.querySelector('[data-ai-form]');
-  const input=dock.querySelector('[data-ai-input]');
-  let seeded=false;
-
-  const setOpen=(open)=>{
-    chatPanel.hidden=!open;
-    fab.setAttribute('aria-expanded',open?'true':'false');
-    dock.classList.toggle('is-open',open);
-    if(open&&!seeded){
-      seeded=true;
-      aiChatAppendMessage(messages,'assistant',aiChatInitialMessage(e));
+function renderInsights(){
+  const host=document.getElementById('insightsPanel');
+  if(!host) return;
+  const sid=SCANNERS[activeScanner].id;
+  const total=ALL_EXPOSURES.filter(e=>e.scannerId===sid).length;
+  const rows=getFiltered();
+  const fullPage=host.classList.contains('insights-page');
+  host.innerHTML=renderInsightsPanel(rows,total,sid,fullPage);
+  const sumEl=document.getElementById('summaryLine');
+  if(sumEl) sumEl.textContent=summaryCounts(rows,total);
+  document.documentElement.style.setProperty('--accent',SCANNERS[activeScanner].accent);
+  if(!fullPage){
+    const collapsed=localStorage.getItem('em-insights-collapsed')==='1';
+    host.classList.toggle('is-collapsed',collapsed);
+    const btn=host.querySelector('#insightsToggle');
+    const body=host.querySelector('#insightsBody');
+    if(btn&&body){
+      btn.setAttribute('aria-expanded',collapsed?'false':'true');
+      btn.textContent=collapsed?'Show charts':'Hide charts';
+      btn.onclick=()=>{
+        const c=!host.classList.contains('is-collapsed');
+        host.classList.toggle('is-collapsed',c);
+        btn.setAttribute('aria-expanded',c?'false':'true');
+        btn.textContent=c?'Show charts':'Hide charts';
+        try{localStorage.setItem('em-insights-collapsed',c?'1':'0');}catch(e){}
+      };
     }
-    if(open) setTimeout(()=>input?.focus(),80);
-  };
-
-  const sendUser=(text)=>{
-    const t=String(text||'').trim();
-    if(!t) return;
-    aiChatAppendMessage(messages,'user',esc(t));
-    const typing=aiChatShowTyping(messages);
-    window.setTimeout(()=>{
-      typing.remove();
-      aiChatAppendMessage(messages,'assistant',aiChatReply(e,t));
-    }, 520 + Math.min(t.length * 8, 400));
-  };
-
-  fab.onclick=()=>setOpen(chatPanel.hidden);
-  dock.querySelector('[data-ai-close]')?.addEventListener('click',()=>setOpen(false));
-  form?.addEventListener('submit',ev=>{
-    ev.preventDefault();
-    const t=input.value;
-    input.value='';
-    sendUser(t);
-  });
-  dock.querySelectorAll('[data-ai-chip]').forEach(chip=>{
-    chip.onclick=()=>{
-      setOpen(true);
-      sendUser(chip.textContent);
-    };
-  });
-
-  panel.querySelector('[data-ai-open]')?.addEventListener('click',()=>setOpen(true));
-}
-
-/** Remediation / patch suggestion panel (demo — no real patch integration). */
-
-function buildRemediationSuggestion(e){
-  const meta=seedMeta(e);
-  const repo=deriveRepo(e.asset);
-  const h=pathHash(e.id);
-
-  if(e.scannerId==='sca'){
-    const pkg=e.title.toLowerCase().includes('log4j')?'log4j-core':'dependency';
-    const ver=e.title.toLowerCase().includes('log4j')?'2.14.1 → 2.17.2':'bump to fixed version';
-    return {
-      title:'Dependency patch',
-      summary:`Upgrade ${pkg} in ${repo} and redeploy the production artifact.`,
-      steps:[
-        `Bump ${pkg} ${ver} in pom.xml / lockfile`,
-        `Open auto-fix PR #${e.pr||(1240+(h%80))} → ${ORG}/${repo}`,
-        e.buildPipeline?`Rebuild ${e.buildPipeline.artifact.version} · ${e.buildPipeline.build.system}`:'Run CI build + SBOM scan',
-        `Promote to ${e.buildPipeline?.deployment?.cluster||'eks-prod-use1'} via ArgoCD`
-      ],
-      action:'Apply patch',
-      actionDetail:`Queues dependency bump PR and ${e.buildPipeline?'pipeline rebuild':'CI validation'}.`,
-      auto:'Auto PR'
-    };
   }
-  if(e.scannerId==='sast'){
-    const file=e.title.includes('·')?e.title.split('·').pop().trim():'vulnerable sink';
-    return {
-      title:'Code fix',
-      summary:`Remediate static finding in source before next deploy.`,
-      steps:[
-        `Fix ${file} — use parameterized queries / sanitization`,
-        `Semgrep rule suppress only if false positive confirmed`,
-        `PR review → merge to main`,
-        `Verify with Contrast IAST on ${shortAsset(e)}`
-      ],
-      action:'Apply patch',
-      actionDetail:'Opens fix PR with suggested code change (demo).',
-      auto:'Semi-auto'
-    };
-  }
-  if(e.scannerId==='network'){
-    return {
-      title:'OS / vendor patch',
-      summary:`Apply vendor fix for ${e.cve||e.title} on ${shortHost(e)}.`,
-      steps:[
-        e.cve?`Install vendor patch for ${e.cve}`:'Apply configuration hardening',
-        `Maintenance window · ${meta.jira||e.jira}`,
-        `CrowdStrike IOA template watch post-patch`,
-        `Rescan with ${e.tool} to close ${e.id}`
-      ],
-      action:'Apply patch',
-      actionDetail:'Schedules patch job via Tanium / WSUS runbook (demo).',
-      auto:'Semi-auto'
-    };
-  }
-  if(e.scannerId==='container'){
-    return {
-      title:'Image rebuild',
-      summary:`Rebuild ${shortAsset(e)} with patched layers and roll pods.`,
-      steps:[
-        `Update Dockerfile / base image digest`,
-        `Trigger ${e.buildPipeline?.build?.system||'GitHub Actions'} rebuild`,
-        `Push to registry · pin digest in Helm/ArgoCD`,
-        `Rolling restart · ${e.buildPipeline?.deployment?.podCount||12} pods`
-      ],
-      action:'Apply patch',
-      actionDetail:'Queues image rebuild and staged deploy (demo).',
-      auto:'Auto rebuild'
-    };
-  }
-  if(e.scannerId==='dast'){
-    return {
-      title:'App + edge fix',
-      summary:`Close exploitable path on ${shortAsset(e)}.`,
-      steps:[
-        `Patch handler for ${e.title.slice(0,40)}`,
-        `Deploy to ${e.internet?'prod':'staging'} after regression tests`,
-        e.internet?'Enable WAF virtual patch until code ships':'Validate internal-only route',
-        `Re-run ${e.tool} probe to confirm`
-      ],
-      action:'Apply patch',
-      actionDetail:'Creates change ticket + optional WAF rule (demo).',
-      auto:'Manual'
-    };
-  }
-  if(e.scannerId==='iac'){
-    return {
-      title:'IaC policy fix',
-      summary:`Correct misconfiguration in Terraform before apply.`,
-      steps:[
-        `Update module per Checkov/tfsec suggestion`,
-        `PR to ${ORG}/${repo||'infra'}`,
-        `Plan/apply in prod-payments after approval`,
-        `Drift scan confirms prod matches code`
-      ],
-      action:'Apply patch',
-      actionDetail:'Opens PR with HCL fix snippet (demo).',
-      auto:'Auto PR'
-    };
-  }
-  if(e.scannerId==='cspm'){
-    return {
-      title:'Cloud posture fix',
-      summary:`Remediate ${e.title.slice(0,50)} in AWS prod account.`,
-      steps:[
-        `Apply least-privilege / encryption policy`,
-        `Run approved module or Lambda runbook`,
-        `Validate attack path broken in CNAPP graph`,
-        `Close ${meta.jira||e.jira} after rescan`
-      ],
-      action:'Apply patch',
-      actionDetail:'Triggers posture auto-remediation runbook (demo).',
-      auto:'Auto-fix'
-    };
-  }
-  if(e.scannerId==='secrets'){
-    return {
-      title:'Secret rotation',
-      summary:`Revoke leaked credential and rotate immediately.`,
-      steps:[
-        `Revoke key in IAM / Vault`,
-        `Issue new dynamic credential`,
-        `Audit CloudTrail for abuse`,
-        `Enable pre-receive hook block`
-      ],
-      action:'Apply patch',
-      actionDetail:'Starts rotation workflow P0 (demo).',
-      auto:'Auto rotate'
-    };
-  }
-  if(e.scannerId==='easm'){
-    return {
-      title:'Surface reduction',
-      summary:`Remove or restrict exposed ${shortHost(e)}.`,
-      steps:[
-        `Confirm owner via WHOIS / CMDB`,
-        `Firewall, decom, or move behind VPN`,
-        `Update EASM inventory`,
-        `Perimeter rescan in 24h`
-      ],
-      action:'Apply patch',
-      actionDetail:'Creates takedown / firewall change request (demo).',
-      auto:'Manual'
-    };
-  }
-  return {
-    title:'Remediation',
-    summary:`Address ${e.title.slice(0,60)} per ${e.owner} runbook.`,
-    steps:[`Assign ${meta.jira||e.jira}`,`Implement fix`,`Validate with ${e.tool}`,`Close exposure`],
-    action:'Apply patch',
-    actionDetail:'Queues standard remediation workflow (demo).',
-    auto:'Semi-auto'
-  };
-}
-
-function renderRemediationPanel(e){
-  const r=buildRemediationSuggestion(e);
-  const steps=r.steps.map(s=>`<li>${esc(s)}</li>`).join('');
-  return `
-    <aside class="corr-remediation-panel" data-remediation aria-label="Remediation suggestion">
-      <div class="corr-remediation-head">
-        ${icon('shield',16)}
-        <span>Patch suggestion</span>
-        <span class="corr-remediation-auto">${esc(r.auto)}</span>
-      </div>
-      <h6 class="corr-remediation-title">${esc(r.title)}</h6>
-      <p class="corr-remediation-summary">${esc(r.summary)}</p>
-      <ol class="corr-remediation-steps">${steps}</ol>
-      <button type="button" class="corr-apply-patch-btn" data-apply-patch data-exp-id="${e.id}">
-        ${icon('flow',14)}<span>${esc(r.action)}</span>
-      </button>
-      <p class="corr-remediation-status" data-patch-status hidden role="status"></p>
-      <p class="corr-remediation-note">${esc(r.actionDetail)} Demo only — no changes applied.</p>
-    </aside>`;
-}
-
-function bindRemediationPanel(panel,e){
-  const btn=panel.querySelector('[data-apply-patch]');
-  const status=panel.querySelector('[data-patch-status]');
-  if(!btn||btn.dataset.bound==='1') return;
-  btn.dataset.bound='1';
-  const r=buildRemediationSuggestion(e);
-  btn.addEventListener('click',()=>{
-    if(btn.disabled) return;
-    btn.disabled=true;
-    btn.classList.add('is-busy');
-    btn.querySelector('span').textContent='Queuing…';
-    if(status){
-      status.hidden=false;
-      status.className='corr-remediation-status is-pending';
-      status.textContent='Submitting patch request…';
-    }
-    window.setTimeout(()=>{
-      btn.classList.remove('is-busy');
-      btn.classList.add('is-done');
-      btn.querySelector('span').textContent='Patch queued';
-      if(status){
-        status.className='corr-remediation-status is-success';
-        status.innerHTML=`<strong>${esc(e.id)}</strong> · ${esc(r.title)} queued for ${esc(e.owner)} · ${esc(e.jira||seedMeta(e).jira)}`;
-      }
-    },900);
-  });
 }
 
 initScannerFromUrl();

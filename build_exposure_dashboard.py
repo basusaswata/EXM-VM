@@ -393,6 +393,41 @@ Object.keys(EXPOSURE_SEEDS).forEach(sid=>{
 let activeScanner=0, expandedId=null, focusRow=0;
 let filters={q:'',sev:new Set(),status:new Set(),owner:new Set(),kev:false,internet:false};
 
+function scannerQuery(){
+  return '?scanner='+encodeURIComponent(SCANNERS[activeScanner].id);
+}
+function persistScanner(){
+  try{sessionStorage.setItem('em-active-scanner',SCANNERS[activeScanner].id);}catch(e){}
+}
+function initScannerFromUrl(){
+  const params=new URLSearchParams(location.search);
+  const fromUrl=params.get('scanner');
+  let p=fromUrl;
+  if(!p){try{p=sessionStorage.getItem('em-active-scanner');}catch(e){}}
+  if(p){
+    const i=SCANNERS.findIndex(s=>s.id===p);
+    if(i>=0) activeScanner=i;
+  }
+  const exp=params.get('exp');
+  if(exp) expandedId=exp;
+}
+function syncNavLinks(){
+  persistScanner();
+  const q=scannerQuery();
+  const sc=SCANNERS[activeScanner];
+  document.getElementById('insightsNavLink')?.setAttribute('href','exposure-insights.html'+q);
+  const back=document.getElementById('triageNavLink');
+  if(back){
+    back.setAttribute('href','exposure-dashboard.html'+q);
+    back.textContent='← Back to '+sc.name;
+  }
+  const side=document.getElementById('triageSidebarLink');
+  if(side){
+    side.setAttribute('href','exposure-dashboard.html'+q);
+    side.textContent='← '+sc.name+' queue';
+  }
+}
+
 const app=document.getElementById('app');
 const listEl=document.getElementById('exposureList');
 const scannerList=document.getElementById('scannerList');
@@ -415,6 +450,11 @@ function getFiltered(){
   }).sort((a,b)=>b.score-a.score);
 }
 
+function refreshView(){
+  if(listEl) renderList();
+  else renderInsights();
+}
+
 function renderSidebar(){
   scannerList.innerHTML=SCANNERS.map((s,i)=>`
     <button class="scanner-btn ${i===activeScanner?'active':''}" data-i="${i}" type="button" role="option" aria-selected="${i===activeScanner}">
@@ -422,7 +462,11 @@ function renderSidebar(){
       <span style="min-width:0"><span class="scanner-title">${esc(s.name)}</span><span class="scanner-sub">${esc(s.short)}</span></span>
     </button>`).join('');
   scannerList.querySelectorAll('.scanner-btn').forEach(btn=>{
-    btn.onclick=()=>{activeScanner=+btn.dataset.i;expandedId=null;focusRow=0;render();};
+    btn.onclick=()=>{
+      activeScanner=+btn.dataset.i;expandedId=null;focusRow=0;
+      history.replaceState(null,'',location.pathname+scannerQuery());
+      render();
+    };
   });
 }
 
@@ -886,6 +930,7 @@ function renderDetail(e){
 }
 
 function renderList(){
+  if(!listEl) return;
   const sid=SCANNERS[activeScanner].id;
   const total=ALL_EXPOSURES.filter(e=>e.scannerId===sid).length;
   const rows=getFiltered();
@@ -924,7 +969,9 @@ function renderList(){
     const t=ALL_EXPOSURES.find(x=>x.id===b.dataset.jump);
     if(!t) return;
     activeScanner=SCANNERS.findIndex(s=>s.id===t.scannerId);
-    expandedId=t.id; render();
+    expandedId=t.id;
+    history.replaceState(null,'',location.pathname+scannerQuery());
+    render();
   });
   listEl.querySelectorAll('.corr-panel').forEach(panel=>{
     const exp=ALL_EXPOSURES.find(x=>x.id===panel.dataset.expId);
@@ -950,21 +997,21 @@ function renderChips(){
       const kind=c.dataset.kind; const val=c.dataset.val;
       const set=filters[kind];
       if(set.has(val)) set.delete(val); else set.add(val);
-      renderChips(); renderList();
+      renderChips(); refreshView();
     };
   });
   chipHost.querySelectorAll('[data-toggle]').forEach(c=>{
-    c.onclick=()=>{filters[c.dataset.toggle]=!filters[c.dataset.toggle]; renderChips(); renderList();};
+    c.onclick=()=>{filters[c.dataset.toggle]=!filters[c.dataset.toggle]; renderChips(); refreshView();};
   });
   chipHost.querySelectorAll('[data-clear]').forEach(c=>{
     c.onclick=()=>{filters={q:'',sev:new Set(),status:new Set(),owner:new Set(),kev:false,internet:false};
-      document.getElementById('searchInput').value=''; renderChips(); renderList();};
+      document.getElementById('searchInput').value=''; renderChips(); refreshView();};
   });
 }
 
-function render(){renderSidebar();renderChips();renderList();}
+function render(){syncNavLinks();renderSidebar();renderChips();refreshView();}
 
-document.getElementById('searchInput').oninput=e=>{filters.q=e.target.value;renderList();};
+document.getElementById('searchInput').oninput=e=>{filters.q=e.target.value;refreshView();};
 document.getElementById('themeToggle').onclick=()=>{
   const t=app.dataset.theme==='dark'?'light':'dark';
   app.dataset.theme=t; document.documentElement.dataset.theme=t;
@@ -973,6 +1020,7 @@ document.getElementById('themeToggle').onclick=()=>{
 try{const s=localStorage.getItem('em-theme');if(s){app.dataset.theme=s;document.documentElement.dataset.theme=s;}}catch(e){}
 
 document.addEventListener('keydown',e=>{
+  if(!listEl) return;
   const rows=getFiltered();
   if(!rows.length) return;
   if(e.key==='Escape'){expandedId=null;renderList();return;}
@@ -983,21 +1031,32 @@ document.addEventListener('keydown',e=>{
   }
 });
 
-render();
 '''
 
-APP_JS = (
+SHARED_JS = (
     (ROOT / "_build-pipeline.js").read_text()
     + "\n"
     + (ROOT / "_pipeline-ui.js").read_text()
     + "\n"
     + APP_JS_BODY
+)
+
+APP_JS = (
+    SHARED_JS
     + "\n"
     + (ROOT / "_attack-path.js").read_text()
     + "\n"
     + (ROOT / "_ai-chat.js").read_text()
     + "\n"
     + (ROOT / "_remediation.js").read_text()
+    + "\ninitScannerFromUrl();\nrender();\n"
+)
+
+INSIGHTS_JS = (
+    SHARED_JS
+    + "\n"
+    + (ROOT / "_insights.js").read_text()
+    + "\ninitScannerFromUrl();\nrender();\n"
 )
 
 CSS = open(ROOT / "_dashboard_css.txt").read() if (ROOT / "_dashboard_css.txt").exists() else ""
@@ -1046,7 +1105,10 @@ HTML = f'''<!DOCTYPE html>
 <main class="main">
 {PRODUCT_BANNER}
 <div class="disclaimer" role="note"><strong>Synthetic demo data</strong> modeled on production exposure-management patterns (Acme Payments / acmepay.com). Names, IDs, and scores are fictional — not your environment.</div>
-<header class="topbar"><div><h2 id="mainTitle">Exposure triage queue</h2><p id="mainSub"></p></div></header>
+<header class="topbar">
+<div><h2 id="mainTitle">Exposure triage queue</h2><p id="mainSub"></p></div>
+<a class="insights-nav-link" id="insightsNavLink" href="exposure-insights.html?scanner=network" title="Open charts for the current scanner">Insights &amp; charts →</a>
+</header>
 <div class="filter-bar">
 <input type="search" id="searchInput" placeholder="Filter by CVE, asset, owner…" aria-label="Filter exposures"/>
 <div class="filter-chips" id="filterChips"></div>
@@ -1072,3 +1134,49 @@ if not (ROOT / "exposure-dashboard.css").exists():
 
 (ROOT / "exposure-dashboard.html").write_text(HTML)
 print("Wrote exposure-dashboard.html", len(HTML), "bytes")
+
+INSIGHTS_HTML = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Exposure Management · Insights</title>
+<style>
+{CSS}
+</style>
+</head>
+<body>
+<div class="app" id="app" data-theme="light">
+<aside class="sidebar" aria-label="Scanner filter">
+<div class="brand"><h1>Exposure Management</h1>
+<a class="sibling-link" id="triageSidebarLink" href="exposure-dashboard.html?scanner=network">← Triage queue</a>
+<a class="sibling-link" href="vulnerability-scanner-journey-explorer_4.html">Process view →</a>
+</div>
+<div class="scanner-list" id="scannerList" role="listbox"></div>
+<div class="sidebar-footer"><button class="theme-toggle" id="themeToggle" type="button">Toggle dark mode</button></div>
+</aside>
+<main class="main">
+{PRODUCT_BANNER}
+<div class="disclaimer" role="note"><strong>Synthetic demo data</strong> — charts reflect the filtered exposure slice for the selected scanner.</div>
+<header class="topbar">
+<div><h2 id="mainTitle">Exposure insights</h2><p id="mainSub"></p></div>
+<a class="insights-nav-link insights-nav-link--back" id="triageNavLink" href="exposure-dashboard.html?scanner=network">← Back to triage queue</a>
+</header>
+<div class="filter-bar">
+<input type="search" id="searchInput" placeholder="Filter by CVE, asset, owner…" aria-label="Filter exposures"/>
+<div class="filter-chips" id="filterChips"></div>
+<div class="summary-line" id="summaryLine"></div>
+</div>
+<section class="insights-panel insights-page" id="insightsPanel" aria-label="Exposure insights"></section>
+</main>
+</div>
+<script>
+{seeds}
+{INSIGHTS_JS}
+</script>
+</body>
+</html>
+'''
+
+(ROOT / "exposure-insights.html").write_text(INSIGHTS_HTML)
+print("Wrote exposure-insights.html", len(INSIGHTS_HTML), "bytes")
