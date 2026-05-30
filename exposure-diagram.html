@@ -473,6 +473,8 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 .diagram-nav-btn--attack:hover { background: color-mix(in srgb, #7c3aed 10%, var(--panel-2)); }
 .diagram-nav-btn--mob { border-color: color-mix(in srgb, var(--outcome) 35%, var(--border)); color: var(--outcome); }
 .diagram-nav-btn--mob:hover { background: color-mix(in srgb, var(--outcome) 10%, var(--panel-2)); }
+.diagram-nav-btn--connected { border-color: color-mix(in srgb, #0891b2 35%, var(--border)); color: #0891b2; }
+.diagram-nav-btn--connected:hover { background: color-mix(in srgb, #0891b2 10%, var(--panel-2)); }
 
 /* Full-page diagram view */
 .diagram-main { display: flex; flex-direction: column; min-height: 0; }
@@ -621,6 +623,8 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 .corr-view-btn[data-corr-view="attack"].on { color: #6d28d9; }
 [data-theme="dark"] .corr-view-btn[data-corr-view="attack"].on { color: #c4b5fd; }
 .corr-view-btn[data-corr-view="mobilization"].on { color: var(--outcome); }
+.corr-view-btn[data-corr-view="connected"].on { color: #0891b2; }
+.corr-view-toggle { flex-wrap: wrap; justify-content: center; max-width: 100%; }
 
 .corr-diagram-panels { min-height: 200px; }
 .corr-graph-panel { padding: 0 14px 16px; }
@@ -643,6 +647,144 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 }
 .mobilization-panel { max-width: 920px; margin: 0 auto; padding: 8px 0 16px; }
 .mobilization-panel .outcome-card { flex: 1 1 260px; }
+.viz-block--connected {
+  border-color: color-mix(in srgb, #0891b2 22%, var(--border));
+  background: linear-gradient(180deg, color-mix(in srgb, #0891b2 5%, var(--panel)) 0%, var(--panel) 52px);
+  padding: 12px 14px 18px;
+}
+
+/* Connected vulnerability graph — swimlane layout */
+.vuln-graph-wrap { padding: 0; }
+.vuln-graph-wrap--empty .vuln-graph-empty {
+  margin-top: 8px; padding: 20px 18px; text-align: center;
+  background: var(--panel-2); border: 1px dashed var(--border); border-radius: 12px;
+}
+.vuln-graph-empty p { margin: 0 0 8px; font-size: 13px; color: var(--text); line-height: 1.45; }
+.vuln-graph-empty-hint { font-size: 11px !important; color: var(--muted) !important; max-width: 520px; margin: 0 auto 14px !important; }
+.vuln-graph-empty .diagram-nav-btn { display: inline-flex; margin-top: 4px; }
+.vg-top { display: flex; flex-wrap: wrap; gap: 14px; align-items: stretch; margin-bottom: 12px; }
+.vg-narrative {
+  flex: 1 1 280px; margin: 0; padding: 12px 16px; font-size: 12px; line-height: 1.55;
+  background: linear-gradient(135deg, color-mix(in srgb, #0891b2 10%, var(--panel-2)), var(--panel-2));
+  border: 1px solid color-mix(in srgb, #0891b2 24%, var(--border));
+  border-radius: 12px; color: var(--text);
+}
+.vg-kpis { display: flex; gap: 8px; flex: 0 0 auto; }
+.vg-kpi {
+  min-width: 72px; padding: 10px 12px; text-align: center;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--panel-2);
+}
+.vg-kpi-val { display: block; font-size: 20px; font-weight: 950; line-height: 1.1; color: var(--text); }
+.vg-kpi-lbl { display: block; font-size: 8px; font-weight: 800; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); margin-top: 3px; }
+.vg-kpi--risk .vg-kpi-val { color: #dc2626; }
+.vg-legend {
+  display: flex; flex-wrap: wrap; gap: 12px 18px; margin-bottom: 10px;
+  font-size: 10px; font-weight: 750; color: var(--muted);
+}
+.vg-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.vg-leg { display: inline-block; width: 22px; height: 3px; border-radius: 999px; }
+.vg-leg--origin { background: #7c3aed; }
+.vg-leg--deploy { background: #0891b2; }
+.vg-leg--surface { background: #ea580c; }
+.vg-leg--cross { background: #64748b; border-top: 2px dashed #64748b; height: 0; width: 18px; }
+.vg-canvas-shell {
+  position: relative; border: 1px solid var(--border); border-radius: 14px;
+  background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, #0891b2 6%, var(--panel-2)) 0%, var(--panel-2) 55%);
+  overflow: hidden; box-shadow: inset 0 1px 0 rgba(255,255,255,.04);
+}
+.vg-canvas-shell .diagram-zoom-controls { position: absolute; top: 10px; right: 10px; z-index: 3; }
+.vg-zoom-canvas { overflow: auto; padding: 8px; }
+.vuln-graph-svg { display: block; margin: 0 auto; min-width: 900px; max-width: none; height: auto; }
+.vg-lane { stroke: none; }
+.vg-lane-label { font-size: 9px; font-weight: 850; fill: var(--muted); text-transform: uppercase; letter-spacing: .1em; }
+.vg-edge { fill: none; stroke-width: 2.25; transition: opacity .2s, stroke-width .2s; }
+.vg-edge--origin { stroke: #7c3aed; opacity: .88; }
+.vg-edge--deploy { stroke: #0891b2; opacity: .88; }
+.vg-edge--surface { stroke: #ea580c; opacity: .82; }
+.vg-edge--cross { stroke: #64748b; stroke-dasharray: 6 4; opacity: .75; }
+.vg-edge.is-highlight { stroke-width: 3; opacity: 1; filter: drop-shadow(0 0 4px rgba(8,145,178,.35)); }
+.vg-edge.is-dim { opacity: .12; }
+.vg-edge-label { transition: opacity .2s; }
+.vg-edge-label.is-highlight .vg-edge-label-bg { fill: var(--panel); stroke: var(--accent); stroke-width: 1; }
+.vg-edge-label.is-dim { opacity: .15; }
+.vg-edge-label-bg { fill: var(--panel); stroke: var(--border); stroke-width: .75; }
+.vg-edge-label-text { font-size: 8px; font-weight: 750; fill: var(--text); }
+.vg-fo { overflow: visible; transition: opacity .2s; }
+.vg-fo.is-dim { opacity: .35; }
+.vg-node {
+  height: 100%; width: 100%; box-sizing: border-box; border-radius: 12px;
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  transition: transform .15s, box-shadow .15s, opacity .2s;
+}
+.vg-node--bridge {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+  border: 1.5px solid var(--border); background: var(--panel);
+  box-shadow: 0 4px 14px rgba(15,23,42,.08);
+}
+.vg-node--deploy { border-color: #0891b2; background: linear-gradient(135deg, color-mix(in srgb, #0891b2 14%, var(--panel)), var(--panel)); }
+.vg-node--host { border-color: #2563eb; background: linear-gradient(135deg, color-mix(in srgb, #2563eb 12%, var(--panel)), var(--panel)); }
+.vg-bridge-icon {
+  flex-shrink: 0; width: 36px; height: 36px; border-radius: 10px;
+  display: grid; place-items: center; background: var(--panel-2); color: var(--text);
+}
+.vg-node--deploy .vg-bridge-icon { color: #0891b2; background: color-mix(in srgb, #0891b2 12%, var(--panel-2)); }
+.vg-node--host .vg-bridge-icon { color: #2563eb; background: color-mix(in srgb, #2563eb 10%, var(--panel-2)); }
+.vg-bridge-body { min-width: 0; flex: 1; }
+.vg-bridge-kind { display: block; font-size: 7px; font-weight: 900; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); }
+.vg-bridge-label { display: block; font-size: 11px; font-weight: 850; color: var(--text); line-height: 1.25; margin-top: 2px; word-break: break-word; }
+.vg-bridge-sub { display: block; font-size: 9px; font-weight: 650; color: var(--muted); margin-top: 3px; line-height: 1.3; }
+.vg-node--finding {
+  position: relative; display: flex; flex-direction: column; gap: 4px;
+  padding: 10px 12px 10px 14px; border: 1.5px solid var(--border);
+  background: var(--panel); box-shadow: 0 4px 16px rgba(15,23,42,.08);
+  cursor: pointer; overflow: hidden;
+}
+.vg-finding-accent {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+  background: var(--vg-accent, var(--accent)); border-radius: 12px 0 0 12px;
+}
+.vg-node--finding.is-center {
+  border-color: color-mix(in srgb, var(--vg-accent, var(--accent)) 55%, var(--border));
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--vg-accent, var(--accent)) 22%, transparent), 0 8px 24px rgba(15,23,42,.12);
+}
+.vg-node--finding.is-center .vg-finding-accent { width: 5px; }
+.vg-node--finding.is-selected {
+  border-color: #7c3aed;
+  box-shadow: 0 0 0 2px color-mix(in srgb, #7c3aed 28%, transparent), 0 8px 20px rgba(124,58,237,.15);
+}
+.vg-node--finding.is-dim { opacity: .4; }
+.vg-node--finding:hover { transform: translateY(-2px); box-shadow: 0 8px 22px rgba(15,23,42,.12); }
+.vg-finding-head { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.vg-finding-scanner { display: flex; align-items: center; gap: 5px; font-size: 8px; font-weight: 850; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.vg-finding-score { font-size: 12px; font-weight: 950; padding: 2px 7px; border-radius: 8px; line-height: 1.2; }
+.vg-finding-id { font-size: 10px; font-weight: 900; color: var(--accent); line-height: 1.2; }
+.vg-finding-title { font-size: 10px; font-weight: 750; color: var(--text); line-height: 1.35; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.vg-finding-flags { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 2px; }
+.vg-flag { font-size: 7px; font-weight: 900; text-transform: uppercase; padding: 2px 5px; border-radius: 999px; letter-spacing: .04em; }
+.vg-flag--kev { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
+.vg-flag--net { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
+.vg-detail-panel {
+  margin-top: 14px; padding: 0; border: none; background: transparent;
+}
+.vg-detail-card {
+  padding: 14px 16px; border-radius: 12px;
+  border: 1px solid color-mix(in srgb, #0891b2 28%, var(--border));
+  background: linear-gradient(90deg, color-mix(in srgb, #0891b2 6%, var(--panel-2)), var(--panel-2));
+}
+.vg-detail-head { display: flex; gap: 12px; align-items: flex-start; }
+.vg-detail-icon { flex-shrink: 0; margin-top: 2px; }
+.vg-detail-title-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.vg-detail-scanner { font-size: 10px; font-weight: 700; color: var(--muted); margin-top: 2px; }
+.vg-detail-desc { margin: 10px 0 0; font-size: 13px; font-weight: 700; line-height: 1.4; }
+.vg-detail-meta { margin: 6px 0 0; font-size: 11px; color: var(--muted); }
+.vg-detail-path { margin: 8px 0 0; font-size: 10px; font-weight: 700; color: #0891b2; }
+.vg-detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.vg-detail-actions .diagram-nav-btn { font-size: 11px; padding: 8px 12px; }
+.vuln-graph-detail-placeholder { margin: 0; font-size: 11px; color: var(--muted); font-style: italic; text-align: center; padding: 16px; border: 1px dashed var(--border); border-radius: 10px; }
+@media (max-width: 900px) {
+  .vg-top { flex-direction: column; }
+  .vuln-graph-svg { min-width: 760px; }
+}
 .viz-block--correlation {
   border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, var(--panel)) 0%, var(--panel) 52px);
@@ -1050,9 +1192,10 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
   font-size: 9px; color: var(--muted); text-align: center;
 }
 @media (max-width: 720px) {
-  .ai-chat-dock { right: 8px; bottom: 8px; }
+  .ai-chat-dock--fixed { right: 12px; bottom: 12px; }
   .ai-chat-panel { width: calc(100vw - 32px); }
 }
+.diagram-main { padding-bottom: 72px; }
 .attack-path-svg { display: block; min-width: 720px; }
 .attack-path-legend {
   display: flex; flex-wrap: wrap; gap: 16px; padding: 8px 6px 12px; font-size: 10px; font-weight: 700; color: var(--muted);
@@ -1638,7 +1781,7 @@ const SCANNERS = [
 ];
 
 const CROSS_LINKS = {
-  'SCA-001':[{id:'CON-001',by:'Trivy',desc:'Same log4j-core in jfrog…/transaction-router:v4.2.1'},{id:'SAST-001',by:'Semgrep',desc:'payments-api · /charge path'}],
+  'SCA-001':[{id:'CON-001',by:'Trivy',desc:'Same log4j-core in jfrog…/transaction-router:v4.2.1'},{id:'SAST-001',by:'Semgrep',desc:'payments-api · /charge path'},{id:'NET-015',by:'Tenable',desc:'Citrix ADC on host running transaction-router'}],
   'CON-001':[{id:'SCA-001',by:'SCA Scanner',desc:'Same log4j-core — cheapest fix via SCA auto-PR'}],
   'SAST-001':[{id:'SCA-001',by:'SCA Scanner',desc:'Shared payments platform dependency surface'},{id:'DAST-003',by:'DAST Scanner',desc:'Same /charge path exploitable at runtime'}],
   'SAST-003':[{id:'SEC-001',by:'Secrets Scanner',desc:'Hard-coded key in same module'}],
@@ -1664,7 +1807,8 @@ const ICONS = {
   chev:`<path d="m9 18 6-6-6-6"/>`,
   plan:`<path d="M8 6h8"/><path d="M8 10h8"/><path d="M8 14h5"/><rect x="4" y="4" width="16" height="16" rx="2"/>`,
   zap:`<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/>`,
-  flow:`<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>`
+  flow:`<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>`,
+  link:`<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>`
 };
 
 const SCM_SCANNERS = new Set(['sca','sast','secrets','container']);
@@ -2320,7 +2464,7 @@ function bindDiagramZoom(panel){
     if(controls.dataset.bound==='1') return;
     const block=controls.closest('.corr-hub-main, .ap-hub-wrap');
     const canvas=block?.querySelector('[data-zoom-canvas]');
-    const svg=canvas?.querySelector('svg.corr-graph, svg.attack-path-svg');
+    const svg=canvas?.querySelector('svg.corr-graph, svg.attack-path-svg, svg.vuln-graph-svg');
     if(!svg) return;
     controls.dataset.bound='1';
     const key='em-diagram-scale-'+(controls.dataset.zoomTarget||'correlation');
@@ -2345,6 +2489,7 @@ function bindDiagramZoom(panel){
 
 function bindCorrelationPanel(panel, stations, exposure, initialView='correlation'){
   if(panel.querySelector('.attack-path-view')) bindAttackPathPanel(panel, exposure);
+  if(panel.querySelector('.vuln-graph-wrap')) bindConnectedVulnGraph(panel, exposure);
   bindRemediationPanel(panel, exposure);
   const detailEl=panel.querySelector('.corr-node-detail');
   const sc=SCANNERS.find(x=>x.id===exposure.scannerId);
@@ -2414,6 +2559,7 @@ function bindCorrelationPanel(panel, stations, exposure, initialView='correlatio
     panel.querySelector('[data-diagram-panel="correlation"]').hidden=v!=='correlation';
     panel.querySelector('[data-diagram-panel="attack"]').hidden=v!=='attack';
     panel.querySelector('[data-diagram-panel="mobilization"]').hidden=v!=='mobilization';
+    panel.querySelector('[data-diagram-panel="connected"]').hidden=v!=='connected';
     const titleEl=panel.querySelector('[data-corr-banner-title]');
     const subEl=panel.querySelector('[data-corr-banner-sub]');
     if(titleEl&&subEl){
@@ -2426,6 +2572,9 @@ function bindCorrelationPanel(panel, stations, exposure, initialView='correlatio
       }else if(v==='mobilization'){
         titleEl.textContent='Mobilization plan';
         subEl.textContent=panel.dataset.mobSub||'Coordinated tickets, automations, and response actions';
+      }else if(v==='connected'){
+        titleEl.textContent='Cross-scanner correlations';
+        subEl.textContent=panel.dataset.connectedSub||'Findings from other scanners linked through shared context';
       }
     }
   };
@@ -2513,8 +2662,12 @@ function renderMobilizationHtml(e){
 function renderDiagramPanelHtml(e){
   const corrSub=e.buildPipeline?` · pipeline: ${esc(e.buildPipeline.repo.name)}`:e.scmRepo?` · SCM: ${esc(e.scmRepo)}`:'';
   const mobSub=`${e.outcomes.length} action${e.outcomes.length===1?'':'s'} · owner ${esc(e.owner)} · SLA ${esc(e.sla)}`;
+  const connGraph=buildConnectedVulnGraph(e);
+  const connectedSub=connGraph.hasCorrelations
+    ? `${connGraph.correlatedCount} cross-scanner correlation${connGraph.correlatedCount===1?'':'s'} · ${connGraph.scanners} scanner type${connGraph.scanners===1?'':'s'}`
+    : 'No cross-scanner correlations yet';
   return `
-    <div class="corr-panel diagram-page-panel" data-exp-id="${e.id}" data-attack-title="${esc(attackPathSectionTitle(e.scannerId))}" data-corr-sub="${esc(stationCountLabel(e)+corrSub)}" data-mob-sub="${esc(mobSub)}">
+    <div class="corr-panel diagram-page-panel" data-exp-id="${e.id}" data-attack-title="${esc(attackPathSectionTitle(e.scannerId))}" data-corr-sub="${esc(stationCountLabel(e)+corrSub)}" data-mob-sub="${esc(mobSub)}" data-connected-sub="${esc(connectedSub)}">
       <div class="corr-panel-shell">
         <div class="corr-panel-header">
           <div class="corr-diagram-banner">
@@ -2525,6 +2678,7 @@ function renderDiagramPanelHtml(e){
             <button type="button" class="corr-view-btn on" data-corr-view="correlation" role="tab" aria-selected="true">View correlation</button>
             <button type="button" class="corr-view-btn" data-corr-view="attack" role="tab" aria-selected="false">View attack path</button>
             <button type="button" class="corr-view-btn" data-corr-view="mobilization" role="tab" aria-selected="false">Mobilization plan</button>
+            <button type="button" class="corr-view-btn" data-corr-view="connected" role="tab" aria-selected="false">Cross-scanner</button>
           </div>
         </div>
         <div class="corr-diagram-panels">
@@ -2559,6 +2713,11 @@ function renderDiagramPanelHtml(e){
               ${renderMobilizationHtml(e)}
             </section>
           </div>
+          <div class="corr-graph-panel" data-diagram-panel="connected" hidden>
+            <section class="viz-block viz-block--connected" aria-label="Cross-scanner correlated vulnerabilities">
+              ${renderConnectedVulnGraph(e)}
+            </section>
+          </div>
         </div>
       </div>
     </div>`;
@@ -2589,11 +2748,12 @@ function renderDetail(e){
       </div>
       <div class="detail-section detail-diagram-nav">
         <h4>Analysis &amp; mobilization</h4>
-        <p class="detail-diagram-hint">Open correlation, attack path, or mobilization plan in a dedicated full-screen view.</p>
+        <p class="detail-diagram-hint">Open correlation, attack path, mobilization, or connected-vulnerability graph in a dedicated full-screen view.</p>
         <div class="detail-diagram-links">
           <a class="diagram-nav-btn diagram-nav-btn--corr" href="${diagramLink(e.id,'correlation')}">${icon('graph',16)} View correlation map →</a>
           <a class="diagram-nav-btn diagram-nav-btn--attack" href="${diagramLink(e.id,'attack')}">${icon('shield',16)} View attack path →</a>
           <a class="diagram-nav-btn diagram-nav-btn--mob" href="${diagramLink(e.id,'mobilization')}">${icon('plan',16)} View mobilization plan →</a>
+          <a class="diagram-nav-btn diagram-nav-btn--connected" href="${diagramLink(e.id,'connected')}">${icon('link',16)} Cross-scanner correlations →</a>
         </div>
       </div>
       <div class="detail-section"><h4>Scoring formula</h4><div class="formula-chain">${pills}<span class="formula-eq">= ${e.score.toFixed(1)}</span></div></div>
@@ -3411,6 +3571,450 @@ function bindRemediationPanel(panel,e){
   });
 }
 
+/** Cross-scanner connected vulnerability graph — deploy artifact & host bridges. */
+
+const VULN_DEPLOY_CHAINS = {
+  'SCA-001': {
+    bridges: [
+      {id:'vbg-deploy-sca001', kind:'deploy', label:'transaction-router:v4.2.1', sub:'Container image · JFrog Artifactory'},
+      {id:'vbg-host-sca001', kind:'host', label:'adc-payments-01', sub:'Payments edge · internet-facing host'}
+    ],
+    links: [
+      {target:'CON-001', via:'vbg-deploy-sca001', rel:'Same log4j-core in image'},
+      {target:'SAST-001', via:'vbg-deploy-sca001', rel:'Shared payments-api codebase'},
+      {target:'DAST-003', via:'vbg-host-sca001', rel:'Runtime API on same platform'},
+      {target:'NET-015', via:'vbg-host-sca001', rel:'Citrix ADC OS vuln on host'}
+    ],
+    deployToHost: {from:'vbg-deploy-sca001', to:'vbg-host-sca001', rel:'Deployed to'}
+  },
+  'CON-001': {
+    bridges: [
+      {id:'vbg-deploy-con001', kind:'deploy', label:'transaction-router:v4.2.1', sub:'Image layer · log4j-core'},
+      {id:'vbg-host-con001', kind:'host', label:'adc-payments-01', sub:'Running workload'}
+    ],
+    links: [
+      {target:'SCA-001', via:'vbg-deploy-con001', rel:'SCA origin in source repo'},
+      {target:'NET-015', via:'vbg-host-con001', rel:'Host OS / ADC vulnerability'}
+    ],
+    deployToHost: {from:'vbg-deploy-con001', to:'vbg-host-con001', rel:'Runs on'}
+  },
+  'NET-015': {
+    bridges: [
+      {id:'vbg-host-net015', kind:'host', label:'adc-payments-01', sub:'Citrix ADC · payments edge'},
+      {id:'vbg-deploy-net015', kind:'deploy', label:'transaction-router:v4.2.1', sub:'Co-located app workload'}
+    ],
+    links: [
+      {target:'SCA-001', via:'vbg-deploy-net015', rel:'Log4Shell in deployed component'},
+      {target:'CON-001', via:'vbg-deploy-net015', rel:'Same image · Trivy match'},
+      {target:'DAST-003', via:'vbg-host-net015', rel:'Internet-facing API path'}
+    ],
+    deployToHost: {from:'vbg-deploy-net015', to:'vbg-host-net015', rel:'Hosted on'}
+  },
+  'NET-001': {
+    bridges: [{id:'vbg-host-net001', kind:'host', label:'pay-db-prod-04', sub:'Database tier · OpenSSL'}],
+    links: [{target:'CON-009', via:'vbg-host-net001', rel:'OpenSSL sidecar on same host'}]
+  },
+  'SAST-001': {
+    bridges: [
+      {id:'vbg-deploy-sast001', kind:'deploy', label:'payments-api', sub:'Source → deploy artifact'},
+      {id:'vbg-host-sast001', kind:'host', label:'api-gateway-prod', sub:'Runtime cluster'}
+    ],
+    links: [
+      {target:'SCA-001', via:'vbg-deploy-sast001', rel:'Shared dependency surface'},
+      {target:'DAST-003', via:'vbg-host-sast001', rel:'Same /charge path at runtime'}
+    ],
+    deployToHost: {from:'vbg-deploy-sast001', to:'vbg-host-sast001', rel:'Shipped to'}
+  },
+  'DAST-003': {
+    bridges: [{id:'vbg-host-dast003', kind:'host', label:'api.acmepay.com', sub:'Internet-facing API'}],
+    links: [
+      {target:'SAST-001', via:'vbg-host-dast003', rel:'Static code on same path'},
+      {target:'SCA-001', via:'vbg-host-dast003', rel:'Loaded vulnerable component'}
+    ]
+  }
+};
+
+const VULN_LANES=[
+  {id:'origin', label:'Origin finding', x:0, w:220, color:'#7c3aed'},
+  {id:'deploy', label:'Deploy artifact', x:220, w:210, color:'#0891b2'},
+  {id:'host', label:'Runtime host', x:430, w:210, color:'#2563eb'},
+  {id:'surface', label:'Cross-scanner correlations', x:640, w:420, color:'#ea580c'}
+];
+
+function scannerAccent(sid){
+  return SCANNERS.find(s=>s.id===sid)?.accent||'#64748b';
+}
+
+function isCrossScannerPair(origin, target){
+  return !!origin&&!!target&&target.scannerId&&origin.scannerId!==target.scannerId;
+}
+
+function buildConnectedVulnGraph(e){
+  const nodes=[], edges=[], seenE=new Set();
+  const addNode=(n)=>{ if(!nodes.some(x=>x.id===n.id)) nodes.push(n); };
+  const addEdge=(from,to,label,type='correlate')=>{
+    if(!from||!to) return;
+    edges.push({from,to,label:label||'',type});
+  };
+
+  addNode({id:e.id, kind:'finding', exp:e, center:true, scannerId:e.scannerId, lane:'origin'});
+  seenE.add(e.id);
+
+  const chain=VULN_DEPLOY_CHAINS[e.id];
+  const crossScannerLinks=[];
+  if(chain){
+    chain.links.forEach(l=>{
+      const t=ALL_EXPOSURES.find(x=>x.id===l.target);
+      if(t&&isCrossScannerPair(e,t)) crossScannerLinks.push(l);
+    });
+  }
+
+  if(chain&&crossScannerLinks.length){
+    chain.bridges.forEach(b=>addNode({id:b.id, kind:b.kind, label:b.label, sub:b.sub, lane:b.kind}));
+    const deploy=chain.bridges.find(b=>b.kind==='deploy');
+    const host=chain.bridges.find(b=>b.kind==='host');
+    if(deploy) addEdge(e.id, deploy.id, 'Introduced in component', 'origin');
+    if(chain.deployToHost) addEdge(chain.deployToHost.from, chain.deployToHost.to, chain.deployToHost.rel, 'deploy');
+    else if(deploy&&host) addEdge(deploy.id, host.id, 'Runs on', 'deploy');
+    crossScannerLinks.forEach(l=>{
+      const t=ALL_EXPOSURES.find(x=>x.id===l.target);
+      if(!t||seenE.has(t.id)) return;
+      addNode({id:t.id, kind:'finding', exp:t, scannerId:t.scannerId, lane:'surface'});
+      seenE.add(t.id);
+      addEdge(l.via, t.id, l.rel, 'surface');
+    });
+  }
+
+  (e.crossLinks||[]).forEach(c=>{
+    if(seenE.has(c.id)) return;
+    const t=ALL_EXPOSURES.find(x=>x.id===c.id);
+    if(!t||!isCrossScannerPair(e,t)) return;
+    addNode({id:t.id, kind:'finding', exp:t, scannerId:t.scannerId, lane:'surface'});
+    seenE.add(c.id);
+    addEdge(e.id, c.id, c.desc||`Correlated · ${c.by}`, 'cross');
+  });
+
+  const referenced=new Set([e.id]);
+  edges.forEach(ed=>{ referenced.add(ed.from); referenced.add(ed.to); });
+  const pruned=nodes.filter(n=>referenced.has(n.id));
+  const prunedIds=new Set(pruned.map(n=>n.id));
+  const prunedEdges=edges.filter(ed=>prunedIds.has(ed.from)&&prunedIds.has(ed.to));
+
+  const correlatedCount=Math.max(0, [...seenE].filter(id=>id!==e.id).length);
+  const scanners=[...new Set([...seenE].map(id=>ALL_EXPOSURES.find(x=>x.id===id)?.scannerId).filter(Boolean))];
+  const maxScore=Math.max(...[...seenE].map(id=>ALL_EXPOSURES.find(x=>x.id===id)?.score||0), e.score||0);
+
+  const narrative=correlatedCount
+    ? (chain&&crossScannerLinks.length
+      ? `Cross-scanner correlation chain: this finding links to ${correlatedCount} related exposure${correlatedCount===1?'':'s'} from other scanner silos via shared deploy artifacts and runtime hosts — remediate at the origin to collapse the cluster.`
+      : `These findings are correlated across scanner silos (shared asset, code path, or runtime context) — treat as one incident spanning ${scanners.length} scanner type${scanners.length===1?'':'s'}.`)
+    : `No correlated findings from other scanners for ${e.id} yet — links appear when the same component, host, or code path is observed across scanner tools.`;
+
+  return {
+    nodes:pruned,
+    edges:prunedEdges,
+    narrative,
+    count:seenE.size,
+    correlatedCount,
+    hasCorrelations:correlatedCount>0,
+    scanners:scanners.length,
+    maxScore
+  };
+}
+
+function layoutVulnGraph(graph, centerId){
+  const W=1060, H=440, pad=36;
+  const placed=new Map();
+  const byLane={origin:[], deploy:[], host:[], surface:[]};
+
+  graph.nodes.forEach(n=>{
+    if(n.center) byLane.origin.push(n);
+    else if(n.kind==='deploy') byLane.deploy.push(n);
+    else if(n.kind==='host') byLane.host.push(n);
+    else byLane.surface.push(n);
+  });
+
+  const laneCenterX={origin:130, deploy:325, host:535, surface:820};
+  const placeCol=(list,x,w,h)=>{
+    const count=list.length||1;
+    const gap=Math.min(96, (H-pad*2-Math.max(...list.map(()=>h),h))/(Math.max(count-1,1)));
+    const total=(count-1)*gap+h;
+    let y=pad+(H-pad*2-total)/2+h/2;
+    list.forEach(node=>{
+      placed.set(node.id,{x,y,n:node,w,h});
+      y+=gap;
+    });
+  };
+
+  placeCol(byLane.origin, laneCenterX.origin, 196, byLane.origin[0]?.center?108:92);
+  placeCol(byLane.deploy, laneCenterX.deploy, 188, 86);
+  placeCol(byLane.host, laneCenterX.host, 188, 86);
+  placeCol(byLane.surface, laneCenterX.surface, 196, 92);
+
+  if(placed.size===1){
+    const p=[...placed.values()][0];
+    p.x=W/2; p.y=H/2;
+  }
+  return {placed, W, H, pad};
+}
+
+function vulnEdgePath(a,b,offset=0){
+  const dx=b.x-a.x, dy=b.y-a.y;
+  const dist=Math.hypot(dx,dy)||1;
+  const nx=-dy/dist, ny=dx/dist;
+  const x1=a.x+(a.w||0)/2*Math.sign(dx||1), y1=a.y+offset*ny*0.3;
+  const x2=b.x-(b.w||0)/2*Math.sign(dx||1), y2=b.y+offset*ny*0.3;
+  const cx1=x1+dx*0.35, cy1=y1+offset*ny*8;
+  const cx2=x2-dx*0.35, cy2=y2+offset*ny*8;
+  return `M ${x1} ${y1} C ${cx1} ${cy1}, ${cx2} ${cy2}, ${x2} ${y2}`;
+}
+
+function vulnGraphNodeHtml(n){
+  if(n.kind==='deploy'){
+    return `<div class="vg-node vg-node--bridge vg-node--deploy" data-vg-id="${esc(n.id)}">
+      <div class="vg-bridge-icon">${icon('container',20)}</div>
+      <div class="vg-bridge-body">
+        <span class="vg-bridge-kind">Deploy artifact</span>
+        <span class="vg-bridge-label">${esc(n.label)}</span>
+        <span class="vg-bridge-sub">${esc(n.sub||'')}</span>
+      </div>
+    </div>`;
+  }
+  if(n.kind==='host'){
+    return `<div class="vg-node vg-node--bridge vg-node--host" data-vg-id="${esc(n.id)}">
+      <div class="vg-bridge-icon">${icon('server',20)}</div>
+      <div class="vg-bridge-body">
+        <span class="vg-bridge-kind">Runtime host</span>
+        <span class="vg-bridge-label">${esc(n.label)}</span>
+        <span class="vg-bridge-sub">${esc(n.sub||'')}</span>
+      </div>
+    </div>`;
+  }
+  const ex=n.exp;
+  const sc=SCANNERS.find(s=>s.id===ex.scannerId);
+  const accent=scannerAccent(ex.scannerId);
+  const flags=[ex.kev?'<span class="vg-flag vg-flag--kev">KEV</span>':'',ex.internet?'<span class="vg-flag vg-flag--net">Internet</span>':''].filter(Boolean).join('');
+  return `<div class="vg-node vg-node--finding ${n.center?'is-center':''}" data-vuln-id="${esc(ex.id)}" data-vg-id="${esc(ex.id)}" tabindex="0" role="button" style="--vg-accent:${accent}">
+    <div class="vg-finding-accent"></div>
+    <div class="vg-finding-head">
+      <span class="vg-finding-scanner">${icon(sc?.icon||'shield',15)} ${esc(sc?.short?.split('·')[0]?.trim()||'Finding')}</span>
+      <span class="vg-finding-score ${ex.severityClass}">${ex.score.toFixed(1)}</span>
+    </div>
+    <span class="vg-finding-id">${esc(ex.id)}${ex.cve?` · ${esc(ex.cve)}`:''}</span>
+    <span class="vg-finding-title">${esc(ex.title)}</span>
+    ${flags?`<div class="vg-finding-flags">${flags}</div>`:''}
+  </div>`;
+}
+
+function renderConnectedVulnGraph(e){
+  const graph=buildConnectedVulnGraph(e);
+  if(!graph.hasCorrelations){
+    const sc=SCANNERS.find(s=>s.id===e.scannerId);
+    return `
+    <div class="vuln-graph-wrap vuln-graph-wrap--empty" data-vuln-graph data-center="${esc(e.id)}">
+      <div class="vg-top">
+        <p class="vg-narrative">${graph.narrative}</p>
+        <div class="vg-kpis">
+          <div class="vg-kpi"><span class="vg-kpi-val">0</span><span class="vg-kpi-lbl">Cross-scanner links</span></div>
+          <div class="vg-kpi"><span class="vg-kpi-val">${esc(sc?.short?.split('·')[0]?.trim()||e.scannerName||'Origin')}</span><span class="vg-kpi-lbl">This scanner only</span></div>
+          <div class="vg-kpi vg-kpi--risk"><span class="vg-kpi-val">${e.score.toFixed(1)}</span><span class="vg-kpi-lbl">Exposure score</span></div>
+        </div>
+      </div>
+      <div class="vuln-graph-empty">
+        <p>No correlated vulnerabilities from other scanners were found for <strong>${esc(e.id)}</strong>.</p>
+        <p class="vuln-graph-empty-hint">Correlations appear when another scanner reports the same component, deploy artifact, runtime host, or code path — see the correlation map for full asset context.</p>
+        <a class="diagram-nav-btn diagram-nav-btn--corr" href="${diagramLink(e.id,'correlation')}">View correlation map →</a>
+      </div>
+    </div>`;
+  }
+
+  const {placed,W,H,pad}=layoutVulnGraph(graph,e.id);
+  const uid=e.id.replace(/[^a-zA-Z0-9]/g,'');
+
+  const laneBands=VULN_LANES.map((lane,i)=>{
+    const rx=lane.x+8, rw=lane.w-16;
+    return `<rect x="${rx}" y="${pad-8}" width="${rw}" height="${H-pad*2+16}" rx="14" class="vg-lane vg-lane--${lane.id}" fill="url(#vg-lane-${lane.id}-${uid})"/>
+      <text x="${rx+rw/2}" y="${pad+10}" text-anchor="middle" class="vg-lane-label">${esc(lane.label)}</text>`;
+  }).join('');
+
+  const edgeGroups={};
+  graph.edges.forEach((ed,i)=>{
+    const a=placed.get(ed.from), b=placed.get(ed.to);
+    if(!a||!b) return;
+    const key=ed.type||'correlate';
+    if(!edgeGroups[key]) edgeGroups[key]=[];
+    const d=vulnEdgePath(a,b,(i%3-1)*12);
+    const mx=(a.x+b.x)/2, my=(a.y+b.y)/2-6;
+    const lbl=ed.label.length>32?ed.label.slice(0,30)+'…':ed.label;
+    const lw=Math.max(44,lbl.length*5.2);
+    edgeGroups[key].push(`
+      <path d="${d}" class="vg-edge vg-edge--${key}" data-edge-from="${esc(ed.from)}" data-edge-to="${esc(ed.to)}" marker-end="url(#vg-arrow-${key}-${uid})"/>
+      ${lbl?`<g class="vg-edge-label" data-edge-from="${esc(ed.from)}" data-edge-to="${esc(ed.to)}">
+        <rect x="${mx-lw/2}" y="${my-10}" width="${lw}" height="18" rx="9" class="vg-edge-label-bg"/>
+        <text x="${mx}" y="${my+3}" text-anchor="middle" class="vg-edge-label-text">${esc(lbl)}</text>
+      </g>`:''}`);
+  });
+
+  const edgeSvg=Object.entries(edgeGroups).map(([k,v])=>`<g class="vg-edges vg-edges--${k}">${v.join('')}</g>`).join('');
+
+  const nodeEls=[...placed.values()].map(({x,y,n,w,h})=>{
+    return `<foreignObject x="${x-w/2}" y="${y-h/2}" width="${w}" height="${h}" class="vg-fo" data-vg-id="${esc(n.id)}">
+      <div xmlns="http://www.w3.org/1999/xhtml">${vulnGraphNodeHtml(n)}</div>
+    </foreignObject>`;
+  }).join('');
+
+  const kpis=`
+    <div class="vg-kpis">
+      <div class="vg-kpi"><span class="vg-kpi-val">${graph.correlatedCount}</span><span class="vg-kpi-lbl">Cross-scanner links</span></div>
+      <div class="vg-kpi"><span class="vg-kpi-val">${graph.scanners}</span><span class="vg-kpi-lbl">Scanner types</span></div>
+      <div class="vg-kpi vg-kpi--risk"><span class="vg-kpi-val">${graph.maxScore.toFixed(1)}</span><span class="vg-kpi-lbl">Peak score</span></div>
+    </div>`;
+
+  const legend=`
+    <div class="vg-legend">
+      <span><i class="vg-leg vg-leg--origin"></i> Origin scanner</span>
+      <span><i class="vg-leg vg-leg--deploy"></i> Shared deploy path</span>
+      <span><i class="vg-leg vg-leg--surface"></i> Other scanner</span>
+      <span><i class="vg-leg vg-leg--cross"></i> Direct correlation</span>
+    </div>`;
+
+  return `
+    <div class="vuln-graph-wrap" data-vuln-graph data-center="${esc(e.id)}">
+      <div class="vg-top">
+        <p class="vg-narrative">${graph.narrative}</p>
+        ${kpis}
+      </div>
+      ${legend}
+      <div class="vg-canvas-shell">
+        <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="connected">
+          <button type="button" data-zoom="out" aria-label="Zoom connected graph out">−</button>
+          <button type="button" data-zoom="in" aria-label="Zoom connected graph in">+</button>
+          <button type="button" data-zoom-reset aria-label="Reset connected graph zoom">Reset</button>
+        </div>
+        <div class="diagram-zoom-canvas vg-zoom-canvas" data-zoom-canvas="connected">
+          <svg class="vuln-graph-svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg" aria-label="Connected vulnerabilities for ${esc(e.id)}">
+            <defs>
+              ${VULN_LANES.map(l=>`<linearGradient id="vg-lane-${l.id}-${uid}" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="${l.color}" stop-opacity=".09"/>
+                <stop offset="100%" stop-color="${l.color}" stop-opacity=".02"/>
+              </linearGradient>`).join('')}
+              <marker id="vg-arrow-origin-${uid}" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#7c3aed"/></marker>
+              <marker id="vg-arrow-deploy-${uid}" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#0891b2"/></marker>
+              <marker id="vg-arrow-surface-${uid}" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#ea580c"/></marker>
+              <marker id="vg-arrow-cross-${uid}" markerWidth="9" markerHeight="9" refX="8" refY="4.5" orient="auto"><path d="M0,0 L9,4.5 L0,9 Z" fill="#64748b"/></marker>
+              <filter id="vg-glow-${uid}" x="-20%" y="-20%" width="140%" height="140%">
+                <feDropShadow dx="0" dy="2" stdDeviation="4" flood-color="#0891b2" flood-opacity=".15"/>
+              </filter>
+            </defs>
+            <g class="vg-lanes">${laneBands}</g>
+            <g class="vg-edge-layer">${edgeSvg}</g>
+            <g class="vg-node-layer" filter="url(#vg-glow-${uid})">${nodeEls}</g>
+          </svg>
+        </div>
+      </div>
+      <div class="vuln-graph-detail vg-detail-panel" data-vuln-detail>
+        <p class="vuln-graph-detail-placeholder">Hover or select a correlated finding from another scanner to highlight the shared deploy → host → surface path.</p>
+      </div>
+    </div>`;
+}
+
+function pathEdgeKeys(graph, fromId, toId){
+  if(!fromId||!toId||fromId===toId) return new Set();
+  const adj={};
+  graph.edges.forEach(ed=>{
+    if(!adj[ed.from]) adj[ed.from]=[];
+    adj[ed.from].push({to:ed.to, key:`${ed.from}|${ed.to}`});
+  });
+  const q=[[fromId,[]]], seen=new Set([fromId]);
+  while(q.length){
+    const [cur,path]=q.shift();
+    if(cur===toId) return new Set(path);
+    (adj[cur]||[]).forEach(({to,key})=>{
+      if(seen.has(to)) return;
+      seen.add(to);
+      q.push([to,[...path,key]]);
+    });
+  }
+  return new Set();
+}
+
+function bindConnectedVulnGraph(panel, e){
+  const wrap=panel.querySelector('[data-vuln-graph]');
+  const detail=panel.querySelector('[data-vuln-detail]');
+  if(!wrap) return;
+  const graph=buildConnectedVulnGraph(e);
+  const centerId=e.id;
+
+  const highlight=(nodeId)=>{
+    const pathKeys=nodeId&&nodeId!==centerId?pathEdgeKeys(graph,centerId,nodeId):new Set();
+    const pathNodes=new Set([centerId]);
+    pathKeys.forEach(k=>{ const [a,b]=k.split('|'); pathNodes.add(a); pathNodes.add(b); });
+    if(nodeId) pathNodes.add(nodeId);
+
+    wrap.querySelectorAll('.vg-node--finding').forEach(n=>{
+      const id=n.dataset.vulnId;
+      n.classList.toggle('is-selected',id===nodeId);
+      n.classList.toggle('is-dim',nodeId&&id!==nodeId&&id!==centerId);
+    });
+    wrap.querySelectorAll('.vg-edge, .vg-edge-label').forEach(el=>{
+      const from=el.dataset.edgeFrom, to=el.dataset.edgeTo;
+      const key=`${from}|${to}`;
+      const on=nodeId&&(from===nodeId||to===nodeId||pathKeys.has(key));
+      el.classList.toggle('is-highlight',!!on);
+      el.classList.toggle('is-dim',!!nodeId&&!on);
+    });
+    wrap.querySelectorAll('.vg-fo').forEach(fo=>{
+      const id=fo.dataset.vgId;
+      fo.classList.toggle('is-dim',!!nodeId&&!pathNodes.has(id));
+    });
+  };
+
+  const showDetail=(exp)=>{
+    if(!exp||!detail) return;
+    highlight(exp.id);
+    const sc=SCANNERS.find(s=>s.id===exp.scannerId);
+    const chain=VULN_DEPLOY_CHAINS[e.id];
+    const pathHint=chain&&graph.hasCorrelations
+      ?`Cross-scanner path: component → deploy → host → ${graphCountSurface(exp.id)} correlated finding(s)`
+      : 'Direct cross-scanner correlation';
+    detail.innerHTML=`
+      <div class="vg-detail-card">
+        <div class="vg-detail-head">
+          <span class="vg-detail-icon" style="color:${scannerAccent(exp.scannerId)}">${icon(sc?.icon||'shield',18)}</span>
+          <div>
+            <div class="vg-detail-title-row"><strong>${esc(exp.id)}</strong><span class="score-badge ${exp.severityClass}">${exp.score.toFixed(1)}</span></div>
+            <div class="vg-detail-scanner">${esc(sc?.name||exp.scannerName)}</div>
+          </div>
+        </div>
+        <p class="vg-detail-desc">${esc(exp.title)}</p>
+        <p class="vg-detail-meta">${esc(exp.asset)} · ${esc(exp.owner)} · ${esc(exp.sla)}</p>
+        <p class="vg-detail-path">${pathHint}</p>
+        <div class="vg-detail-actions">
+          <a class="diagram-nav-btn diagram-nav-btn--connected" href="${diagramLink(exp.id,'connected')}">Recenter graph →</a>
+          <a class="diagram-nav-btn diagram-nav-btn--corr" href="${diagramLink(exp.id,'correlation')}">Correlation map</a>
+          <a class="diagram-nav-btn diagram-nav-btn--attack" href="${triageBackLink(exp.id)}">Triage queue</a>
+        </div>
+      </div>`;
+  };
+
+  function graphCountSurface(id){
+    const g=buildConnectedVulnGraph(ALL_EXPOSURES.find(x=>x.id===id)||e);
+    return g.correlatedCount;
+  }
+
+  wrap.querySelectorAll('.vg-node--finding[data-vuln-id]').forEach(node=>{
+    const id=node.dataset.vulnId;
+    const exp=ALL_EXPOSURES.find(x=>x.id===id);
+    if(!exp) return;
+    const activate=()=>showDetail(exp);
+    node.onclick=activate;
+    node.onmouseenter=()=>highlight(id);
+    node.onmouseleave=()=>{ if(!wrap.querySelector('.vg-node--finding.is-selected')) highlight(null); };
+    node.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();activate();}};
+    if(exp.id===e.id) activate();
+  });
+}
+
 /** Full-page correlation map & attack path for a single exposure. */
 
 let diagramExpId=null;
@@ -3427,7 +4031,7 @@ function initDiagramFromUrl(){
   }
   diagramExpId=params.get('exp');
   const v=params.get('view');
-  if(v==='attack'||v==='correlation'||v==='mobilization') diagramView=v;
+  if(v==='attack'||v==='correlation'||v==='mobilization'||v==='connected') diagramView=v;
 }
 
 function syncDiagramNavLinks(exp){

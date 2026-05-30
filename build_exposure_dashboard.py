@@ -19,7 +19,7 @@ const SCANNERS = [
 ];
 
 const CROSS_LINKS = {
-  'SCA-001':[{id:'CON-001',by:'Trivy',desc:'Same log4j-core in jfrog…/transaction-router:v4.2.1'},{id:'SAST-001',by:'Semgrep',desc:'payments-api · /charge path'}],
+  'SCA-001':[{id:'CON-001',by:'Trivy',desc:'Same log4j-core in jfrog…/transaction-router:v4.2.1'},{id:'SAST-001',by:'Semgrep',desc:'payments-api · /charge path'},{id:'NET-015',by:'Tenable',desc:'Citrix ADC on host running transaction-router'}],
   'CON-001':[{id:'SCA-001',by:'SCA Scanner',desc:'Same log4j-core — cheapest fix via SCA auto-PR'}],
   'SAST-001':[{id:'SCA-001',by:'SCA Scanner',desc:'Shared payments platform dependency surface'},{id:'DAST-003',by:'DAST Scanner',desc:'Same /charge path exploitable at runtime'}],
   'SAST-003':[{id:'SEC-001',by:'Secrets Scanner',desc:'Hard-coded key in same module'}],
@@ -45,7 +45,8 @@ const ICONS = {
   chev:`<path d="m9 18 6-6-6-6"/>`,
   plan:`<path d="M8 6h8"/><path d="M8 10h8"/><path d="M8 14h5"/><rect x="4" y="4" width="16" height="16" rx="2"/>`,
   zap:`<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/>`,
-  flow:`<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>`
+  flow:`<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>`,
+  link:`<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>`
 };
 
 const SCM_SCANNERS = new Set(['sca','sast','secrets','container']);
@@ -701,7 +702,7 @@ function bindDiagramZoom(panel){
     if(controls.dataset.bound==='1') return;
     const block=controls.closest('.corr-hub-main, .ap-hub-wrap');
     const canvas=block?.querySelector('[data-zoom-canvas]');
-    const svg=canvas?.querySelector('svg.corr-graph, svg.attack-path-svg');
+    const svg=canvas?.querySelector('svg.corr-graph, svg.attack-path-svg, svg.vuln-graph-svg');
     if(!svg) return;
     controls.dataset.bound='1';
     const key='em-diagram-scale-'+(controls.dataset.zoomTarget||'correlation');
@@ -726,6 +727,7 @@ function bindDiagramZoom(panel){
 
 function bindCorrelationPanel(panel, stations, exposure, initialView='correlation'){
   if(panel.querySelector('.attack-path-view')) bindAttackPathPanel(panel, exposure);
+  if(panel.querySelector('.vuln-graph-wrap')) bindConnectedVulnGraph(panel, exposure);
   bindRemediationPanel(panel, exposure);
   const detailEl=panel.querySelector('.corr-node-detail');
   const sc=SCANNERS.find(x=>x.id===exposure.scannerId);
@@ -795,6 +797,7 @@ function bindCorrelationPanel(panel, stations, exposure, initialView='correlatio
     panel.querySelector('[data-diagram-panel="correlation"]').hidden=v!=='correlation';
     panel.querySelector('[data-diagram-panel="attack"]').hidden=v!=='attack';
     panel.querySelector('[data-diagram-panel="mobilization"]').hidden=v!=='mobilization';
+    panel.querySelector('[data-diagram-panel="connected"]').hidden=v!=='connected';
     const titleEl=panel.querySelector('[data-corr-banner-title]');
     const subEl=panel.querySelector('[data-corr-banner-sub]');
     if(titleEl&&subEl){
@@ -807,6 +810,9 @@ function bindCorrelationPanel(panel, stations, exposure, initialView='correlatio
       }else if(v==='mobilization'){
         titleEl.textContent='Mobilization plan';
         subEl.textContent=panel.dataset.mobSub||'Coordinated tickets, automations, and response actions';
+      }else if(v==='connected'){
+        titleEl.textContent='Cross-scanner correlations';
+        subEl.textContent=panel.dataset.connectedSub||'Findings from other scanners linked through shared context';
       }
     }
   };
@@ -894,8 +900,12 @@ function renderMobilizationHtml(e){
 function renderDiagramPanelHtml(e){
   const corrSub=e.buildPipeline?` · pipeline: ${esc(e.buildPipeline.repo.name)}`:e.scmRepo?` · SCM: ${esc(e.scmRepo)}`:'';
   const mobSub=`${e.outcomes.length} action${e.outcomes.length===1?'':'s'} · owner ${esc(e.owner)} · SLA ${esc(e.sla)}`;
+  const connGraph=buildConnectedVulnGraph(e);
+  const connectedSub=connGraph.hasCorrelations
+    ? `${connGraph.correlatedCount} cross-scanner correlation${connGraph.correlatedCount===1?'':'s'} · ${connGraph.scanners} scanner type${connGraph.scanners===1?'':'s'}`
+    : 'No cross-scanner correlations yet';
   return `
-    <div class="corr-panel diagram-page-panel" data-exp-id="${e.id}" data-attack-title="${esc(attackPathSectionTitle(e.scannerId))}" data-corr-sub="${esc(stationCountLabel(e)+corrSub)}" data-mob-sub="${esc(mobSub)}">
+    <div class="corr-panel diagram-page-panel" data-exp-id="${e.id}" data-attack-title="${esc(attackPathSectionTitle(e.scannerId))}" data-corr-sub="${esc(stationCountLabel(e)+corrSub)}" data-mob-sub="${esc(mobSub)}" data-connected-sub="${esc(connectedSub)}">
       <div class="corr-panel-shell">
         <div class="corr-panel-header">
           <div class="corr-diagram-banner">
@@ -906,6 +916,7 @@ function renderDiagramPanelHtml(e){
             <button type="button" class="corr-view-btn on" data-corr-view="correlation" role="tab" aria-selected="true">View correlation</button>
             <button type="button" class="corr-view-btn" data-corr-view="attack" role="tab" aria-selected="false">View attack path</button>
             <button type="button" class="corr-view-btn" data-corr-view="mobilization" role="tab" aria-selected="false">Mobilization plan</button>
+            <button type="button" class="corr-view-btn" data-corr-view="connected" role="tab" aria-selected="false">Cross-scanner</button>
           </div>
         </div>
         <div class="corr-diagram-panels">
@@ -940,6 +951,11 @@ function renderDiagramPanelHtml(e){
               ${renderMobilizationHtml(e)}
             </section>
           </div>
+          <div class="corr-graph-panel" data-diagram-panel="connected" hidden>
+            <section class="viz-block viz-block--connected" aria-label="Cross-scanner correlated vulnerabilities">
+              ${renderConnectedVulnGraph(e)}
+            </section>
+          </div>
         </div>
       </div>
     </div>`;
@@ -970,11 +986,12 @@ function renderDetail(e){
       </div>
       <div class="detail-section detail-diagram-nav">
         <h4>Analysis &amp; mobilization</h4>
-        <p class="detail-diagram-hint">Open correlation, attack path, or mobilization plan in a dedicated full-screen view.</p>
+        <p class="detail-diagram-hint">Open correlation, attack path, mobilization, or connected-vulnerability graph in a dedicated full-screen view.</p>
         <div class="detail-diagram-links">
           <a class="diagram-nav-btn diagram-nav-btn--corr" href="${diagramLink(e.id,'correlation')}">${icon('graph',16)} View correlation map →</a>
           <a class="diagram-nav-btn diagram-nav-btn--attack" href="${diagramLink(e.id,'attack')}">${icon('shield',16)} View attack path →</a>
           <a class="diagram-nav-btn diagram-nav-btn--mob" href="${diagramLink(e.id,'mobilization')}">${icon('plan',16)} View mobilization plan →</a>
+          <a class="diagram-nav-btn diagram-nav-btn--connected" href="${diagramLink(e.id,'connected')}">${icon('link',16)} Cross-scanner correlations →</a>
         </div>
       </div>
       <div class="detail-section"><h4>Scoring formula</h4><div class="formula-chain">${pills}<span class="formula-eq">= ${e.score.toFixed(1)}</span></div></div>
@@ -1116,6 +1133,8 @@ DIAGRAM_JS = (
     + (ROOT / "_ai-chat.js").read_text()
     + "\n"
     + (ROOT / "_remediation.js").read_text()
+    + "\n"
+    + (ROOT / "_vuln-graph.js").read_text()
     + "\n"
     + (ROOT / "_diagram-page.js").read_text()
     + "\ninitDiagramFromUrl();\nrenderDiagramPage();\n"

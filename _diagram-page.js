@@ -14,7 +14,7 @@ function initDiagramFromUrl(){
   }
   diagramExpId=params.get('exp');
   const v=params.get('view');
-  if(v==='attack'||v==='correlation'||v==='mobilization') diagramView=v;
+  if(v==='attack'||v==='correlation'||v==='mobilization'||v==='connected') diagramView=v;
 }
 
 function syncDiagramNavLinks(exp){
