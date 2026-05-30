@@ -42,7 +42,10 @@ const ICONS = {
   key:`<circle cx="7.5" cy="14.5" r="3.5"/><path d="m10 12 9-9 2 2-1.5 1.5L21 8l-2 2"/>`,
   shield:`<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>`,
   git:`<path d="M15 6 3 6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-4"/><path d="M9 6V3a3 3 0 0 1 6 0v3"/>`,
-  chev:`<path d="m9 18 6-6-6-6"/>`
+  chev:`<path d="m9 18 6-6-6-6"/>`,
+  plan:`<path d="M8 6h8"/><path d="M8 10h8"/><path d="M8 14h5"/><rect x="4" y="4" width="16" height="16" rx="2"/>`,
+  zap:`<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/>`,
+  flow:`<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>`
 };
 
 const SCM_SCANNERS = new Set(['sca','sast','secrets','container']);
@@ -396,6 +399,15 @@ let filters={q:'',sev:new Set(),status:new Set(),owner:new Set(),kev:false,inter
 function scannerQuery(){
   return '?scanner='+encodeURIComponent(SCANNERS[activeScanner].id);
 }
+function diagramLink(expId,view){
+  return 'exposure-diagram.html?scanner='+encodeURIComponent(SCANNERS[activeScanner].id)+'&exp='+encodeURIComponent(expId)+'&view='+encodeURIComponent(view||'correlation');
+}
+function diagramPageQuery(expId,view){
+  return '?scanner='+encodeURIComponent(SCANNERS[activeScanner].id)+'&exp='+encodeURIComponent(expId)+'&view='+encodeURIComponent(view||'correlation');
+}
+function triageBackLink(expId){
+  return 'exposure-dashboard.html?scanner='+encodeURIComponent(SCANNERS[activeScanner].id)+(expId?'&exp='+encodeURIComponent(expId):'');
+}
 function persistScanner(){
   try{sessionStorage.setItem('em-active-scanner',SCANNERS[activeScanner].id);}catch(e){}
 }
@@ -712,9 +724,8 @@ function bindDiagramZoom(panel){
   });
 }
 
-function bindCorrelationPanel(panel, stations, exposure){
+function bindCorrelationPanel(panel, stations, exposure, initialView='correlation'){
   if(panel.querySelector('.attack-path-view')) bindAttackPathPanel(panel, exposure);
-  bindAiExplainChat(panel, exposure);
   bindRemediationPanel(panel, exposure);
   const detailEl=panel.querySelector('.corr-node-detail');
   const sc=SCANNERS.find(x=>x.id===exposure.scannerId);
@@ -775,14 +786,39 @@ function bindCorrelationPanel(panel, stations, exposure){
     else if(stations.length) showStation(0);
     else showFinding();
   }
+  const setDiagramView=(v)=>{
+    panel.querySelectorAll('[data-corr-view]').forEach(b=>{
+      const on=b.dataset.corrView===v;
+      b.classList.toggle('on',on);
+      b.setAttribute('aria-selected',on?'true':'false');
+    });
+    panel.querySelector('[data-diagram-panel="correlation"]').hidden=v!=='correlation';
+    panel.querySelector('[data-diagram-panel="attack"]').hidden=v!=='attack';
+    panel.querySelector('[data-diagram-panel="mobilization"]').hidden=v!=='mobilization';
+    const titleEl=panel.querySelector('[data-corr-banner-title]');
+    const subEl=panel.querySelector('[data-corr-banner-sub]');
+    if(titleEl&&subEl){
+      if(v==='correlation'){
+        titleEl.textContent='Exposure correlation map';
+        subEl.textContent=panel.dataset.corrSub||'';
+      }else if(v==='attack'){
+        titleEl.textContent=panel.dataset.attackTitle||'Lateral attack path';
+        subEl.textContent='End-to-end movement from entry to crown-jewel impact · drag handle below graph to resize';
+      }else if(v==='mobilization'){
+        titleEl.textContent='Mobilization plan';
+        subEl.textContent=panel.dataset.mobSub||'Coordinated tickets, automations, and response actions';
+      }
+    }
+  };
   panel.querySelectorAll('[data-corr-view]').forEach(btn=>{
     btn.onclick=()=>{
-      const v=btn.dataset.corrView;
-      panel.querySelectorAll('[data-corr-view]').forEach(b=>b.classList.toggle('on',b.dataset.corrView===v));
-      panel.querySelector('.corr-graph-panel').hidden=v!=='graph';
-      panel.querySelector('.corr-cards-panel').hidden=v!=='cards';
+      setDiagramView(btn.dataset.corrView);
+      if(document.getElementById('diagramPageHost')){
+        history.replaceState(null,'',location.pathname+diagramPageQuery(exposure.id,btn.dataset.corrView));
+      }
     };
   });
+  setDiagramView(initialView);
   bindDiagramZoom(panel);
   bindAttackPathResize(panel);
 }
@@ -845,15 +881,72 @@ function renderStationCard(s){
   return `<div class="station-card ${s.scm?'scm-station':''}"><div class="station-head">${icon(s.icon,14)}<span>${esc(s.name)}</span></div>${s.lines.map(l=>`<div class="station-line">${esc(l)}</div>`).join('')}</div>`;
 }
 
-function renderDetail(e){
-  const corrSub=e.buildPipeline?` · pipeline: ${esc(e.buildPipeline.repo.name)}`:e.scmRepo?` · SCM: ${esc(e.scmRepo)}`:'';
-  const pills=e.scoring.pills.map(p=>`<span class="score-pill">${esc(p.l)} <strong>${esc(p.w)}</strong></span>`).join('');
-  const outs=e.outcomes.map(o=>`
+function renderMobilizationHtml(e){
+  const cards=e.outcomes.map(o=>`
     <div class="outcome-card">
       <div class="outcome-type">${esc(o.type)}</div>
       <a class="outcome-dest" href="#">${esc(o.dest)}</a>
       <div class="outcome-meta">${esc(o.owner)} · ${esc(o.sla)} · <span class="auto-pill">${esc(o.auto)}</span></div>
     </div>`).join('');
+  return `<div class="mobilization-panel"><div class="outcome-row">${cards}</div></div>`;
+}
+
+function renderDiagramPanelHtml(e){
+  const corrSub=e.buildPipeline?` · pipeline: ${esc(e.buildPipeline.repo.name)}`:e.scmRepo?` · SCM: ${esc(e.scmRepo)}`:'';
+  const mobSub=`${e.outcomes.length} action${e.outcomes.length===1?'':'s'} · owner ${esc(e.owner)} · SLA ${esc(e.sla)}`;
+  return `
+    <div class="corr-panel diagram-page-panel" data-exp-id="${e.id}" data-attack-title="${esc(attackPathSectionTitle(e.scannerId))}" data-corr-sub="${esc(stationCountLabel(e)+corrSub)}" data-mob-sub="${esc(mobSub)}">
+      <div class="corr-panel-shell">
+        <div class="corr-panel-header">
+          <div class="corr-diagram-banner">
+            <h4 class="attack-path-title" data-corr-banner-title>Exposure correlation map</h4>
+            <p class="corr-section-sub" data-corr-banner-sub>${stationCountLabel(e)}${corrSub}</p>
+          </div>
+          <div class="corr-view-toggle" role="tablist" aria-label="Diagram view">
+            <button type="button" class="corr-view-btn on" data-corr-view="correlation" role="tab" aria-selected="true">View correlation</button>
+            <button type="button" class="corr-view-btn" data-corr-view="attack" role="tab" aria-selected="false">View attack path</button>
+            <button type="button" class="corr-view-btn" data-corr-view="mobilization" role="tab" aria-selected="false">Mobilization plan</button>
+          </div>
+        </div>
+        <div class="corr-diagram-panels">
+          <div class="corr-graph-panel" data-diagram-panel="correlation">
+            <section class="viz-block viz-block--correlation" aria-label="Exposure correlation map">
+              <p class="viz-block-hint viz-block-hint--solo">How this finding connects to asset, build, identity, runtime &amp; business context · click any node for detail</p>
+              <div class="corr-hub-wrap corr-hub-split">
+                <div class="corr-hub-main">
+                  <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="correlation">
+                    <button type="button" data-zoom="out" aria-label="Zoom correlation map out">−</button>
+                    <button type="button" data-zoom="in" aria-label="Zoom correlation map in">+</button>
+                    <button type="button" data-zoom-reset aria-label="Reset correlation zoom">Reset</button>
+                  </div>
+                  <div class="diagram-zoom-canvas" data-zoom-canvas="correlation">
+                    ${renderCorrelationGraph(e)}
+                  </div>
+                  <div class="corr-node-detail"></div>
+                </div>
+                ${renderRemediationPanel(e)}
+              </div>
+            </section>
+          </div>
+          <div class="corr-graph-panel" data-diagram-panel="attack" hidden>
+            <section class="viz-block viz-block--attack" aria-label="Lateral attack path">
+              <p class="viz-block-hint viz-block-hint--solo">End-to-end movement from entry to crown-jewel impact · drag handle below graph to resize</p>
+              ${renderAttackPathView(e)}
+            </section>
+          </div>
+          <div class="corr-graph-panel" data-diagram-panel="mobilization" hidden>
+            <section class="viz-block viz-block--mobilization" aria-label="Mobilization plan">
+              <p class="viz-block-hint viz-block-hint--solo">Tickets, automations, and coordinated response destinations assigned to owners</p>
+              ${renderMobilizationHtml(e)}
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderDetail(e){
+  const pills=e.scoring.pills.map(p=>`<span class="score-pill">${esc(p.l)} <strong>${esc(p.w)}</strong></span>`).join('');
   const tl=e.timeline.map(t=>`
     <div class="tl-item"><div class="tl-dot"></div><div><strong>${esc(t.t)}</strong> — ${esc(t.d)}<span class="tl-sub">${esc(t.by)}</span></div></div>`).join('');
   const cross=e.crossLinks.length?`<div class="cross-links-strip"><span class="cross-links-label">Also found by</span>${e.crossLinks.map(c=>{
@@ -875,56 +968,16 @@ function renderDetail(e){
         </div>
         <button type="button" class="detail-close" aria-label="Close detail" data-close>&times;</button>
       </div>
-      <div class="detail-section corr-panel" data-exp-id="${e.id}">
-        <div class="corr-panel-shell">
-          <div class="corr-panel-header">
-            <div class="corr-diagram-banner" aria-labelledby="attack-path-${e.id}">
-              <h4 class="attack-path-title" id="attack-path-${e.id}">${esc(attackPathSectionTitle(e.scannerId))}</h4>
-              <p class="corr-section-sub">${stationCountLabel(e)}${corrSub}</p>
-            </div>
-            <div class="corr-view-toggle">
-              <button type="button" class="corr-view-btn on" data-corr-view="graph">Diagrams</button>
-              <button type="button" class="corr-view-btn" data-corr-view="cards">Cards</button>
-            </div>
-          </div>
-          <div class="corr-graph-panel">
-            <div class="viz-stack">
-              <section class="viz-block viz-block--correlation" aria-label="Exposure correlation map">
-                <div class="viz-block-head">
-                  <h5 class="viz-block-title">Exposure correlation map</h5>
-                  <p class="viz-block-hint">How this finding connects to asset, build, identity, runtime &amp; business context</p>
-                </div>
-                <div class="corr-hub-wrap corr-hub-split">
-                  <div class="corr-hub-main">
-                    <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="correlation">
-                      <button type="button" data-zoom="out" aria-label="Zoom correlation map out">−</button>
-                      <button type="button" data-zoom="in" aria-label="Zoom correlation map in">+</button>
-                      <button type="button" data-zoom-reset aria-label="Reset correlation zoom">Reset</button>
-                    </div>
-                    <div class="diagram-zoom-canvas" data-zoom-canvas="correlation">
-                      ${renderCorrelationGraph(e)}
-                    </div>
-                    <div class="corr-node-detail"></div>
-                  </div>
-                  ${renderRemediationPanel(e)}
-                </div>
-              </section>
-              <div class="viz-divider" role="separator" aria-label="Attack path section"></div>
-              <section class="viz-block viz-block--attack" aria-label="Lateral attack path">
-                <div class="viz-block-head">
-                  <h5 class="viz-block-title">Lateral attack path</h5>
-                  <p class="viz-block-hint">End-to-end movement from entry to crown-jewel impact · drag handle below graph to resize</p>
-                </div>
-                ${renderAttackPathView(e)}
-              </section>
-            </div>
-          </div>
-          <div class="corr-cards-panel" hidden>${e.buildPipeline?renderStationCards(e):`<div class="station-grid">${e.stations.map(s=>renderStationCard(s)).join('')}</div>`}</div>
-          ${renderAiExplainChat(e)}
+      <div class="detail-section detail-diagram-nav">
+        <h4>Analysis &amp; mobilization</h4>
+        <p class="detail-diagram-hint">Open correlation, attack path, or mobilization plan in a dedicated full-screen view.</p>
+        <div class="detail-diagram-links">
+          <a class="diagram-nav-btn diagram-nav-btn--corr" href="${diagramLink(e.id,'correlation')}">${icon('graph',16)} View correlation map →</a>
+          <a class="diagram-nav-btn diagram-nav-btn--attack" href="${diagramLink(e.id,'attack')}">${icon('shield',16)} View attack path →</a>
+          <a class="diagram-nav-btn diagram-nav-btn--mob" href="${diagramLink(e.id,'mobilization')}">${icon('plan',16)} View mobilization plan →</a>
         </div>
       </div>
       <div class="detail-section"><h4>Scoring formula</h4><div class="formula-chain">${pills}<span class="formula-eq">= ${e.score.toFixed(1)}</span></div></div>
-      <div class="detail-section"><h4>Mobilization plan</h4><div class="outcome-row">${outs}</div></div>
       <div class="detail-section"><h4>Activity</h4><div class="timeline">${tl}</div></div>
     </div>`;
 }
@@ -970,12 +1023,8 @@ function renderList(){
     if(!t) return;
     activeScanner=SCANNERS.findIndex(s=>s.id===t.scannerId);
     expandedId=t.id;
-    history.replaceState(null,'',location.pathname+scannerQuery());
+    history.replaceState(null,'',location.pathname+scannerQuery()+'&exp='+encodeURIComponent(t.id));
     render();
-  });
-  listEl.querySelectorAll('.corr-panel').forEach(panel=>{
-    const exp=ALL_EXPOSURES.find(x=>x.id===panel.dataset.expId);
-    if(exp) bindCorrelationPanel(panel, exp.stations, exp);
   });
 }
 
@@ -1011,7 +1060,7 @@ function renderChips(){
 
 function render(){syncNavLinks();renderSidebar();renderChips();refreshView();}
 
-document.getElementById('searchInput').oninput=e=>{filters.q=e.target.value;refreshView();};
+document.getElementById('searchInput')?.addEventListener('input',e=>{filters.q=e.target.value;refreshView();});
 document.getElementById('themeToggle').onclick=()=>{
   const t=app.dataset.theme==='dark'?'light':'dark';
   app.dataset.theme=t; document.documentElement.dataset.theme=t;
@@ -1057,6 +1106,19 @@ INSIGHTS_JS = (
     + "\n"
     + (ROOT / "_insights.js").read_text()
     + "\ninitScannerFromUrl();\nrender();\n"
+)
+
+DIAGRAM_JS = (
+    SHARED_JS
+    + "\n"
+    + (ROOT / "_attack-path.js").read_text()
+    + "\n"
+    + (ROOT / "_ai-chat.js").read_text()
+    + "\n"
+    + (ROOT / "_remediation.js").read_text()
+    + "\n"
+    + (ROOT / "_diagram-page.js").read_text()
+    + "\ninitDiagramFromUrl();\nrenderDiagramPage();\n"
 )
 
 CSS = open(ROOT / "_dashboard_css.txt").read() if (ROOT / "_dashboard_css.txt").exists() else ""
@@ -1180,3 +1242,49 @@ INSIGHTS_HTML = f'''<!DOCTYPE html>
 
 (ROOT / "exposure-insights.html").write_text(INSIGHTS_HTML)
 print("Wrote exposure-insights.html", len(INSIGHTS_HTML), "bytes")
+
+DIAGRAM_HTML = f'''<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Exposure Management · Diagrams</title>
+<style>
+{CSS}
+</style>
+</head>
+<body>
+<div class="app" id="app" data-theme="light">
+<aside class="sidebar" aria-label="Scanner filter">
+<div class="brand"><h1>Exposure Management</h1>
+<a class="sibling-link" id="triageSidebarLink" href="exposure-dashboard.html?scanner=network">← Triage queue</a>
+<a class="sibling-link" href="vulnerability-scanner-journey-explorer_4.html">Process view →</a>
+</div>
+<div class="scanner-list" id="scannerList" role="listbox"></div>
+<div class="sidebar-footer"><button class="theme-toggle" id="themeToggle" type="button">Toggle dark mode</button></div>
+</aside>
+<main class="main diagram-main">
+{PRODUCT_BANNER}
+<div class="disclaimer" role="note"><strong>Synthetic demo data</strong> — correlation map and attack path for one exposure.</div>
+<header class="topbar diagram-topbar">
+<div>
+  <h2 id="mainTitle">Exposure diagrams</h2>
+  <p id="diagramPageSub"></p>
+  <div class="diagram-exp-meta" id="diagramExpMeta"></div>
+</div>
+<a class="insights-nav-link insights-nav-link--back" id="diagramBackLink" href="exposure-dashboard.html?scanner=network">← Back to triage</a>
+</header>
+<div class="diagram-page-host" id="diagramPageHost" aria-label="Exposure diagrams"></div>
+</main>
+<div id="aiChatHost" class="ai-chat-page-host" aria-label="AI explainability chat"></div>
+</div>
+<script>
+{seeds}
+{DIAGRAM_JS}
+</script>
+</body>
+</html>
+'''
+
+(ROOT / "exposure-diagram.html").write_text(DIAGRAM_HTML)
+print("Wrote exposure-diagram.html", len(DIAGRAM_HTML), "bytes")

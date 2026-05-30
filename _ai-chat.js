@@ -63,7 +63,7 @@ function aiChatReply(e, raw){
 function renderAiExplainChat(e){
   const chips=aiChatSuggestions(e).map(s=>`<button type="button" class="ai-chat-chip" data-ai-chip>${esc(s)}</button>`).join('');
   return `
-    <div class="ai-chat-dock" data-ai-chat>
+    <div class="ai-chat-dock ai-chat-dock--fixed" data-ai-chat>
       <button type="button" class="ai-chat-fab" data-ai-toggle aria-expanded="false" aria-controls="ai-chat-panel-${e.id}">
         <span class="ai-chat-fab-icon">${icon('zap',18)}</span>
         <span class="ai-chat-fab-label">Ask AI</span>
@@ -105,8 +105,8 @@ function aiChatShowTyping(container){
   return row;
 }
 
-function bindAiExplainChat(panel, e){
-  const dock=panel.querySelector('[data-ai-chat]');
+function bindAiExplainChat(root, e){
+  const dock=root?.matches?.('[data-ai-chat]')?root:root?.querySelector?.('[data-ai-chat]');
   if(!dock||dock.dataset.bound==='1') return;
   dock.dataset.bound='1';
 
@@ -115,6 +115,7 @@ function bindAiExplainChat(panel, e){
   const messages=dock.querySelector('[data-ai-messages]');
   const form=dock.querySelector('[data-ai-form]');
   const input=dock.querySelector('[data-ai-input]');
+  const closeBtn=dock.querySelector('[data-ai-close]');
   let seeded=false;
 
   const setOpen=(open)=>{
@@ -139,8 +140,16 @@ function bindAiExplainChat(panel, e){
     }, 520 + Math.min(t.length * 8, 400));
   };
 
-  fab.onclick=()=>setOpen(chatPanel.hidden);
-  dock.querySelector('[data-ai-close]')?.addEventListener('click',()=>setOpen(false));
+  fab.onclick=(ev)=>{
+    ev.preventDefault();
+    ev.stopPropagation();
+    setOpen(!dock.classList.contains('is-open'));
+  };
+  closeBtn?.addEventListener('click',(ev)=>{
+    ev.preventDefault();
+    ev.stopPropagation();
+    setOpen(false);
+  });
   form?.addEventListener('submit',ev=>{
     ev.preventDefault();
     const t=input.value;
@@ -154,5 +163,10 @@ function bindAiExplainChat(panel, e){
     };
   });
 
-  panel.querySelector('[data-ai-open]')?.addEventListener('click',()=>setOpen(true));
+  document.querySelectorAll('[data-ai-open]').forEach(btn=>{
+    btn.addEventListener('click',(ev)=>{
+      ev.preventDefault();
+      setOpen(true);
+    });
+  });
 }

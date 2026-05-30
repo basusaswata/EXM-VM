@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Exposure Management · Analyst Dashboard</title>
+<title>Exposure Management · Diagrams</title>
 <style>
 :root {
   --bg: #f7f8fb; --panel: #fff; --panel-2: #f1f4f8; --panel-3: #e8ecf4;
@@ -1205,11 +1205,14 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 <body>
 <div class="app" id="app" data-theme="light">
 <aside class="sidebar" aria-label="Scanner filter">
-<div class="brand"><h1>Exposure Management</h1><a class="sibling-link" href="vulnerability-scanner-journey-explorer_4.html">← Process view</a></div>
+<div class="brand"><h1>Exposure Management</h1>
+<a class="sibling-link" id="triageSidebarLink" href="exposure-dashboard.html?scanner=network">← Triage queue</a>
+<a class="sibling-link" href="vulnerability-scanner-journey-explorer_4.html">Process view →</a>
+</div>
 <div class="scanner-list" id="scannerList" role="listbox"></div>
 <div class="sidebar-footer"><button class="theme-toggle" id="themeToggle" type="button">Toggle dark mode</button></div>
 </aside>
-<main class="main">
+<main class="main diagram-main">
 
 <div class="product-banner" role="banner" aria-label="Exposure Management capabilities">
   <div class="product-banner-inner">
@@ -1229,21 +1232,18 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
     </div>
   </div>
 </div>
-<div class="disclaimer" role="note"><strong>Synthetic demo data</strong> modeled on production exposure-management patterns (Acme Payments / acmepay.com). Names, IDs, and scores are fictional — not your environment.</div>
-<header class="topbar">
-<div><h2 id="mainTitle">Exposure triage queue</h2><p id="mainSub"></p></div>
-<a class="insights-nav-link" id="insightsNavLink" href="exposure-insights.html?scanner=network" title="Open charts for the current scanner">Insights &amp; charts →</a>
+<div class="disclaimer" role="note"><strong>Synthetic demo data</strong> — correlation map and attack path for one exposure.</div>
+<header class="topbar diagram-topbar">
+<div>
+  <h2 id="mainTitle">Exposure diagrams</h2>
+  <p id="diagramPageSub"></p>
+  <div class="diagram-exp-meta" id="diagramExpMeta"></div>
+</div>
+<a class="insights-nav-link insights-nav-link--back" id="diagramBackLink" href="exposure-dashboard.html?scanner=network">← Back to triage</a>
 </header>
-<div class="filter-bar">
-<input type="search" id="searchInput" placeholder="Filter by CVE, asset, owner…" aria-label="Filter exposures"/>
-<div class="filter-chips" id="filterChips"></div>
-<div class="summary-line" id="summaryLine"></div>
-</div>
-<div class="list-head" aria-hidden="true">
-<span>Score</span><span>Finding</span><span>Asset</span><span></span><span>Owner</span><span>Status</span><span>SLA</span><span></span>
-</div>
-<div class="list-scroll" id="exposureList" role="list" aria-label="Exposure list"></div>
+<div class="diagram-page-host" id="diagramPageHost" aria-label="Exposure diagrams"></div>
 </main>
+<div id="aiChatHost" class="ai-chat-page-host" aria-label="AI explainability chat"></div>
 </div>
 <script>
 const EXPOSURE_SEEDS = {
@@ -3411,8 +3411,76 @@ function bindRemediationPanel(panel,e){
   });
 }
 
-initScannerFromUrl();
-render();
+/** Full-page correlation map & attack path for a single exposure. */
+
+let diagramExpId=null;
+let diagramView='correlation';
+
+function initDiagramFromUrl(){
+  const params=new URLSearchParams(location.search);
+  const fromUrl=params.get('scanner');
+  let p=fromUrl;
+  if(!p){try{p=sessionStorage.getItem('em-active-scanner');}catch(e){}}
+  if(p){
+    const i=SCANNERS.findIndex(s=>s.id===p);
+    if(i>=0) activeScanner=i;
+  }
+  diagramExpId=params.get('exp');
+  const v=params.get('view');
+  if(v==='attack'||v==='correlation'||v==='mobilization') diagramView=v;
+}
+
+function syncDiagramNavLinks(exp){
+  persistScanner();
+  const back=document.getElementById('diagramBackLink');
+  if(back){
+    back.setAttribute('href',triageBackLink(exp?.id));
+    back.textContent=exp?'← Back to '+exp.id:'← Back to triage';
+  }
+  const side=document.getElementById('triageSidebarLink');
+  if(side) side.setAttribute('href',triageBackLink(exp?.id));
+}
+
+function renderDiagramPage(){
+  const host=document.getElementById('diagramPageHost');
+  if(!host) return;
+  const exp=ALL_EXPOSURES.find(x=>x.id===diagramExpId);
+  if(!exp){
+    host.innerHTML='<div class="diagram-empty">Exposure not found. <a href="'+triageBackLink()+'">Return to triage queue</a></div>';
+    syncDiagramNavLinks(null);
+    renderSidebar();
+    return;
+  }
+  const si=SCANNERS.findIndex(s=>s.id===exp.scannerId);
+  if(si>=0) activeScanner=si;
+  document.documentElement.style.setProperty('--accent',SCANNERS[activeScanner].accent);
+  syncDiagramNavLinks(exp);
+  renderSidebar();
+  document.querySelectorAll('.scanner-list [data-i]').forEach(btn=>{
+    btn.onclick=()=>{
+      activeScanner=+btn.dataset.i;
+      persistScanner();
+      location.href='exposure-dashboard.html'+scannerQuery();
+    };
+  });
+  const meta=document.getElementById('diagramExpMeta');
+  if(meta){
+    meta.innerHTML=`<span class="diagram-exp-id">${esc(exp.id)}</span><span class="diagram-exp-title">${esc(exp.title)}</span><span class="score-badge ${exp.severityClass}">${exp.score.toFixed(1)}</span>`;
+  }
+  const sub=document.getElementById('diagramPageSub');
+  if(sub) sub.textContent=SCANNERS[activeScanner].name+' · '+exp.severity+' · '+exp.owner;
+  host.innerHTML=renderDiagramPanelHtml(exp);
+  const panel=host.querySelector('.corr-panel');
+  if(panel) bindCorrelationPanel(panel,exp.stations,exp,diagramView);
+  const chatHost=document.getElementById('aiChatHost');
+  if(chatHost){
+    chatHost.innerHTML=renderAiExplainChat(exp);
+    bindAiExplainChat(chatHost,exp);
+  }
+}
+
+initDiagramFromUrl();
+renderDiagramPage();
 
 </script>
 </body>

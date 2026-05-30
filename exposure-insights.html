@@ -453,6 +453,53 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 .insight-scatter circle { cursor: default; }
 .insight-scatter circle:hover { opacity: 1; stroke: var(--text); stroke-width: 1.5; }
 
+/* Detail panel — link to diagram page */
+.detail-diagram-nav { padding-top: 4px; }
+.detail-diagram-hint { margin: 0 0 12px; font-size: 11px; color: var(--muted); font-weight: 600; }
+.detail-diagram-links { display: flex; flex-wrap: wrap; gap: 10px; }
+.diagram-nav-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 850; text-decoration: none;
+  padding: 10px 16px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+  transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+.diagram-nav-btn svg { flex-shrink: 0; opacity: .85; }
+.diagram-nav-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(15,23,42,.08); }
+.diagram-nav-btn--corr { border-color: color-mix(in srgb, var(--accent) 35%, var(--border)); color: var(--accent); }
+.diagram-nav-btn--corr:hover { background: color-mix(in srgb, var(--accent) 10%, var(--panel-2)); }
+.diagram-nav-btn--attack { border-color: color-mix(in srgb, #7c3aed 35%, var(--border)); color: #6d28d9; }
+[data-theme="dark"] .diagram-nav-btn--attack { color: #c4b5fd; }
+.diagram-nav-btn--attack:hover { background: color-mix(in srgb, #7c3aed 10%, var(--panel-2)); }
+.diagram-nav-btn--mob { border-color: color-mix(in srgb, var(--outcome) 35%, var(--border)); color: var(--outcome); }
+.diagram-nav-btn--mob:hover { background: color-mix(in srgb, var(--outcome) 10%, var(--panel-2)); }
+
+/* Full-page diagram view */
+.diagram-main { display: flex; flex-direction: column; min-height: 0; }
+.diagram-topbar { flex: 0 0 auto; align-items: flex-start; }
+.diagram-exp-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+  margin-top: 10px; padding: 10px 12px;
+  background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px;
+}
+.diagram-exp-id { font-size: 11px; font-weight: 900; color: var(--accent); }
+.diagram-exp-title { font-size: 12px; font-weight: 750; color: var(--text); flex: 1 1 200px; }
+.diagram-page-host {
+  flex: 1; min-height: 0; overflow: auto;
+  padding: 0 0 24px;
+}
+.diagram-page-panel { margin: 0 18px; }
+.diagram-page-panel .corr-panel-shell {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--panel);
+  overflow: hidden;
+}
+.diagram-page-panel .corr-graph-panel { padding: 0 14px 20px; }
+.diagram-page-panel .viz-block { border: none; box-shadow: none; padding: 16px 0 0; }
+.diagram-empty { padding: 24px 18px; font-size: 13px; color: var(--muted); }
+.diagram-empty a { color: var(--accent); font-weight: 800; }
+
 .list-head {
   display: grid; grid-template-columns: 52px 1.4fr 1fr 48px 1fr 110px 72px 28px; gap: 10px;
   padding: 6px 18px; font-size: 9px; font-weight: 800; text-transform: uppercase;
@@ -530,7 +577,7 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 10px 108px 14px;
+  padding: 12px 18px 14px;
   border-bottom: 2px solid color-mix(in srgb, var(--accent) 40%, var(--border));
 }
 .corr-diagram-banner {
@@ -564,16 +611,20 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
   max-width: 560px;
 }
 .corr-panel-header .corr-view-toggle {
-  position: absolute;
-  top: 10px;
-  right: 12px;
+  position: static;
+  margin: 12px auto 0;
   z-index: 4;
 }
-.corr-view-toggle { display: inline-flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 8px; padding: 2px; }
-.corr-view-btn { border: none; background: transparent; color: var(--muted); font-size: 10px; font-weight: 800; padding: 5px 10px; border-radius: 6px; cursor: pointer; }
-.corr-view-btn.on { background: var(--panel); color: var(--accent); box-shadow: 0 1px 2px rgba(0,0,0,.06); }
+.corr-view-toggle { display: inline-flex; gap: 4px; background: var(--panel-2); border: 1px solid var(--border); border-radius: 10px; padding: 3px; }
+.corr-view-btn { border: none; background: transparent; color: var(--muted); font-size: 11px; font-weight: 800; padding: 8px 16px; border-radius: 8px; cursor: pointer; white-space: nowrap; }
+.corr-view-btn.on { background: var(--panel); color: var(--accent); box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.corr-view-btn[data-corr-view="attack"].on { color: #6d28d9; }
+[data-theme="dark"] .corr-view-btn[data-corr-view="attack"].on { color: #c4b5fd; }
+.corr-view-btn[data-corr-view="mobilization"].on { color: var(--outcome); }
 
+.corr-diagram-panels { min-height: 200px; }
 .corr-graph-panel { padding: 0 14px 16px; }
+.corr-graph-panel[hidden] { display: none !important; }
 .viz-stack { display: flex; flex-direction: column; gap: 0; }
 .viz-block {
   background: var(--panel);
@@ -586,6 +637,12 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
   border-color: color-mix(in srgb, #7c3aed 22%, var(--border));
   background: linear-gradient(180deg, color-mix(in srgb, #7c3aed 4%, var(--panel)) 0%, var(--panel) 48px);
 }
+.viz-block--mobilization {
+  border-color: color-mix(in srgb, var(--outcome) 22%, var(--border));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--outcome-soft) 35%, var(--panel)) 0%, var(--panel) 48px);
+}
+.mobilization-panel { max-width: 920px; margin: 0 auto; padding: 8px 0 16px; }
+.mobilization-panel .outcome-card { flex: 1 1 260px; }
 .viz-block--correlation {
   border-color: color-mix(in srgb, var(--accent) 28%, var(--border));
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 5%, var(--panel)) 0%, var(--panel) 52px);
@@ -603,6 +660,7 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 [data-theme="dark"] .viz-block--attack .viz-block-title { color: #c4b5fd; }
 .viz-block--correlation .viz-block-title { color: var(--accent); }
 .viz-block-hint { margin: 4px 0 0; font-size: 10px; color: var(--muted); font-weight: 600; line-height: 1.35; }
+.viz-block-hint--solo { margin: 0 0 12px; text-align: center; }
 .viz-divider {
   height: 1px;
   margin: 16px 8%;
@@ -836,17 +894,26 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
 .attack-path-ai-open-btn:hover { filter: brightness(1.06); box-shadow: 0 4px 12px rgba(124,58,237,.25); }
 
 /* AI explainability chat (dummy / no LLM) */
-.corr-panel-shell { position: relative; }
+.ai-chat-page-host {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  z-index: 2000;
+  pointer-events: none;
+}
+.ai-chat-page-host > * { pointer-events: auto; }
 .ai-chat-dock {
-  position: absolute;
-  right: 14px;
-  bottom: 14px;
-  z-index: 12;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
   pointer-events: none;
+}
+.ai-chat-dock--fixed {
+  position: fixed;
+  right: 22px;
+  bottom: 22px;
+  z-index: 2001;
 }
 .ai-chat-dock > * { pointer-events: auto; }
 .ai-chat-fab {
@@ -873,17 +940,22 @@ body { margin: 0; font-family: Inter, ui-sans-serif, system-ui, sans-serif; colo
   border-radius: 14px;
   box-shadow: 0 12px 40px rgba(15,23,42,.14), 0 0 0 1px rgba(124,58,237,.08);
   overflow: hidden;
+  position: relative;
+  z-index: 2002;
 }
 .ai-chat-header {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
   padding: 10px 12px;
   background: linear-gradient(135deg, color-mix(in srgb, #7c3aed 12%, var(--panel)) 0%, var(--panel) 100%);
   border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 2;
 }
 .ai-chat-header-title { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 900; }
 .ai-chat-close {
   border: none; background: var(--panel-2); color: var(--text);
   width: 28px; height: 28px; border-radius: 8px; font-size: 18px; cursor: pointer; line-height: 1;
+  position: relative; z-index: 3; flex-shrink: 0;
 }
 .ai-chat-close:hover { background: var(--border); }
 .ai-chat-messages {
@@ -1589,7 +1661,10 @@ const ICONS = {
   key:`<circle cx="7.5" cy="14.5" r="3.5"/><path d="m10 12 9-9 2 2-1.5 1.5L21 8l-2 2"/>`,
   shield:`<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>`,
   git:`<path d="M15 6 3 6a3 3 0 0 0-3 3v12a3 3 0 0 0 3 3h12a3 3 0 0 0 3-3V9a3 3 0 0 0-3-3h-4"/><path d="M9 6V3a3 3 0 0 1 6 0v3"/>`,
-  chev:`<path d="m9 18 6-6-6-6"/>`
+  chev:`<path d="m9 18 6-6-6-6"/>`,
+  plan:`<path d="M8 6h8"/><path d="M8 10h8"/><path d="M8 14h5"/><rect x="4" y="4" width="16" height="16" rx="2"/>`,
+  zap:`<path d="M13 2 3 14h9l-1 8 10-12h-9l1-8Z"/>`,
+  flow:`<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>`
 };
 
 const SCM_SCANNERS = new Set(['sca','sast','secrets','container']);
@@ -1943,6 +2018,15 @@ let filters={q:'',sev:new Set(),status:new Set(),owner:new Set(),kev:false,inter
 function scannerQuery(){
   return '?scanner='+encodeURIComponent(SCANNERS[activeScanner].id);
 }
+function diagramLink(expId,view){
+  return 'exposure-diagram.html?scanner='+encodeURIComponent(SCANNERS[activeScanner].id)+'&exp='+encodeURIComponent(expId)+'&view='+encodeURIComponent(view||'correlation');
+}
+function diagramPageQuery(expId,view){
+  return '?scanner='+encodeURIComponent(SCANNERS[activeScanner].id)+'&exp='+encodeURIComponent(expId)+'&view='+encodeURIComponent(view||'correlation');
+}
+function triageBackLink(expId){
+  return 'exposure-dashboard.html?scanner='+encodeURIComponent(SCANNERS[activeScanner].id)+(expId?'&exp='+encodeURIComponent(expId):'');
+}
 function persistScanner(){
   try{sessionStorage.setItem('em-active-scanner',SCANNERS[activeScanner].id);}catch(e){}
 }
@@ -2259,9 +2343,8 @@ function bindDiagramZoom(panel){
   });
 }
 
-function bindCorrelationPanel(panel, stations, exposure){
+function bindCorrelationPanel(panel, stations, exposure, initialView='correlation'){
   if(panel.querySelector('.attack-path-view')) bindAttackPathPanel(panel, exposure);
-  bindAiExplainChat(panel, exposure);
   bindRemediationPanel(panel, exposure);
   const detailEl=panel.querySelector('.corr-node-detail');
   const sc=SCANNERS.find(x=>x.id===exposure.scannerId);
@@ -2322,14 +2405,39 @@ function bindCorrelationPanel(panel, stations, exposure){
     else if(stations.length) showStation(0);
     else showFinding();
   }
+  const setDiagramView=(v)=>{
+    panel.querySelectorAll('[data-corr-view]').forEach(b=>{
+      const on=b.dataset.corrView===v;
+      b.classList.toggle('on',on);
+      b.setAttribute('aria-selected',on?'true':'false');
+    });
+    panel.querySelector('[data-diagram-panel="correlation"]').hidden=v!=='correlation';
+    panel.querySelector('[data-diagram-panel="attack"]').hidden=v!=='attack';
+    panel.querySelector('[data-diagram-panel="mobilization"]').hidden=v!=='mobilization';
+    const titleEl=panel.querySelector('[data-corr-banner-title]');
+    const subEl=panel.querySelector('[data-corr-banner-sub]');
+    if(titleEl&&subEl){
+      if(v==='correlation'){
+        titleEl.textContent='Exposure correlation map';
+        subEl.textContent=panel.dataset.corrSub||'';
+      }else if(v==='attack'){
+        titleEl.textContent=panel.dataset.attackTitle||'Lateral attack path';
+        subEl.textContent='End-to-end movement from entry to crown-jewel impact · drag handle below graph to resize';
+      }else if(v==='mobilization'){
+        titleEl.textContent='Mobilization plan';
+        subEl.textContent=panel.dataset.mobSub||'Coordinated tickets, automations, and response actions';
+      }
+    }
+  };
   panel.querySelectorAll('[data-corr-view]').forEach(btn=>{
     btn.onclick=()=>{
-      const v=btn.dataset.corrView;
-      panel.querySelectorAll('[data-corr-view]').forEach(b=>b.classList.toggle('on',b.dataset.corrView===v));
-      panel.querySelector('.corr-graph-panel').hidden=v!=='graph';
-      panel.querySelector('.corr-cards-panel').hidden=v!=='cards';
+      setDiagramView(btn.dataset.corrView);
+      if(document.getElementById('diagramPageHost')){
+        history.replaceState(null,'',location.pathname+diagramPageQuery(exposure.id,btn.dataset.corrView));
+      }
     };
   });
+  setDiagramView(initialView);
   bindDiagramZoom(panel);
   bindAttackPathResize(panel);
 }
@@ -2392,15 +2500,72 @@ function renderStationCard(s){
   return `<div class="station-card ${s.scm?'scm-station':''}"><div class="station-head">${icon(s.icon,14)}<span>${esc(s.name)}</span></div>${s.lines.map(l=>`<div class="station-line">${esc(l)}</div>`).join('')}</div>`;
 }
 
-function renderDetail(e){
-  const corrSub=e.buildPipeline?` · pipeline: ${esc(e.buildPipeline.repo.name)}`:e.scmRepo?` · SCM: ${esc(e.scmRepo)}`:'';
-  const pills=e.scoring.pills.map(p=>`<span class="score-pill">${esc(p.l)} <strong>${esc(p.w)}</strong></span>`).join('');
-  const outs=e.outcomes.map(o=>`
+function renderMobilizationHtml(e){
+  const cards=e.outcomes.map(o=>`
     <div class="outcome-card">
       <div class="outcome-type">${esc(o.type)}</div>
       <a class="outcome-dest" href="#">${esc(o.dest)}</a>
       <div class="outcome-meta">${esc(o.owner)} · ${esc(o.sla)} · <span class="auto-pill">${esc(o.auto)}</span></div>
     </div>`).join('');
+  return `<div class="mobilization-panel"><div class="outcome-row">${cards}</div></div>`;
+}
+
+function renderDiagramPanelHtml(e){
+  const corrSub=e.buildPipeline?` · pipeline: ${esc(e.buildPipeline.repo.name)}`:e.scmRepo?` · SCM: ${esc(e.scmRepo)}`:'';
+  const mobSub=`${e.outcomes.length} action${e.outcomes.length===1?'':'s'} · owner ${esc(e.owner)} · SLA ${esc(e.sla)}`;
+  return `
+    <div class="corr-panel diagram-page-panel" data-exp-id="${e.id}" data-attack-title="${esc(attackPathSectionTitle(e.scannerId))}" data-corr-sub="${esc(stationCountLabel(e)+corrSub)}" data-mob-sub="${esc(mobSub)}">
+      <div class="corr-panel-shell">
+        <div class="corr-panel-header">
+          <div class="corr-diagram-banner">
+            <h4 class="attack-path-title" data-corr-banner-title>Exposure correlation map</h4>
+            <p class="corr-section-sub" data-corr-banner-sub>${stationCountLabel(e)}${corrSub}</p>
+          </div>
+          <div class="corr-view-toggle" role="tablist" aria-label="Diagram view">
+            <button type="button" class="corr-view-btn on" data-corr-view="correlation" role="tab" aria-selected="true">View correlation</button>
+            <button type="button" class="corr-view-btn" data-corr-view="attack" role="tab" aria-selected="false">View attack path</button>
+            <button type="button" class="corr-view-btn" data-corr-view="mobilization" role="tab" aria-selected="false">Mobilization plan</button>
+          </div>
+        </div>
+        <div class="corr-diagram-panels">
+          <div class="corr-graph-panel" data-diagram-panel="correlation">
+            <section class="viz-block viz-block--correlation" aria-label="Exposure correlation map">
+              <p class="viz-block-hint viz-block-hint--solo">How this finding connects to asset, build, identity, runtime &amp; business context · click any node for detail</p>
+              <div class="corr-hub-wrap corr-hub-split">
+                <div class="corr-hub-main">
+                  <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="correlation">
+                    <button type="button" data-zoom="out" aria-label="Zoom correlation map out">−</button>
+                    <button type="button" data-zoom="in" aria-label="Zoom correlation map in">+</button>
+                    <button type="button" data-zoom-reset aria-label="Reset correlation zoom">Reset</button>
+                  </div>
+                  <div class="diagram-zoom-canvas" data-zoom-canvas="correlation">
+                    ${renderCorrelationGraph(e)}
+                  </div>
+                  <div class="corr-node-detail"></div>
+                </div>
+                ${renderRemediationPanel(e)}
+              </div>
+            </section>
+          </div>
+          <div class="corr-graph-panel" data-diagram-panel="attack" hidden>
+            <section class="viz-block viz-block--attack" aria-label="Lateral attack path">
+              <p class="viz-block-hint viz-block-hint--solo">End-to-end movement from entry to crown-jewel impact · drag handle below graph to resize</p>
+              ${renderAttackPathView(e)}
+            </section>
+          </div>
+          <div class="corr-graph-panel" data-diagram-panel="mobilization" hidden>
+            <section class="viz-block viz-block--mobilization" aria-label="Mobilization plan">
+              <p class="viz-block-hint viz-block-hint--solo">Tickets, automations, and coordinated response destinations assigned to owners</p>
+              ${renderMobilizationHtml(e)}
+            </section>
+          </div>
+        </div>
+      </div>
+    </div>`;
+}
+
+function renderDetail(e){
+  const pills=e.scoring.pills.map(p=>`<span class="score-pill">${esc(p.l)} <strong>${esc(p.w)}</strong></span>`).join('');
   const tl=e.timeline.map(t=>`
     <div class="tl-item"><div class="tl-dot"></div><div><strong>${esc(t.t)}</strong> — ${esc(t.d)}<span class="tl-sub">${esc(t.by)}</span></div></div>`).join('');
   const cross=e.crossLinks.length?`<div class="cross-links-strip"><span class="cross-links-label">Also found by</span>${e.crossLinks.map(c=>{
@@ -2422,56 +2587,16 @@ function renderDetail(e){
         </div>
         <button type="button" class="detail-close" aria-label="Close detail" data-close>&times;</button>
       </div>
-      <div class="detail-section corr-panel" data-exp-id="${e.id}">
-        <div class="corr-panel-shell">
-          <div class="corr-panel-header">
-            <div class="corr-diagram-banner" aria-labelledby="attack-path-${e.id}">
-              <h4 class="attack-path-title" id="attack-path-${e.id}">${esc(attackPathSectionTitle(e.scannerId))}</h4>
-              <p class="corr-section-sub">${stationCountLabel(e)}${corrSub}</p>
-            </div>
-            <div class="corr-view-toggle">
-              <button type="button" class="corr-view-btn on" data-corr-view="graph">Diagrams</button>
-              <button type="button" class="corr-view-btn" data-corr-view="cards">Cards</button>
-            </div>
-          </div>
-          <div class="corr-graph-panel">
-            <div class="viz-stack">
-              <section class="viz-block viz-block--correlation" aria-label="Exposure correlation map">
-                <div class="viz-block-head">
-                  <h5 class="viz-block-title">Exposure correlation map</h5>
-                  <p class="viz-block-hint">How this finding connects to asset, build, identity, runtime &amp; business context</p>
-                </div>
-                <div class="corr-hub-wrap corr-hub-split">
-                  <div class="corr-hub-main">
-                    <div class="diagram-zoom-controls" data-zoom-controls data-zoom-target="correlation">
-                      <button type="button" data-zoom="out" aria-label="Zoom correlation map out">−</button>
-                      <button type="button" data-zoom="in" aria-label="Zoom correlation map in">+</button>
-                      <button type="button" data-zoom-reset aria-label="Reset correlation zoom">Reset</button>
-                    </div>
-                    <div class="diagram-zoom-canvas" data-zoom-canvas="correlation">
-                      ${renderCorrelationGraph(e)}
-                    </div>
-                    <div class="corr-node-detail"></div>
-                  </div>
-                  ${renderRemediationPanel(e)}
-                </div>
-              </section>
-              <div class="viz-divider" role="separator" aria-label="Attack path section"></div>
-              <section class="viz-block viz-block--attack" aria-label="Lateral attack path">
-                <div class="viz-block-head">
-                  <h5 class="viz-block-title">Lateral attack path</h5>
-                  <p class="viz-block-hint">End-to-end movement from entry to crown-jewel impact · drag handle below graph to resize</p>
-                </div>
-                ${renderAttackPathView(e)}
-              </section>
-            </div>
-          </div>
-          <div class="corr-cards-panel" hidden>${e.buildPipeline?renderStationCards(e):`<div class="station-grid">${e.stations.map(s=>renderStationCard(s)).join('')}</div>`}</div>
-          ${renderAiExplainChat(e)}
+      <div class="detail-section detail-diagram-nav">
+        <h4>Analysis &amp; mobilization</h4>
+        <p class="detail-diagram-hint">Open correlation, attack path, or mobilization plan in a dedicated full-screen view.</p>
+        <div class="detail-diagram-links">
+          <a class="diagram-nav-btn diagram-nav-btn--corr" href="${diagramLink(e.id,'correlation')}">${icon('graph',16)} View correlation map →</a>
+          <a class="diagram-nav-btn diagram-nav-btn--attack" href="${diagramLink(e.id,'attack')}">${icon('shield',16)} View attack path →</a>
+          <a class="diagram-nav-btn diagram-nav-btn--mob" href="${diagramLink(e.id,'mobilization')}">${icon('plan',16)} View mobilization plan →</a>
         </div>
       </div>
       <div class="detail-section"><h4>Scoring formula</h4><div class="formula-chain">${pills}<span class="formula-eq">= ${e.score.toFixed(1)}</span></div></div>
-      <div class="detail-section"><h4>Mobilization plan</h4><div class="outcome-row">${outs}</div></div>
       <div class="detail-section"><h4>Activity</h4><div class="timeline">${tl}</div></div>
     </div>`;
 }
@@ -2517,12 +2642,8 @@ function renderList(){
     if(!t) return;
     activeScanner=SCANNERS.findIndex(s=>s.id===t.scannerId);
     expandedId=t.id;
-    history.replaceState(null,'',location.pathname+scannerQuery());
+    history.replaceState(null,'',location.pathname+scannerQuery()+'&exp='+encodeURIComponent(t.id));
     render();
-  });
-  listEl.querySelectorAll('.corr-panel').forEach(panel=>{
-    const exp=ALL_EXPOSURES.find(x=>x.id===panel.dataset.expId);
-    if(exp) bindCorrelationPanel(panel, exp.stations, exp);
   });
 }
 
@@ -2558,7 +2679,7 @@ function renderChips(){
 
 function render(){syncNavLinks();renderSidebar();renderChips();refreshView();}
 
-document.getElementById('searchInput').oninput=e=>{filters.q=e.target.value;refreshView();};
+document.getElementById('searchInput')?.addEventListener('input',e=>{filters.q=e.target.value;refreshView();});
 document.getElementById('themeToggle').onclick=()=>{
   const t=app.dataset.theme==='dark'?'light':'dark';
   app.dataset.theme=t; document.documentElement.dataset.theme=t;
