@@ -115,23 +115,31 @@ function bindAiExplainChat(root, e){
   const messages=dock.querySelector('[data-ai-messages]');
   const form=dock.querySelector('[data-ai-form]');
   const input=dock.querySelector('[data-ai-input]');
-  const closeBtn=dock.querySelector('[data-ai-close]');
+  if(!fab||!chatPanel) return;
   let seeded=false;
 
+  const isOpen=()=>dock.classList.contains('is-open');
+
   const setOpen=(open)=>{
-    chatPanel.hidden=!open;
-    fab.setAttribute('aria-expanded',open?'true':'false');
     dock.classList.toggle('is-open',open);
-    if(open&&!seeded){
-      seeded=true;
-      aiChatAppendMessage(messages,'assistant',aiChatInitialMessage(e));
+    chatPanel.classList.toggle('is-open',open);
+    if(open){
+      chatPanel.removeAttribute('hidden');
+      fab.setAttribute('aria-expanded','true');
+      if(!seeded&&messages){
+        seeded=true;
+        aiChatAppendMessage(messages,'assistant',aiChatInitialMessage(e));
+      }
+      setTimeout(()=>input?.focus(),80);
+    }else{
+      chatPanel.setAttribute('hidden','');
+      fab.setAttribute('aria-expanded','false');
     }
-    if(open) setTimeout(()=>input?.focus(),80);
   };
 
   const sendUser=(text)=>{
     const t=String(text||'').trim();
-    if(!t) return;
+    if(!t||!messages) return;
     aiChatAppendMessage(messages,'user',esc(t));
     const typing=aiChatShowTyping(messages);
     window.setTimeout(()=>{
@@ -140,27 +148,32 @@ function bindAiExplainChat(root, e){
     }, 520 + Math.min(t.length * 8, 400));
   };
 
-  fab.onclick=(ev)=>{
-    ev.preventDefault();
-    ev.stopPropagation();
-    setOpen(!dock.classList.contains('is-open'));
-  };
-  closeBtn?.addEventListener('click',(ev)=>{
-    ev.preventDefault();
-    ev.stopPropagation();
-    setOpen(false);
+  dock.addEventListener('click',(ev)=>{
+    if(ev.target.closest('[data-ai-close]')){
+      ev.preventDefault();
+      ev.stopPropagation();
+      setOpen(false);
+      return;
+    }
+    if(ev.target.closest('[data-ai-toggle]')){
+      ev.preventDefault();
+      ev.stopPropagation();
+      setOpen(!isOpen());
+      return;
+    }
+    const chip=ev.target.closest('[data-ai-chip]');
+    if(chip){
+      ev.preventDefault();
+      setOpen(true);
+      sendUser(chip.textContent);
+    }
   });
+
   form?.addEventListener('submit',ev=>{
     ev.preventDefault();
     const t=input.value;
     input.value='';
     sendUser(t);
-  });
-  dock.querySelectorAll('[data-ai-chip]').forEach(chip=>{
-    chip.onclick=()=>{
-      setOpen(true);
-      sendUser(chip.textContent);
-    };
   });
 
   document.querySelectorAll('[data-ai-open]').forEach(btn=>{
@@ -169,4 +182,19 @@ function bindAiExplainChat(root, e){
       setOpen(true);
     });
   });
+
+  if(!window.__emAiChatEscapeInit){
+    window.__emAiChatEscapeInit=true;
+    document.addEventListener('keydown',(ev)=>{
+      if(ev.key!=='Escape') return;
+      const openDock=document.querySelector('[data-ai-chat].is-open');
+      if(!openDock) return;
+      const panel=openDock.querySelector('[data-ai-panel]');
+      const toggle=openDock.querySelector('[data-ai-toggle]');
+      openDock.classList.remove('is-open');
+      panel?.classList.remove('is-open');
+      panel?.setAttribute('hidden','');
+      toggle?.setAttribute('aria-expanded','false');
+    });
+  }
 }
