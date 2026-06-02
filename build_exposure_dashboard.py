@@ -351,26 +351,6 @@ function buildOutcomes(seed, sid){
   return o.slice(0,3);
 }
 
-function buildTimeline(seed, sid){
-  const meta=seedMeta(seed);
-  const repo=deriveRepo(seed.asset);
-  const bp=PIPELINE_SCANNERS.has(sid)?buildBuildPipeline(seed,sid):null;
-  const scanLine=sid==='network'?{t:'Vuln scan ingested',d:meta.discovered,by:`${seed.tool} · ${meta.plugin}`}
-    :sid==='dast'?{t:'DAST proof captured',d:meta.discovered,by:`Burp scan · session 8f2c`}
-    :{t:'Finding ingested',d:meta.discovered,by:seed.tool};
-  return [
-    ...(bp?[{t:'CI/CD artifact linked',d:'52h ago',by:`${bp.build.system} ${bp.build.buildId} · ${bp.artifact.digest}`}]:[]),
-    ...(SCM_SCANNERS.has(sid)&&!PIPELINE_SCANNERS.has(sid)?[{t:'SCM commit correlated',d:'48h ago',by:`${ORG}/${repo} @ main`}]:[]),
-    scanLine,
-    {t:'Exposure record created',d:'47h ago',by:`${seed.id} · score ${seed.score.toFixed(1)}`},
-    {t:'Correlation complete',d:'46h ago',by:'Splunk SOAR · CMDB + KEV'},
-    {t:`${meta.jira} assigned`,d:'45h ago',by:seed.owner},
-    ...(seed.status==='Compensating control'?[{t:'Virtual patch deployed',d:'22h ago',by:'SecOps · WAF custom rule'}]:[]),
-    ...(seed.status==='In progress'?[{t:'Change CHG0048211 staging',d:'6h ago',by:seed.owner}]:[]),
-    ...(seed.status==='Patched'?[{t:'Rescan clean',d:'14h ago',by:seed.tool}]:[])
-  ];
-}
-
 function enrich(seed, scannerId){
   const sc=SCANNERS.find(x=>x.id===scannerId);
   const b=band(seed.score);
@@ -385,7 +365,7 @@ function enrich(seed, scannerId){
     crossLinks:CROSS_LINKS[seed.id]||[],
     scoring:buildScoring(seed),stations:buildStations(seed,scannerId),
     buildPipeline:bp,
-    outcomes:buildOutcomes(seed,scannerId),timeline:buildTimeline(seed,scannerId),
+    outcomes:buildOutcomes(seed,scannerId),
     scmRepo:SCM_SCANNERS.has(scannerId)?deriveRepo(seed.asset):null};
 }
 
@@ -963,19 +943,17 @@ function renderDiagramPanelHtml(e){
 
 function renderDetail(e){
   const pills=e.scoring.pills.map(p=>`<span class="score-pill">${esc(p.l)} <strong>${esc(p.w)}</strong></span>`).join('');
-  const tl=e.timeline.map(t=>`
-    <div class="tl-item"><div class="tl-dot"></div><div><strong>${esc(t.t)}</strong> — ${esc(t.d)}<span class="tl-sub">${esc(t.by)}</span></div></div>`).join('');
-  const cross=e.crossLinks.length?`<div class="cross-links-strip"><span class="cross-links-label">Also found by</span>${e.crossLinks.map(c=>{
+  const cross=e.crossLinks.length?`<p class="cross-links-line"><span class="cross-links-label">Also found by</span> ${e.crossLinks.map((c,i)=>{
     const t=ALL_EXPOSURES.find(x=>x.id===c.id);
-    const scanner=SCANNERS.find(s=>s.id===t?.scannerId);
-    return `<button type="button" class="cross-link-btn" data-jump="${c.id}">${icon(scanner?.icon||'shield',14)}<span class="cross-id">${c.id}</span><span class="cross-by">${esc(c.by)}</span><span class="cross-desc">${esc(c.desc||t?.title||'')}</span></button>`;
-  }).join('')}</div>`:'';
+    const hint=esc(c.desc||t?.title||'');
+    const sep=i?'<span class="cross-links-sep" aria-hidden="true"> · </span>':'';
+    return `${sep}<button type="button" class="cross-link-inline" data-jump="${c.id}" title="${hint}"><span class="cross-id">${c.id}</span><span class="cross-by">(${esc(c.by)})</span></button>`;
+  }).join('')}</p>`:'';
   return `
     <div class="detail-panel" id="detail-${e.id}">
       <div class="detail-head">
         <div>
-          <div class="detail-title">${esc(e.title)}</div>
-          <div class="detail-meta">${e.cve?`<span>${esc(e.cve)}</span> · `:''}<span>${esc(e.scannerName)}</span> · <span>${esc(e.tool)}</span> · <span class="${e.severityClass}">${e.severity}</span></div>
+          <div class="detail-meta"><span class="detail-exp-id">${esc(e.id)}</span> · ${e.cve?`<span>${esc(e.cve)}</span> · `:''}<span>${esc(e.scannerName)}</span> · <span>${esc(e.tool)}</span> · <span class="${e.severityClass}">${e.severity}</span></div>
           ${cross}
         </div>
         <div class="detail-score-block">
@@ -984,18 +962,17 @@ function renderDetail(e){
         </div>
         <button type="button" class="detail-close" aria-label="Close detail" data-close>&times;</button>
       </div>
-      <div class="detail-section detail-diagram-nav">
-        <h4>Analysis &amp; mobilization</h4>
-        <p class="detail-diagram-hint">Open correlation, attack path, mobilization, or connected-vulnerability graph in a dedicated full-screen view.</p>
+      <div class="detail-diagram-nav" role="navigation" aria-label="Diagram views">
         <div class="detail-diagram-links">
-          <a class="diagram-nav-btn diagram-nav-btn--corr" href="${diagramLink(e.id,'correlation')}">${icon('graph',16)} View correlation map →</a>
-          <a class="diagram-nav-btn diagram-nav-btn--attack" href="${diagramLink(e.id,'attack')}">${icon('shield',16)} View attack path →</a>
-          <a class="diagram-nav-btn diagram-nav-btn--mob" href="${diagramLink(e.id,'mobilization')}">${icon('plan',16)} View mobilization plan →</a>
-          <a class="diagram-nav-btn diagram-nav-btn--connected" href="${diagramLink(e.id,'connected')}">${icon('link',16)} Cross-scanner correlations →</a>
+          <a class="diagram-nav-btn diagram-nav-btn--corr" href="${diagramLink(e.id,'correlation')}">${icon('graph',18)} Correlation map</a>
+          <a class="diagram-nav-btn diagram-nav-btn--attack" href="${diagramLink(e.id,'attack')}">${icon('shield',18)} Attack path</a>
+          <a class="diagram-nav-btn diagram-nav-btn--mob" href="${diagramLink(e.id,'mobilization')}">${icon('plan',18)} Mobilization</a>
+          <a class="diagram-nav-btn diagram-nav-btn--connected" href="${diagramLink(e.id,'connected')}">${icon('link',18)} Cross-scanner</a>
         </div>
       </div>
-      <div class="detail-section"><h4>Scoring formula</h4><div class="formula-chain">${pills}<span class="formula-eq">= ${e.score.toFixed(1)}</span></div></div>
-      <div class="detail-section"><h4>Activity</h4><div class="timeline">${tl}</div></div>
+      <div class="detail-scoring-subtle" aria-label="Score breakdown">
+        <div class="formula-chain">${pills}<span class="formula-eq">= ${e.score.toFixed(1)}</span></div>
+      </div>
     </div>`;
 }
 

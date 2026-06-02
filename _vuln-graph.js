@@ -72,6 +72,41 @@ function scannerAccent(sid){
   return SCANNERS.find(s=>s.id===sid)?.accent||'#64748b';
 }
 
+/** 0–100 exploitability index from EPSS + reachability signals. */
+function vulnExploitabilityPct(exp){
+  let v=exp.epss!=null?exp.epss:exp.kev?0.88:exp.internet?0.42:0.14;
+  if(exp.kev) v=Math.min(1,v+0.06);
+  if(exp.internet) v=Math.min(1,v+0.03);
+  return Math.round(v*100);
+}
+
+function vulnExploitabilityClass(pct){
+  if(pct>=75) return 'vg-exploit--high';
+  if(pct>=40) return 'vg-exploit--med';
+  return 'vg-exploit--low';
+}
+
+function renderVulnFindingDetail(exp){
+  const pct=vulnExploitabilityPct(exp);
+  const exCls=vulnExploitabilityClass(pct);
+  return `
+    <div class="vg-detail-card vg-detail-card--compact">
+      <div class="vg-detail-compact-row">
+        <span class="vg-detail-id">${esc(exp.id)}</span>
+        <div class="vg-exploit-score ${exCls}" role="status" aria-label="Exploitability ${pct} percent">
+          <span class="vg-exploit-val">${pct}</span>
+          <span class="vg-exploit-lbl">Exploitability</span>
+        </div>
+      </div>
+      <div class="vg-detail-actions">
+        <a class="diagram-nav-btn diagram-nav-btn--connected" href="${diagramLink(exp.id,'connected')}">Graph</a>
+        <a class="diagram-nav-btn diagram-nav-btn--corr" href="${diagramLink(exp.id,'correlation')}">Correlation</a>
+        <a class="diagram-nav-btn diagram-nav-btn--attack" href="${diagramLink(exp.id,'attack')}">Attack path</a>
+        <a class="diagram-nav-btn" href="${triageBackLink(exp.id)}">Triage</a>
+      </div>
+    </div>`;
+}
+
 function isCrossScannerPair(origin, target){
   return !!origin&&!!target&&target.scannerId&&origin.scannerId!==target.scannerId;
 }
@@ -173,10 +208,10 @@ function layoutVulnGraph(graph, centerId){
     });
   };
 
-  placeCol(byLane.origin, laneCenterX.origin, 196, byLane.origin[0]?.center?108:92);
+  placeCol(byLane.origin, laneCenterX.origin, 196, byLane.origin[0]?.center?88:72);
   placeCol(byLane.deploy, laneCenterX.deploy, 188, 86);
   placeCol(byLane.host, laneCenterX.host, 188, 86);
-  placeCol(byLane.surface, laneCenterX.surface, 196, 92);
+  placeCol(byLane.surface, laneCenterX.surface, 196, 72);
 
   if(placed.size===1){
     const p=[...placed.values()][0];
@@ -218,18 +253,14 @@ function vulnGraphNodeHtml(n){
     </div>`;
   }
   const ex=n.exp;
-  const sc=SCANNERS.find(s=>s.id===ex.scannerId);
   const accent=scannerAccent(ex.scannerId);
-  const flags=[ex.kev?'<span class="vg-flag vg-flag--kev">KEV</span>':'',ex.internet?'<span class="vg-flag vg-flag--net">Internet</span>':''].filter(Boolean).join('');
-  return `<div class="vg-node vg-node--finding ${n.center?'is-center':''}" data-vuln-id="${esc(ex.id)}" data-vg-id="${esc(ex.id)}" tabindex="0" role="button" style="--vg-accent:${accent}">
+  const pct=vulnExploitabilityPct(ex);
+  const exCls=vulnExploitabilityClass(pct);
+  const title=ex.title+(ex.cve?` (${ex.cve})`:'');
+  return `<div class="vg-node vg-node--finding ${n.center?'is-center':''}" data-vuln-id="${esc(ex.id)}" data-vg-id="${esc(ex.id)}" tabindex="0" role="button" title="${esc(title)}" style="--vg-accent:${accent}">
     <div class="vg-finding-accent"></div>
-    <div class="vg-finding-head">
-      <span class="vg-finding-scanner">${icon(sc?.icon||'shield',15)} ${esc(sc?.short?.split('·')[0]?.trim()||'Finding')}</span>
-      <span class="vg-finding-score ${ex.severityClass}">${ex.score.toFixed(1)}</span>
-    </div>
-    <span class="vg-finding-id">${esc(ex.id)}${ex.cve?` · ${esc(ex.cve)}`:''}</span>
-    <span class="vg-finding-title">${esc(ex.title)}</span>
-    ${flags?`<div class="vg-finding-flags">${flags}</div>`:''}
+    <span class="vg-finding-id">${esc(ex.id)}</span>
+    <span class="vg-finding-exploit ${exCls}"><span class="vg-finding-exploit-val">${pct}</span><span class="vg-finding-exploit-lbl">exploitability</span></span>
   </div>`;
 }
 
@@ -340,7 +371,7 @@ function renderConnectedVulnGraph(e){
         </div>
       </div>
       <div class="vuln-graph-detail vg-detail-panel" data-vuln-detail>
-        <p class="vuln-graph-detail-placeholder">Hover or select a correlated finding from another scanner to highlight the shared deploy → host → surface path.</p>
+        <p class="vuln-graph-detail-placeholder">Select a finding to see exploitability and actions.</p>
       </div>
     </div>`;
 }
@@ -399,35 +430,8 @@ function bindConnectedVulnGraph(panel, e){
   const showDetail=(exp)=>{
     if(!exp||!detail) return;
     highlight(exp.id);
-    const sc=SCANNERS.find(s=>s.id===exp.scannerId);
-    const chain=VULN_DEPLOY_CHAINS[e.id];
-    const pathHint=chain&&graph.hasCorrelations
-      ?`Cross-scanner path: component → deploy → host → ${graphCountSurface(exp.id)} correlated finding(s)`
-      : 'Direct cross-scanner correlation';
-    detail.innerHTML=`
-      <div class="vg-detail-card">
-        <div class="vg-detail-head">
-          <span class="vg-detail-icon" style="color:${scannerAccent(exp.scannerId)}">${icon(sc?.icon||'shield',18)}</span>
-          <div>
-            <div class="vg-detail-title-row"><strong>${esc(exp.id)}</strong><span class="score-badge ${exp.severityClass}">${exp.score.toFixed(1)}</span></div>
-            <div class="vg-detail-scanner">${esc(sc?.name||exp.scannerName)}</div>
-          </div>
-        </div>
-        <p class="vg-detail-desc">${esc(exp.title)}</p>
-        <p class="vg-detail-meta">${esc(exp.asset)} · ${esc(exp.owner)} · ${esc(exp.sla)}</p>
-        <p class="vg-detail-path">${pathHint}</p>
-        <div class="vg-detail-actions">
-          <a class="diagram-nav-btn diagram-nav-btn--connected" href="${diagramLink(exp.id,'connected')}">Recenter graph →</a>
-          <a class="diagram-nav-btn diagram-nav-btn--corr" href="${diagramLink(exp.id,'correlation')}">Correlation map</a>
-          <a class="diagram-nav-btn diagram-nav-btn--attack" href="${triageBackLink(exp.id)}">Triage queue</a>
-        </div>
-      </div>`;
+    detail.innerHTML=renderVulnFindingDetail(exp);
   };
-
-  function graphCountSurface(id){
-    const g=buildConnectedVulnGraph(ALL_EXPOSURES.find(x=>x.id===id)||e);
-    return g.correlatedCount;
-  }
 
   wrap.querySelectorAll('.vg-node--finding[data-vuln-id]').forEach(node=>{
     const id=node.dataset.vulnId;
@@ -438,6 +442,5 @@ function bindConnectedVulnGraph(panel, e){
     node.onmouseenter=()=>highlight(id);
     node.onmouseleave=()=>{ if(!wrap.querySelector('.vg-node--finding.is-selected')) highlight(null); };
     node.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();activate();}};
-    if(exp.id===e.id) activate();
   });
 }
