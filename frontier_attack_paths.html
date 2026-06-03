@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontier Model Attack Paths</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap');
+
+  :root{
+    --bg:#0a0c10;
+    --panel:#11151c;
+    --panel-2:#161b24;
+    --line:#222a36;
+    --line-bright:#2e3a4d;
+    --txt:#c8d2e0;
+    --txt-dim:#7d8aa0;
+    --txt-faint:#56627a;
+    --red:#e5484d;
+    --red-deep:#7a1d20;
+    --amber:#f5a623;
+    --amber-deep:#7a560f;
+    --cyan:#4fd1c5;
+    --cyan-deep:#1d5a54;
+    --glow-red:rgba(229,72,77,.4);
+    --glow-amber:rgba(245,166,35,.4);
+    --glow-cyan:rgba(79,209,197,.4);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{scroll-behavior:smooth}
+  body{
+    background:
+      radial-gradient(1200px 600px at 85% -10%, rgba(229,72,77,.06), transparent 60%),
+      radial-gradient(900px 500px at 10% 110%, rgba(79,209,197,.05), transparent 60%),
+      var(--bg);
+    color:var(--txt);
+    font-family:'Spline Sans Mono', monospace;
+    line-height:1.5;min-height:100vh;
+  }
+  body::before{
+    content:"";position:fixed;inset:0;
+    background-image:
+      linear-gradient(rgba(255,255,255,.015) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.015) 1px, transparent 1px);
+    background-size:42px 42px;pointer-events:none;z-index:0;
+  }
+  .wrap{max-width:1320px;margin:0 auto;padding:40px 26px 90px;position:relative;z-index:1}
+
+  header{margin-bottom:30px}
+  .eyebrow{
+    font-family:'Chakra Petch';font-size:11px;letter-spacing:.42em;text-transform:uppercase;
+    color:var(--red);font-weight:600;margin-bottom:14px;display:flex;align-items:center;gap:10px;
+  }
+  .eyebrow::before{content:"";width:34px;height:1px;background:var(--red)}
+  h1{
+    font-family:'Chakra Petch';font-weight:700;
+    font-size:clamp(28px,4.5vw,46px);line-height:1.03;letter-spacing:-.01em;color:#fff;margin-bottom:14px;
+  }
+  h1 .frag{color:var(--red)}
+  .lede{max-width:740px;color:var(--txt-dim);font-size:14.5px;line-height:1.65}
+  .lede b{color:var(--txt);font-weight:500}
+
+  /* toggle */
+  .toggle-bar{
+    display:flex;margin:32px 0 0;border:1px solid var(--line-bright);border-radius:11px;
+    overflow:hidden;width:fit-content;background:var(--panel);
+  }
+  .toggle-btn{
+    font-family:'Chakra Petch';font-weight:600;font-size:13px;letter-spacing:.06em;
+    background:transparent;border:none;color:var(--txt-dim);
+    padding:15px 30px;cursor:pointer;transition:.25s;display:flex;align-items:center;gap:11px;text-transform:uppercase;
+  }
+  .toggle-btn .dot{width:9px;height:9px;border-radius:50%;background:var(--txt-faint);transition:.25s}
+  .toggle-btn[data-side="outside"].active{background:linear-gradient(180deg,#22171a,#181012);color:#fff}
+  .toggle-btn[data-side="outside"].active .dot{background:var(--amber);box-shadow:0 0 12px var(--glow-amber)}
+  .toggle-btn[data-side="inside"].active{background:linear-gradient(180deg,#231114,#190d0f);color:#fff}
+  .toggle-btn[data-side="inside"].active .dot{background:var(--red);box-shadow:0 0 12px var(--glow-red)}
+  .toggle-btn:not(.active):hover{color:var(--txt)}
+
+  /* empty-state hint */
+  .hint{
+    margin-top:60px;text-align:center;color:var(--txt-faint);font-size:13px;letter-spacing:.08em;
+  }
+  .hint .pulse{display:inline-block;animation:blink 1.6s infinite}
+  @keyframes blink{0%,100%{opacity:.3}50%{opacity:1}}
+
+  /* scene header */
+  .scene-head{display:none;margin-top:36px}
+  .scene-head.show{display:block;animation:fadein .5s ease}
+  @keyframes fadein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+  .scene-title{font-family:'Chakra Petch';font-size:20px;font-weight:600;color:#fff;display:flex;align-items:center;gap:13px;margin-bottom:8px}
+  .badge{font-size:10px;letter-spacing:.13em;padding:5px 10px;border-radius:5px;text-transform:uppercase;font-weight:600}
+  .badge.out{background:var(--amber-deep);color:var(--amber)}
+  .badge.in{background:var(--red-deep);color:#ff9da0}
+  .scene-sub{color:var(--txt-dim);font-size:13.5px;max-width:880px;line-height:1.6}
+
+  /* step controls */
+  .controls{display:none;align-items:center;gap:14px;margin-top:22px;flex-wrap:wrap}
+  .controls.show{display:flex}
+  .step-counter{font-family:'Chakra Petch';font-size:12px;letter-spacing:.1em;color:var(--txt-faint);min-width:84px}
+  .step-counter b{color:#fff}
+  .ctrl{
+    font-family:'Spline Sans Mono';font-size:12px;letter-spacing:.04em;
+    background:var(--panel-2);border:1px solid var(--line-bright);color:var(--txt-dim);
+    padding:9px 17px;border-radius:8px;cursor:pointer;transition:.2s;
+  }
+  .ctrl:hover:not(:disabled){border-color:var(--red);color:#fff;background:#1a1013}
+  .ctrl.primary{background:var(--red);border-color:var(--red);color:#fff;font-weight:600}
+  .ctrl.primary:hover:not(:disabled){background:#f05a5f}
+  .ctrl:disabled{opacity:.35;cursor:not-allowed}
+  .ctrl-prog{flex:1;min-width:120px;max-width:340px;height:3px;background:var(--line);border-radius:3px;overflow:hidden}
+  .ctrl-prog-fill{height:100%;width:0;background:linear-gradient(90deg,var(--amber),var(--red));transition:width .4s ease}
+
+  /* legend (inside only) */
+  .legend{display:none;gap:22px;margin-top:16px;flex-wrap:wrap}
+  .legend.show{display:flex}
+  .legend .li{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--txt-dim)}
+  .legend .sw{width:20px;height:4px;border-radius:3px}
+  .sw.known{background:var(--amber)} .sw.zero{background:var(--cyan)} .sw.conv{background:var(--red)}
+
+  /* ---- horizontal path ---- */
+  .path-scroll{display:none;margin-top:34px;overflow-x:auto;padding:14px 4px 30px}
+  .path-scroll.show{display:block;animation:fadein .5s ease}
+  .path-scroll::-webkit-scrollbar{height:8px}
+  .path-scroll::-webkit-scrollbar-track{background:var(--panel)}
+  .path-scroll::-webkit-scrollbar-thumb{background:var(--line-bright);border-radius:4px}
+
+  .path{display:flex;align-items:flex-start;gap:0;min-width:min-content}
+  .node-wrap{
+    display:flex;flex-direction:column;align-items:center;
+    width:230px;flex-shrink:0;position:relative;
+    opacity:0;transform:translateY(14px);visibility:hidden;
+    transition:opacity .45s ease, transform .45s ease;
+  }
+  .node-wrap.revealed{opacity:1;transform:translateY(0);visibility:visible}
+  /* connector + arrow only show once the NEXT node is revealed */
+  .node-wrap::after,.node-wrap .arrow{opacity:0;transition:opacity .4s ease}
+  .node-wrap.linked::after{opacity:.5}
+  .node-wrap.linked .arrow{opacity:.85}
+
+  .node-wrap:not(:last-child)::after{
+    content:"";position:absolute;top:33px;left:calc(50% + 34px);width:calc(100% - 68px);height:2px;
+    background:var(--cur-line,var(--red));z-index:0;
+  }
+  .node-wrap:not(:last-child) .arrow{
+    position:absolute;top:27px;left:calc(100% - 40px);z-index:2;color:var(--cur-line,var(--red));
+  }
+
+  .circle{
+    width:68px;height:68px;border-radius:50%;flex-shrink:0;z-index:1;
+    background:#0c0f14;border:2px solid var(--cur,var(--red));
+    display:flex;align-items:center;justify-content:center;position:relative;
+    box-shadow:0 0 22px -6px var(--cur-glow,var(--glow-red));transition:.3s;
+  }
+  .circle svg{width:28px;height:28px;stroke:var(--cur,var(--red));fill:none;stroke-width:1.7}
+  .circle .step-no{
+    position:absolute;top:-9px;right:-9px;width:24px;height:24px;border-radius:50%;
+    background:var(--cur,var(--red));color:#0a0c10;font-family:'Chakra Petch';font-weight:700;
+    font-size:12px;display:flex;align-items:center;justify-content:center;
+  }
+  .node-wrap:hover .circle{transform:scale(1.07);box-shadow:0 0 30px -4px var(--cur-glow,var(--glow-red))}
+
+  .node-kicker{margin-top:15px;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--cur,var(--red));font-weight:600;text-align:center}
+  .node-title{margin-top:5px;font-family:'Chakra Petch';font-weight:600;font-size:13.5px;color:#fff;text-align:center;line-height:1.25;padding:0 8px;min-height:34px}
+
+  .node-box{
+    margin-top:13px;width:210px;
+    border:1px solid var(--line);border-top:2px solid var(--cur,var(--red));
+    background:linear-gradient(165deg,var(--panel),var(--panel-2));
+    border-radius:10px;padding:14px 14px 13px;min-height:150px;
+  }
+  .node-desc{font-size:11.8px;color:var(--txt-dim);line-height:1.62;margin-bottom:11px}
+  .node-desc b{color:var(--txt);font-weight:500}
+  .node-desc .hl{color:#fff;background:var(--cur-hl,rgba(229,72,77,.15));padding:0 4px;border-radius:3px}
+  .caps{display:flex;flex-direction:column;gap:6px}
+  .cap{
+    font-size:10px;color:var(--txt-dim);background:#0c1016;border:1px solid var(--line-bright);
+    padding:5px 9px;border-radius:6px;display:flex;align-items:center;gap:7px;line-height:1.3;
+  }
+  .cap::before{content:"";width:5px;height:5px;border-radius:50%;background:var(--cur,var(--red));flex-shrink:0}
+
+  footer{margin-top:48px;color:var(--txt-faint);font-size:11px;letter-spacing:.04em;line-height:1.7;display:none}
+  footer.show{display:block}
+  footer b{color:var(--txt-dim)}
+
+  @media(max-width:600px){.toggle-btn{padding:13px 20px;font-size:12px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Offensive AI · Adversarial Capability</div>
+    <h1>The Frontier Model as <span class="frag">Attacker</span></h1>
+    <p class="lede">A frontier model can carry the full intrusion lifecycle — <b>recon, vulnerability discovery, exploit synthesis, and breach</b> — at machine speed. Choose where the model operates from.</p>
+  </header>
+
+  <div class="toggle-bar" role="tablist">
+    <button class="toggle-btn" data-side="outside" role="tab"><span class="dot"></span>Outside the Org</button>
+    <button class="toggle-btn" data-side="inside" role="tab"><span class="dot"></span>Inside the Org</button>
+  </div>
+
+  <div class="hint" id="hint"><span class="pulse">▸</span> Select a scenario to reveal its attack path</div>
+
+  <div class="scene-head" id="sceneHead">
+    <div class="scene-title" id="sceneTitle"></div>
+    <div class="scene-sub" id="sceneSub"></div>
+    <div class="legend" id="legend">
+      <div class="li"><span class="sw known"></span> Known-vulnerability lane — your deps × its CVE knowledge</div>
+      <div class="li"><span class="sw zero"></span> Zero-day lane — your first-party source</div>
+      <div class="li"><span class="sw conv"></span> Shared / converged chain</div>
+    </div>
+  </div>
+
+  <div class="controls" id="controls">
+    <button class="ctrl primary" id="nextBtn">Step 1 →</button>
+    <button class="ctrl" id="prevBtn" disabled>← Back</button>
+    <button class="ctrl" id="allBtn">Show All</button>
+    <button class="ctrl" id="resetBtn">Reset</button>
+    <div class="ctrl-prog"><div class="ctrl-prog-fill" id="progFill"></div></div>
+    <span class="step-counter" id="counter"><b>0</b> / 0</span>
+  </div>
+
+  <div class="path-scroll" id="pathScroll"><div class="path" id="path"></div></div>
+
+  <footer id="footer">Maps to <b>Stream 3</b> of the AI-SSDLC position paper — frontier models as an offensive capability the secure SDLC must defend against.</footer>
+</div>
+
+<script>
+const IC = {
+  brain:'<svg viewBox="0 0 24 24"><path d="M9 3a3 3 0 0 0-3 3v.5A2.5 2.5 0 0 0 4 9a2.5 2.5 0 0 0 1 2 2.5 2.5 0 0 0 0 4 3 3 0 0 0 5 2.5V6a3 3 0 0 0-1-3Z"/><path d="M15 3a3 3 0 0 1 3 3v.5A2.5 2.5 0 0 1 20 9a2.5 2.5 0 0 1-1 2 2.5 2.5 0 0 1 0 4 3 3 0 0 1-5 2.5"/></svg>',
+  radar:'<svg viewBox="0 0 24 24"><path d="M19.07 4.93A10 10 0 1 0 22 12"/><path d="M12 12 19 5"/><circle cx="12" cy="12" r="2"/><path d="M12 12 7 17"/></svg>',
+  bug:'<svg viewBox="0 0 24 24"><rect x="8" y="6" width="8" height="14" rx="4"/><path d="M3 9h3M18 9h3M3 14h3M18 14h3M9 4l1 2M15 4l-1 2"/></svg>',
+  code:'<svg viewBox="0 0 24 24"><path d="m8 16-4-4 4-4M16 8l4 4-4 4M14 4l-4 16"/></svg>',
+  target:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.5"/></svg>',
+  skull:'<svg viewBox="0 0 24 24"><path d="M12 3a8 8 0 0 0-5 14v3h10v-3a8 8 0 0 0-5-14Z"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><path d="M11 17h2"/></svg>',
+  package:'<svg viewBox="0 0 24 24"><path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z"/><path d="M12 12 20 7.5M12 12v9M12 12 4 7.5"/></svg>',
+  files:'<svg viewBox="0 0 24 24"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8Z"/><path d="M14 3v5h5"/></svg>'
+};
+const ARROW='<svg class="arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
+
+const SCENES={
+  outside:{
+    badge:'EXTERNAL ADVERSARY',badgeClass:'out',
+    title:'Frontier Model as External Attacker',
+    sub:'A weapon in the hands of an attacker with no prior access. It compresses the full intrusion lifecycle to machine speed — but still has to break in.',
+    dual:false,
+    nodes:[
+      {kicker:'Pre-loaded',title:'Resident Attack Knowledge',icon:'brain',lane:'conv',
+       desc:'Trained on the public corpus — already <span class="hl">knows the codebases</span>, <b>every CVE</b>, and the public exploit for each. No lookup latency.',
+       caps:['Open-source codebase knowledge','Full CVE catalogue','Known exploits / PoCs']},
+      {kicker:'Phase 01',title:'Recon at Machine Speed',icon:'radar',lane:'conv',
+       desc:'Points at the <b>external surface</b> — hosts, certs, DNS, leaked repos — fingerprints versions and maps tech to known CVEs <span class="hl">in seconds, in parallel</span>.',
+       caps:['Surface enumeration','Version fingerprinting','Tech → CVE mapping']},
+      {kicker:'Phase 02',title:'Zero-Day Discovery',icon:'bug',lane:'conv',
+       desc:'Reasons over the target\'s open-source dependencies directly. Finds a flaw with <span class="hl">no CVE and no exploit</span> — invisible to signature scanners.',
+       caps:['Source-level reasoning','Novel flaw class','No existing signature']},
+      {kicker:'Phase 03',title:'Exploit Synthesis',icon:'code',lane:'conv',
+       desc:'Writes the working exploit <b>from scratch</b> and chains payload, delivery, evasion. The step that gated attacks behind human expertise — <span class="hl">gate removed</span>.',
+       caps:['Exploit from scratch','Payload + delivery','Evasion chaining']},
+      {kicker:'Phase 04',title:'Execution & Breach',icon:'target',lane:'conv',
+       desc:'Runs the exploit, gains <b>initial access</b>, then loops autonomously: escalate → lateral → objective — <span class="hl">no human bottleneck</span>.',
+       caps:['Initial access','Autonomous escalation','Lateral movement']}
+    ]
+  },
+  inside:{
+    badge:'INTERNAL ADVERSARY',badgeClass:'in',
+    title:'Frontier Model as Internal Attacker',
+    sub:'Same engine, now inside the trust boundary (compromised agent, hostile copilot, or attacker-held code-exec). Initial access is free, and discovery runs two parallel lanes.',
+    dual:true,
+    nodes:[
+      {kicker:'Pre-loaded',title:'Resident Attack Knowledge',icon:'brain',lane:'conv',
+       desc:'Already knows <b>every CVE, its exploit</b>, and dependency codebases. Inside, far more dangerous — it sees which vulnerable versions you actually run.',
+       caps:['Full CVE catalogue','Known exploits / PoCs','Dependency codebase knowledge']},
+      {kicker:'Phase 01',title:'Full First-Party Code Access',icon:'files',lane:'conv',
+       desc:'No guessing — it <span class="hl">reads the actual proprietary source</span>, internal repos, config, IaC. Feeds both discovery lanes.',
+       caps:['Proprietary source','Internal repos + IaC','Secrets in config']},
+      {kicker:'Lane A · Phase 02',title:'Map Deps → Known CVEs',icon:'package',lane:'known',
+       desc:'Reads your <b>SBOM / lockfiles</b>, matches exact versions to known-vulnerable set, pulls the <span class="hl">working exploit immediately</span>. Fast, high-confidence.',
+       caps:['SBOM / lockfile read','Version → CVE exact match','Existing exploit reused']},
+      {kicker:'Lane B · Phase 02',title:'Zero-Day in First-Party Code',icon:'bug',lane:'zero',
+       desc:'Audits your <b>own unreviewed code</b> at scale. Novel flaws with <span class="hl">no CVE, no rule, no signature anywhere</span> — never publicly disclosed.',
+       caps:['Audits unreviewed code','Novel flaw, zero signature','Higher hit rate, unseen code']},
+      {kicker:'Phase 03',title:'Insider Recon',icon:'radar',lane:'conv',
+       desc:'With a <b>service identity</b>, enumerates internal hosts, secrets, IAM roles, trust relationships — the <span class="hl">surface opaque to outsiders</span>.',
+       caps:['Internal host enum','IAM + secret harvest','Trust-graph mapping']},
+      {kicker:'Phase 04',title:'Weaponize In-Environment',icon:'code',lane:'conv',
+       desc:'Lanes converge. Adapts known exploits or builds zero-days, then <b>tests against the real target</b> it can see. <span class="hl">No blind firing.</span>',
+       caps:['Adapt known exploit','Build zero-day exploit','Live in-env testing']},
+      {kicker:'Phase 05',title:'Breach From Trusted Position',icon:'skull',lane:'conv',
+       desc:'Access already solved. Escalate via <b>harvested credentials</b> → lateral via trust graph → crown-jewel data → exfil, <span class="hl">under legit identity</span>.',
+       caps:['Credential escalation','Lateral via trust graph','Exfil under legit identity']}
+    ]
+  }
+};
+
+const LANE={
+  conv:{c:'var(--red)',glow:'var(--glow-red)',hl:'rgba(229,72,77,.15)'},
+  known:{c:'var(--amber)',glow:'var(--glow-amber)',hl:'rgba(245,166,35,.16)'},
+  zero:{c:'var(--cyan)',glow:'var(--glow-cyan)',hl:'rgba(79,209,197,.16)'}
+};
+
+let side=null;
+const hint=document.getElementById('hint');
+const sceneHead=document.getElementById('sceneHead');
+const sceneTitle=document.getElementById('sceneTitle');
+const sceneSub=document.getElementById('sceneSub');
+const legend=document.getElementById('legend');
+const pathScroll=document.getElementById('pathScroll');
+const pathEl=document.getElementById('path');
+const footer=document.getElementById('footer');
+const controls=document.getElementById('controls');
+const nextBtn=document.getElementById('nextBtn');
+const prevBtn=document.getElementById('prevBtn');
+const allBtn=document.getElementById('allBtn');
+const resetBtn=document.getElementById('resetBtn');
+const progFill=document.getElementById('progFill');
+const counter=document.getElementById('counter');
+
+let shown=0;          // how many nodes are revealed
+let total=0;
+
+function render(){
+  const sc=SCENES[side];
+  hint.style.display='none';
+  sceneTitle.innerHTML=`<span class="badge ${sc.badgeClass}">${sc.badge}</span>${sc.title}`;
+  sceneSub.textContent=sc.sub;
+  sceneHead.classList.add('show');
+  legend.classList.toggle('show',sc.dual);
+  footer.classList.add('show');
+  controls.classList.add('show');
+
+  pathEl.innerHTML=sc.nodes.map((n,i)=>{
+    const L=LANE[n.lane]||LANE.conv;
+    const lineLane=(sc.nodes[i+1])?(LANE[sc.nodes[i+1].lane]||LANE.conv):L;
+    const styleVars=`--cur:${L.c};--cur-glow:${L.glow};--cur-hl:${L.hl};--cur-line:${lineLane.c}`;
+    return `<div class="node-wrap" data-i="${i}" style="${styleVars}">
+      ${i<sc.nodes.length-1?ARROW:''}
+      <div class="circle"><span class="step-no">${i+1}</span>${IC[n.icon]}</div>
+      <div class="node-kicker">${n.kicker}</div>
+      <div class="node-title">${n.title}</div>
+      <div class="node-box">
+        <div class="node-desc">${n.desc}</div>
+        <div class="caps">${n.caps.map(c=>`<div class="cap">${c}</div>`).join('')}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  total=sc.nodes.length;
+  shown=0;
+  pathScroll.classList.add('show');
+  pathScroll.scrollLeft=0;
+  step(1);            // reveal first node automatically
+}
+
+function applyReveal(){
+  const wraps=pathEl.querySelectorAll('.node-wrap');
+  wraps.forEach((w,i)=>{
+    const on=i<shown;
+    w.classList.toggle('revealed',on);
+    // a node's outgoing connector lights only when the NEXT node is also shown
+    w.classList.toggle('linked', on && (i+1<shown));
+  });
+  progFill.style.width=(shown/total*100)+'%';
+  counter.innerHTML=`<b>${shown}</b> / ${total}`;
+  prevBtn.disabled = shown<=1;
+  nextBtn.disabled = shown>=total;
+  nextBtn.textContent = shown>=total ? 'Complete' : `Step ${shown+1} →`;
+  allBtn.disabled = shown>=total;
+}
+
+function step(n){
+  shown=Math.max(0,Math.min(total,n));
+  applyReveal();
+  if(shown>0){
+    const el=pathEl.querySelector(`.node-wrap[data-i="${shown-1}"]`);
+    if(el) el.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+  }
+}
+
+nextBtn.addEventListener('click',()=>step(shown+1));
+prevBtn.addEventListener('click',()=>step(shown-1));
+allBtn.addEventListener('click',()=>step(total));
+resetBtn.addEventListener('click',()=>step(1));
+
+document.addEventListener('keydown',e=>{
+  if(side===null) return;
+  if(e.key==='ArrowRight'||e.code==='Space'){e.preventDefault();step(shown+1);}
+  if(e.key==='ArrowLeft'){e.preventDefault();step(shown-1);}
+});
+
+document.querySelectorAll('.toggle-btn').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.toggle-btn').forEach(x=>x.classList.remove('active'));
+    b.classList.add('active');
+    side=b.dataset.side;
+    render();
+  });
+});
+</script>
+</body>
+</html>
