@@ -2151,7 +2151,7 @@ function buildStations(seed, sid){
     {k:'identity',name:'Identity graph',icon:'shield',lines:[`Instance profile: ${repo}-prod-role`,`Attached policies: 4 · 2 wildcards`,`Service account: svc-${repo.slice(0,12)}@acmepay.internal`,`Blast: ${seed.score>=8?'S3 cardholder · RDS payments':'read-only logs'}`]},
     {k:'threat',name:'Threat intel',icon:'shield',lines:[`KEV: ${seed.kev?`CVE ${seed.cve||'listed'} · CISA catalog`:'Not listed'}`,`EPSS: ${meta.epss} · 30d Δ ${seed.kev?'+12%':'flat'}`,`CVSS: ${meta.cvss} · ${seed.tool.split(' ')[0]}`,`Exploit: ${seed.kev?'Metasploit · CISA AA24-131A':'No public exploit'}`]},
     {k:'ownership',name:'Ownership',icon:'git',lines:[`Team: ${seed.owner}`,`Jira: ${meta.jira} · ${seed.status}`,`PagerDuty: ${seed.owner.split(' ')[0].toUpperCase()}-oncall`,`Slack: #${seed.owner.toLowerCase().replace(/[^a-z0-9]+/g,'-').slice(0,22)}`]},
-    {k:'business',name:'Business context',icon:'shield',lines:[`App: Transaction Processing`,`Tier: ${seed.score>=8?'0 — revenue critical':'2 — internal'}`,`Data: ${seed.internet?'PAN adjacent · tokenized':'Ops metadata'}`,`Compliance: ${/payment|pay/i.test(seed.owner)?'PCI DSS 4.0 · SOX':'SOC2 Type II'}`]},
+    {k:'business',name:'Data sensitivity',icon:'shield',lines:[`App: Transaction Processing`,`Tier: ${seed.score>=8?'0 — revenue critical':'2 — internal'}`,`Data: ${seed.internet?'PAN adjacent · tokenized':'Ops metadata'}`,`Compliance: ${/payment|pay/i.test(seed.owner)?'PCI DSS 4.0 · SOX':'SOC2 Type II'}`]},
     {k:'runtime',name:'Runtime controls',icon:'shield',lines:runtimeLines}
   ];
   return stations;
@@ -2311,16 +2311,16 @@ function fitBoxLine(text,maxChars){
 function corrShortLabel(name){
   const n=String(name);
   const map={
-    'Asset graph':'Asset','Asset — origin & deploy':'Asset','Identity graph':'Identity','Threat intel':'Threat',
-    'Business context':'Business','Build Pipeline':'Build','Runtime controls':'Runtime',
+    'Asset graph':'Asset','Asset — origin & deploy':'Asset','Identity graph':'Identity','Threat intel':'Threat intel',
+    'Data sensitivity':'Data sensitivity','Business context':'Data sensitivity','Build Pipeline':'Build','Runtime controls':'Runtime controls',
     'Ownership':'Owner','SCM context':'SCM','Build pipeline':'Build',
     'SBOM lineage':'SBOM','Runtime presence':'Runtime','Reachability':'Reach',
     'Image digest':'Digest','Runtime ctx':'Runtime','CNAPP overlay':'CNAPP',
     'Cross-link DAST/SCA':'X-link','Cross-link SAST':'X-link','Taint analysis':'Taint',
-    'Threat intel':'Threat'
+    'Threat intel':'Threat intel'
   };
   if(map[n]) return map[n];
-  return n.replace(/ graph$/i,'').replace(/^Business /,'Biz ');
+  return n.replace(/ graph$/i,'');
 }
 function fitCorrBoxText(label,sub,sub2,w){
   const labelMax=fitCharsForWidth(w,10,false);
@@ -2413,17 +2413,17 @@ function renderCorrelationGraph(e){
     {label:'Asset',station:byKey.asset,assetHint},
     {label:'Build',station:byKey.buildPipeline,pipelineHint:bpHint},
     {label:'Identity',station:byKey.identity},
-    {label:'Runtime',station:byKey.runtime}
+    {label:'Runtime controls',station:byKey.runtime}
   ]:[
     {label:'Finding',boxCls:'is-finding',attrs:'data-finding="1" tabindex="0" role="button" aria-label="Scanner finding"'},
     {label:'Asset',station:byKey.asset},
     {label:'Identity',station:byKey.identity},
-    {label:'Runtime',station:byKey.runtime}
+    {label:'Runtime controls',station:byKey.runtime}
   ];
   const botSlots=[
     {label:'Ownership',station:byKey.ownership},
     {label:'Threat intel',station:byKey.threat},
-    {label:'Business context',station:byKey.business}
+    {label:'Data sensitivity',station:byKey.business}
   ];
 
   const flowLines=[];
