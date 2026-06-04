@@ -11,27 +11,59 @@
   --red:#EB001B;--orange:#FF5F00;--amber:#F79E1B;
   --hub-fill:#141414;--node-fill:#121212;
   --foundation:#152030;--foundation-border:#2a4058;
+  --arrow-w:48px;--stage-w:88px;--stage-hero:96px;--stage-gate:108px;
+  --node-lane:168px;--stage-gap:.35rem;
 }
 html{scroll-behavior:smooth}
 body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:auto}
 
-.page{min-width:min(100%,1180px);max-width:1400px;margin:0 auto;padding:1.75rem 1rem 2rem}
+.page{min-width:min(100%,1280px);max-width:1600px;margin:0 auto;padding:1.75rem 1rem 2rem}
 header{text-align:center;margin-bottom:1.5rem}
 header h1{font-size:clamp(1.15rem,2.5vw,1.55rem);font-weight:650;margin-bottom:.35rem}
 header p{font-size:.82rem;color:var(--muted)}
 
-/* ── Main diagram row ── */
+/* ── Diagram: sources (AI right) + pipeline (AI below) ── */
 .diagram{
-  display:flex;align-items:center;gap:0;
-  min-height:320px;padding:1rem 0 2.5rem;
-  position:relative;
+  display:flex;flex-direction:column;gap:.4rem;
+  padding:1rem 0 2.5rem;position:relative;
 }
+.nodes-track{
+  display:flex;align-items:center;gap:0;min-width:0;
+  min-height:268px;
+}
+.converge-wrap{align-self:center}
+.pipeline-stack{flex:1;min-width:0;align-self:center}
+.pipeline-flow{
+  display:flex;align-items:flex-start;gap:0;
+  min-width:0;overflow-x:auto;padding:0 .35rem;
+  scrollbar-width:thin;scrollbar-color:var(--line) transparent;
+}
+.pipeline-flow .stage-col{
+  flex-shrink:0;gap:var(--stage-gap);
+}
+.pipeline-flow .hub-stack{width:150px}
+.pipeline-flow .stage-col--chain{width:var(--stage-w)}
+.pipeline-flow .stage-col--hero{width:var(--stage-hero)}
+.pipeline-flow .stage-col--gate{width:var(--stage-gate)}
+.node-slot{
+  height:var(--node-lane);width:100%;
+  display:flex;align-items:center;justify-content:center;
+}
+.pipeline-flow .stage-col .ai-role-box{max-width:92px}
+.pipeline-flow .hub-stack .ai-role-box{max-width:120px}
+.pipeline-flow .stage-col--hero .ai-role-box{max-width:96px}
+.pipeline-flow .stage-col--gate .ai-role-box{max-width:108px}
 
-/* Sources column */
+/* Sources: circle + AI box side by side */
 .sources-col{
-  flex:0 0 118px;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:1rem;
-  position:relative;z-index:2;
+  flex:0 0 auto;display:flex;flex-direction:column;
+  gap:1.1rem;position:relative;z-index:2;padding-right:.25rem;
+}
+.source-row{
+  display:flex;flex-direction:row;align-items:center;gap:.45rem;
+}
+.source-row .ai-role-box{
+  max-width:108px;min-width:88px;text-align:left;flex:1;
 }
 .source-node{
   width:58px;height:58px;border-radius:50%;
@@ -43,10 +75,10 @@ header p{font-size:.82rem;color:var(--muted)}
   animation:nodeIn .6s ease backwards;
   padding:.2rem;
 }
-.source-node:nth-child(1){animation-delay:.05s}
-.source-node:nth-child(2){animation-delay:.12s}
-.source-node:nth-child(3){animation-delay:.19s}
-.source-node:nth-child(4){animation-delay:.26s}
+.sources-col .source-row:nth-child(1) .source-node{animation-delay:.05s}
+.sources-col .source-row:nth-child(2) .source-node{animation-delay:.12s}
+.sources-col .source-row:nth-child(3) .source-node{animation-delay:.19s}
+.sources-col .source-row:nth-child(4) .source-node{animation-delay:.26s}
 .source-node:hover,.source-node:focus-visible{
   transform:scale(1.12);border-color:var(--orange);
   box-shadow:0 0 20px rgba(255,95,0,.25);outline:none;
@@ -54,11 +86,14 @@ header p{font-size:.82rem;color:var(--muted)}
 .source-node.active{border-color:var(--orange);box-shadow:0 0 16px rgba(255,95,0,.2)}
 
 /* Convergence SVG */
-.converge-wrap{flex:0 0 90px;height:300px;position:relative;z-index:1}
-.converge-wrap svg{width:100%;height:100%}
+.converge-wrap{flex:0 0 72px;width:72px;height:268px;position:relative;z-index:1;flex-shrink:0}
+.converge-wrap svg{width:100%;height:100%;display:block}
+.diagram-spacer{flex-shrink:0}
+.diagram-spacer--conv{flex:0 0 72px;width:72px}
+.diagram-spacer--hub{flex:0 0 150px;width:150px}
+.diagram-spacer--arr{flex:0 0 32px;width:32px}
 
 /* Hub oval */
-.hub-wrap{flex:0 0 150px;display:flex;align-items:center;justify-content:center;z-index:2}
 .hub{
   width:138px;height:168px;border-radius:50%;
   border:2.5px solid var(--orange);background:var(--hub-fill);
@@ -72,15 +107,6 @@ header p{font-size:.82rem;color:var(--muted)}
 .hub-sub{font-size:.58rem;color:var(--muted);line-height:1.3}
 
 /* Pipeline chain */
-.chain-wrap{
-  flex:1;display:flex;align-items:center;min-width:0;
-  overflow-x:auto;padding:.5rem 0;
-  scrollbar-width:thin;scrollbar-color:var(--line) transparent;
-}
-.chain{
-  display:flex;align-items:center;gap:0;position:relative;
-  padding:0 .5rem;
-}
 .chain-node{
   flex:0 0 auto;width:76px;height:76px;border-radius:50%;
   border:2px solid color-mix(in srgb,var(--red) 80%,var(--line));
@@ -101,33 +127,30 @@ header p{font-size:.82rem;color:var(--muted)}
 }
 .chain-node.active{border-color:var(--orange);box-shadow:0 0 14px rgba(255,95,0,.18)}
 
-/* Connectors between chain nodes */
-.connector{
-  flex:0 0 36px;height:3px;position:relative;overflow:visible;
+/* Arrows between circles — flex-grow so line spans the gap */
+.chain-arrow{
+  flex:1 1 var(--arrow-w);min-width:var(--arrow-w);max-width:140px;
+  display:flex;align-items:center;padding:0 2px;
+  opacity:.55;transition:opacity .3s;
+}
+.arrow-shaft{
+  display:block;width:100%;height:3px;border-radius:2px;
   background:linear-gradient(90deg,var(--red),var(--orange));
-  opacity:.35;
+  position:relative;
 }
-.connector::after{
-  content:"";position:absolute;top:50%;left:0;width:10px;height:10px;
-  margin-top:-5px;border-radius:50%;background:var(--orange);
-  box-shadow:0 0 8px var(--orange);
-  animation:flowDot 1.8s linear infinite;
+.arrow-shaft::after{
+  content:"";position:absolute;right:-2px;top:50%;
+  transform:translateY(-50%);
+  border:5px solid transparent;border-left:8px solid var(--orange);
 }
-.connector:nth-child(4)::after{animation-delay:.2s}
-.connector:nth-child(6)::after{animation-delay:.4s}
-.connector:nth-child(8)::after{animation-delay:.6s}
-.connector:nth-child(10)::after{animation-delay:.8s}
-.connector:nth-child(12)::after{animation-delay:1s}
-.connector:nth-child(14)::after{animation-delay:1.2s}
-.connector:nth-child(16)::after{animation-delay:1.4s}
-.connector:nth-child(18)::after{animation-delay:1.6s}
+.chain-arrow.lit{opacity:1}
+.chain-arrow.lit .arrow-shaft{box-shadow:0 0 8px rgba(255,95,0,.35)}
+.nodes-track>.chain-arrow{flex:1 1 2.5rem;min-width:2rem;max-width:4rem}
+.pipeline-flow>.chain-arrow{
+  flex:1 1 var(--arrow-w);min-width:var(--arrow-w);max-width:140px;
+  margin-top:calc((var(--node-lane) - 3px) / 2);align-self:flex-start;
+}
 
-@keyframes flowDot{
-  0%{left:0;opacity:0}
-  10%{opacity:1}
-  90%{opacity:1}
-  100%{left:calc(100% - 10px);opacity:0}
-}
 @keyframes nodeIn{
   from{opacity:0;transform:translateX(-12px) scale(.85)}
   to{opacity:1;transform:translateX(0) scale(1)}
@@ -205,9 +228,30 @@ header p{font-size:.82rem;color:var(--muted)}
 .leg-arc{border-top:2px dashed var(--orange);height:0;background:transparent}
 .leg-gate{width:20px;height:12px;border:2px dashed var(--amber);border-radius:8px;background:transparent}
 
-footer{text-align:center;font-size:.72rem;color:var(--dim);font-style:italic;margin-top:1rem;line-height:1.4;max-width:40rem;margin-left:auto;margin-right:auto}
+footer{text-align:center;font-size:.72rem;color:var(--dim);font-style:italic;margin-top:1rem;line-height:1.4;max-width:44rem;margin-left:auto;margin-right:auto}
 
 .hint{text-align:center;font-size:.65rem;color:var(--dim);margin-bottom:.75rem}
+
+/* AI role under closed-loop nodes */
+.legend .chip{display:inline-flex;align-items:center;gap:.35rem;padding:.15rem .45rem;border-radius:4px;font-size:.66rem}
+.chip-filter{background:color-mix(in srgb,var(--red) 15%,transparent);color:#f0a0a8}
+.chip-inv{background:color-mix(in srgb,var(--orange) 15%,transparent);color:#ffc9a0}
+.chip-adv{background:color-mix(in srgb,var(--amber) 15%,transparent);color:#f5d08a}
+
+.stage-col{display:flex;flex-direction:column;align-items:center;gap:.35rem}
+.ai-role-box{
+  font-size:.54rem;line-height:1.3;text-align:center;
+  padding:.3rem .4rem;border-radius:6px;max-width:92px;
+  border:1px solid var(--line);
+}
+.ai-role-box strong{display:block;font-size:.5rem;text-transform:uppercase;letter-spacing:.04em;margin-bottom:.12rem;font-weight:700}
+.ai-role-box.tint-filter{background:color-mix(in srgb,var(--red) 10%,transparent);border-color:color-mix(in srgb,var(--red) 30%,var(--line));color:#d4a0a6}
+.ai-role-box.tint-filter strong{color:var(--red)}
+.ai-role-box.tint-investigator{background:color-mix(in srgb,var(--orange) 10%,transparent);border-color:color-mix(in srgb,var(--orange) 30%,var(--line));color:#e8b090}
+.ai-role-box.tint-investigator strong{color:var(--orange)}
+.ai-role-box.tint-advisor{background:color-mix(in srgb,var(--amber) 10%,transparent);border-color:color-mix(in srgb,var(--amber) 30%,var(--line));color:#e8c878}
+.ai-role-box.tint-advisor strong{color:var(--amber)}
+.ai-role-box.step-active-ai{box-shadow:0 0 12px rgba(255,95,0,.25);transform:scale(1.03)}
 
 /* Step controls */
 .step-controls{
@@ -242,17 +286,20 @@ footer{text-align:center;font-size:.72rem;color:var(--dim);font-style:italic;mar
   z-index:6;
 }
 .chain-node.hero.step-active{box-shadow:0 0 32px rgba(247,158,27,.45)!important}
-.connector.lit{opacity:1!important}
-.connector.lit::after{animation-duration:1s}
+.chain-arrow.lit{opacity:1!important}
 .loop-arc.lit .arc-path{stroke-width:3;opacity:1;animation-duration:1.5s}
 .loop-arc.lit{filter:drop-shadow(0 0 8px rgba(255,95,0,.35))}
 
+@media(min-width:1100px){
+  .pipeline-flow{overflow-x:visible;padding:0 1rem}
+  .pipeline-flow>.chain-arrow{max-width:none}
+}
 @media(max-width:900px){
-  .diagram{flex-direction:column;align-items:stretch;min-height:auto;gap:1rem}
-  .sources-col{flex-direction:row;flex-wrap:wrap;justify-content:center;flex: none}
+  .sources-col{gap:.75rem}
+  .source-row{flex-wrap:wrap;justify-content:center}
   .converge-wrap{display:none}
-  .hub-wrap{flex:none}
-  .chain-wrap{overflow-x:auto;width:100%}
+  .nodes-track{min-height:168px}
+  .pipeline-flow{width:100%}
 }
 </style>
 </head>
@@ -260,7 +307,7 @@ footer{text-align:center;font-size:.72rem;color:var(--dim);font-style:italic;mar
 <div class="page">
   <header>
     <h1>Closed-Loop AI · SOC · IR · AI-SSDLC</h1>
-    <p>Hover nodes for details · use <strong>Next step</strong> to walk the flow</p>
+    <p>Hover nodes for details · use <strong>Next step</strong> to walk the flow · AI role under each stage</p>
   </header>
 
   <p class="hint">Detect-and-advise · agent proposes · humans approve · source fix closes the loop</p>
@@ -276,66 +323,99 @@ footer{text-align:center;font-size:.72rem;color:var(--dim);font-style:italic;mar
     Prompt-injection surface · excessive agency bounded · pre / deep / post checks
   </div>
 
+  <svg width="0" height="0" aria-hidden="true" style="position:absolute">
+    <defs>
+      <linearGradient id="flowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#EB001B"/><stop offset="100%" stop-color="#FF5F00"/>
+      </linearGradient>
+      <marker id="flowArr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+        <path d="M0,0 L7,3.5 L0,7 Z" fill="#FF5F00"/>
+      </marker>
+    </defs>
+  </svg>
+
   <div class="diagram" role="img" aria-label="Closed loop flow diagram">
-    <!-- Data sources -->
-    <div class="sources-col" id="sources">
-      <div class="source-node" tabindex="0" data-id="src-edr">Endpoint</div>
-      <div class="source-node" tabindex="0" data-id="src-net">Network</div>
-      <div class="source-node" tabindex="0" data-id="src-id">Identity</div>
-      <div class="source-node" tabindex="0" data-id="src-more">Cloud+</div>
-    </div>
-
-    <!-- Converging lines -->
-    <div class="converge-wrap" aria-hidden="true">
-      <svg viewBox="0 0 90 280" preserveAspectRatio="xMidYMid meet">
-        <defs>
-          <linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stop-color="#EB001B"/><stop offset="100%" stop-color="#FF5F00"/>
-          </linearGradient>
-        </defs>
-        <path d="M 0 35 C 45 35 55 140 85 140" fill="none" stroke="url(#cg)" stroke-width="2" opacity=".5" class="arc-path"/>
-        <path d="M 0 95 C 45 95 55 140 85 140" fill="none" stroke="url(#cg)" stroke-width="2" opacity=".5" class="arc-path"/>
-        <path d="M 0 155 C 45 155 55 140 85 140" fill="none" stroke="url(#cg)" stroke-width="2" opacity=".5" class="arc-path"/>
-        <path d="M 0 215 C 45 215 55 140 85 140" fill="none" stroke="url(#cg)" stroke-width="2" opacity=".5" class="arc-path"/>
-        <circle r="4" fill="#FF5F00" opacity=".9">
-          <animateMotion dur="2s" repeatCount="indefinite" path="M 0 35 C 45 35 55 140 85 140"/>
-        </circle>
-        <circle r="3" fill="#EB001B" opacity=".8">
-          <animateMotion dur="2.3s" repeatCount="indefinite" begin=".4s" path="M 0 155 C 45 155 55 140 85 140"/>
-        </circle>
-      </svg>
-    </div>
-
-    <!-- Hub -->
-    <div class="hub-wrap">
-      <div class="hub" tabindex="0" data-id="hub-ingest" role="button" aria-label="Ingestion and normalization">
-        <div class="hub-title">Ingestion</div>
-        <div class="hub-sub">SIEM · correlation · asset enrichment</div>
+    <div class="nodes-track">
+      <div class="sources-col" id="sources">
+        <div class="source-row">
+          <div class="source-node" tabindex="0" data-id="src-edr">Endpoint</div>
+          <div class="ai-role-box tint-filter" data-for="src-edr"><strong>AI · Filter</strong>Spot: cut noise, learn baselines</div>
+        </div>
+        <div class="source-row">
+          <div class="source-node" tabindex="0" data-id="src-net">Network</div>
+          <div class="ai-role-box tint-filter" data-for="src-net"><strong>AI · Filter</strong>Anomaly vs normal traffic</div>
+        </div>
+        <div class="source-row">
+          <div class="source-node" tabindex="0" data-id="src-id">Identity</div>
+          <div class="ai-role-box tint-filter" data-for="src-id"><strong>AI · Filter</strong>UEBA-style signals</div>
+        </div>
+        <div class="source-row">
+          <div class="source-node" tabindex="0" data-id="src-more">Cloud+</div>
+          <div class="ai-role-box tint-filter" data-for="src-more"><strong>AI · Filter</strong>Cloud, vuln, intel ingest</div>
+        </div>
       </div>
-    </div>
-
-    <!-- Chain -->
-    <div class="chain-wrap">
-      <div class="chain" id="chain">
-        <div class="connector" aria-hidden="true"></div>
-        <div class="chain-node guarded" tabindex="0" data-id="ai-detect">AI Detect</div>
-        <div class="connector"></div>
-        <div class="chain-node guarded" tabindex="0" data-id="asset-id">Asset ID</div>
-        <div class="connector"></div>
-        <div class="chain-node hero guarded" tabindex="0" data-id="provenance">Provenance</div>
-        <div class="connector"></div>
-        <div class="chain-node guarded" tabindex="0" data-id="correlate">Correlate</div>
-        <div class="connector"></div>
-        <div class="chain-node guarded" tabindex="0" data-id="agentic">Agentic</div>
-        <div class="connector"></div>
-        <div class="chain-node gate" tabindex="0" data-id="human-gate">Human gate</div>
-        <div class="connector"></div>
-        <div class="chain-node" tabindex="0" data-id="notify">Notify</div>
+      <div class="converge-wrap" aria-hidden="true">
+        <svg viewBox="0 0 72 268" preserveAspectRatio="xMidYMid meet">
+          <path d="M 0 34 C 36 34 44 134 68 134" fill="none" stroke="url(#flowGrad)" stroke-width="2.5" marker-end="url(#flowArr)" opacity=".8"/>
+          <path d="M 0 98 C 36 98 44 134 68 134" fill="none" stroke="url(#flowGrad)" stroke-width="2.5" marker-end="url(#flowArr)" opacity=".8"/>
+          <path d="M 0 162 C 36 162 44 134 68 134" fill="none" stroke="url(#flowGrad)" stroke-width="2.5" marker-end="url(#flowArr)" opacity=".8"/>
+          <path d="M 0 226 C 36 226 44 134 68 134" fill="none" stroke="url(#flowGrad)" stroke-width="2.5" marker-end="url(#flowArr)" opacity=".8"/>
+          <line x1="68" y1="134" x2="72" y2="134" stroke="url(#flowGrad)" stroke-width="2.5" marker-end="url(#flowArr)"/>
+        </svg>
+      </div>
+      <div class="chain-arrow" data-arrow="hub-in" aria-hidden="true"><span class="arrow-shaft"></span></div>
+      <div class="pipeline-stack">
+        <div class="pipeline-flow" id="chain">
+          <div class="stage-col hub-stack">
+            <div class="node-slot">
+              <div class="hub" tabindex="0" data-id="hub-ingest" role="button" aria-label="Ingestion and normalization">
+                <div class="hub-title">Ingestion</div>
+                <div class="hub-sub">SIEM · correlation · asset enrichment</div>
+              </div>
+            </div>
+            <div class="ai-role-box tint-filter" data-for="hub-ingest"><strong>AI · Filter / Correlate</strong>Normalize &amp; enrich; stitch early signals</div>
+          </div>
+          <div class="chain-arrow" data-arrow="hub-chain" aria-hidden="true"><span class="arrow-shaft"></span></div>
+          <div class="stage-col stage-col--chain">
+            <div class="node-slot"><div class="chain-node guarded" tabindex="0" data-id="ai-detect">AI Detect</div></div>
+            <div class="ai-role-box tint-filter" data-for="ai-detect"><strong>AI · Filter</strong>ML detection; flag true anomalies</div>
+          </div>
+          <div class="chain-arrow" data-arrow="1" aria-hidden="true"><span class="arrow-shaft"></span></div>
+          <div class="stage-col stage-col--chain">
+            <div class="node-slot"><div class="chain-node guarded" tabindex="0" data-id="asset-id">Asset ID</div></div>
+            <div class="ai-role-box tint-investigator" data-for="asset-id"><strong>AI · Investigate</strong>One asset across hybrid</div>
+          </div>
+          <div class="chain-arrow" data-arrow="2" aria-hidden="true"><span class="arrow-shaft"></span></div>
+          <div class="stage-col stage-col--chain stage-col--hero">
+            <div class="node-slot"><div class="chain-node hero guarded" tabindex="0" data-id="provenance">Provenance</div></div>
+            <div class="ai-role-box tint-investigator" data-for="provenance"><strong>AI · Trace ★</strong>Runtime → code &amp; owner</div>
+          </div>
+          <div class="chain-arrow" data-arrow="3" aria-hidden="true"><span class="arrow-shaft"></span></div>
+          <div class="stage-col stage-col--chain">
+            <div class="node-slot"><div class="chain-node guarded" tabindex="0" data-id="correlate">Correlate</div></div>
+            <div class="ai-role-box tint-investigator" data-for="correlate"><strong>AI · Investigate</strong>Incident story + exploitability</div>
+          </div>
+          <div class="chain-arrow" data-arrow="4" aria-hidden="true"><span class="arrow-shaft"></span></div>
+          <div class="stage-col stage-col--chain">
+            <div class="node-slot"><div class="chain-node guarded" tabindex="0" data-id="agentic">Agentic</div></div>
+            <div class="ai-role-box tint-investigator" data-for="agentic"><strong>AI · Investigate</strong>Timeline, RAG, verdict draft</div>
+          </div>
+          <div class="chain-arrow" data-arrow="5" aria-hidden="true"><span class="arrow-shaft"></span></div>
+          <div class="stage-col stage-col--chain stage-col--gate">
+            <div class="node-slot"><div class="chain-node gate" tabindex="0" data-id="human-gate">Human gate</div></div>
+            <div class="ai-role-box tint-advisor" data-for="human-gate"><strong>AI · Advisor</strong>Recommends; human approves</div>
+          </div>
+          <div class="chain-arrow" data-arrow="6" aria-hidden="true"><span class="arrow-shaft"></span></div>
+          <div class="stage-col stage-col--chain">
+            <div class="node-slot"><div class="chain-node" tabindex="0" data-id="notify">Notify</div></div>
+            <div class="ai-role-box tint-advisor" data-for="notify"><strong>AI · Advisor</strong>Route to owning team</div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
 
-  <!-- Closing loop arc -->
+  <div class="loop-section" style="text-align:center">
   <div class="loop-arc" id="loop-arc" data-id="loop" aria-hidden="true">
     <svg viewBox="0 0 1000 70" preserveAspectRatio="xMidYMid meet">
       <defs>
@@ -349,11 +429,16 @@ footer{text-align:center;font-size:.72rem;color:var(--dim);font-style:italic;mar
       <text x="500" y="68" fill="#666" font-size="8.5" font-family="Segoe UI,sans-serif" text-anchor="middle">Closing arc — eliminate at source + model feedback</text>
     </svg>
   </div>
+  <div class="ai-role-box tint-advisor" id="loop-ai-role" style="max-width:280px;margin:.35rem auto 0"><strong>AI · Advisor + Learn</strong>Merged source fix stops recurrence; analyst feedback tunes Spot &amp; Detect</div>
+  </div>
 
   <div class="legend">
     <span><i class="leg-fwd"></i> Forward flow</span>
     <span><i class="leg-arc"></i> Feedback loop</span>
     <span><i class="leg-gate"></i> Human gate</span>
+    <span class="chip chip-filter">AI filter</span>
+    <span class="chip chip-inv">AI investigator</span>
+    <span class="chip chip-adv">AI advisor</span>
   </div>
 
   <div class="foundation">
@@ -362,7 +447,7 @@ footer{text-align:center;font-size:.72rem;color:var(--dim);font-style:italic;mar
     <em>Stale or missing tags = confident mis-attribution</em>
   </div>
 
-  <footer>The capability delta is the loop — runtime detection to build-time source so incidents are eliminated at origin, not just contained. Detect-and-advise today; auto-merge is not.</footer>
+  <footer>AI is a reasoning layer on tools you already run — the new capability is tracing a live incident back to the code that built it. The capability delta is the loop: runtime detection to build-time source so incidents are eliminated at origin, not just contained. Detect-and-advise today; auto-merge is not.</footer>
 </div>
 
 <!-- Hover overlay (single shared panel) -->
@@ -496,17 +581,42 @@ footer{text-align:center;font-size:.72rem;color:var(--dim);font-style:italic;mar
 
   function clearTour(){
     document.querySelectorAll('.step-active').forEach(function(el){el.classList.remove('step-active');});
-    document.querySelectorAll('.connector.lit').forEach(function(el){el.classList.remove('lit');});
+    document.querySelectorAll('.step-active-ai').forEach(function(el){el.classList.remove('step-active-ai');});
+    document.querySelectorAll('.chain-arrow.lit').forEach(function(el){el.classList.remove('lit');});
     if(loopArc) loopArc.classList.remove('lit');
+    var loopAi=document.getElementById('loop-ai-role');
+    if(loopAi) loopAi.classList.remove('step-active-ai');
+  }
+
+  function highlightAiBox(el){
+    document.querySelectorAll('.step-active-ai').forEach(function(b){b.classList.remove('step-active-ai');});
+    var id=el&&el.getAttribute&&el.getAttribute('data-id');
+    if(!id) return;
+    var box=document.querySelector('.ai-role-box[data-for="'+id+'"]');
+    if(box) box.classList.add('step-active-ai');
+  }
+
+  var HUB_AND_AFTER=['hub-ingest','ai-detect','asset-id','provenance','correlate','agentic','human-gate','notify'];
+  var CHAIN_AFTER_HUB=['ai-detect','asset-id','provenance','correlate','agentic','human-gate','notify'];
+
+  function lightDiagramArrows(nodeId){
+    var hubIn=document.querySelector('[data-arrow="hub-in"]');
+    var hubChain=document.querySelector('[data-arrow="hub-chain"]');
+    if(HUB_AND_AFTER.indexOf(nodeId)>=0&&hubIn) hubIn.classList.add('lit');
+    if(CHAIN_AFTER_HUB.indexOf(nodeId)>=0&&hubChain) hubChain.classList.add('lit');
   }
 
   function lightConnectorsTo(node){
-    if(!chainEl||!node) return;
+    if(!node) return;
+    var nodeId=node.getAttribute&&node.getAttribute('data-id');
+    if(nodeId) lightDiagramArrows(nodeId);
+    if(!chainEl) return;
+    var col=node.closest?node.closest('.stage-col'):null;
     var kids=Array.prototype.slice.call(chainEl.children);
-    var idx=kids.indexOf(node);
+    var idx=col?kids.indexOf(col):kids.indexOf(node);
     if(idx<0) return;
     for(var i=0;i<idx;i++){
-      if(kids[i].classList.contains('connector')) kids[i].classList.add('lit');
+      if(kids[i].classList.contains('chain-arrow')) kids[i].classList.add('lit');
     }
   }
 
@@ -542,11 +652,15 @@ footer{text-align:center;font-size:.72rem;color:var(--dim);font-style:italic;mar
     if(el){
       el.classList.add('step-active');
       if(!step.isLoop){
+        highlightAiBox(el);
         lightConnectorsTo(el);
         showStepOverlay(el);
-        el.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+        var scroller=el.closest('.pipeline-flow');
+        (scroller||el).scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
       } else {
         loopArc.classList.add('lit');
+        var loopAi=document.getElementById('loop-ai-role');
+        if(loopAi) loopAi.classList.add('step-active-ai');
         tourPinned=false;
         hide();
         loopArc.scrollIntoView({behavior:'smooth',block:'nearest'});
