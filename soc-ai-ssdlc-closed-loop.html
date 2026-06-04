@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Closed-Loop AI — SOC · IR · AI-SSDLC</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0A0A0A;--line:#333;--text:#ececec;--muted:#9a9a9a;--dim:#666;
+  --red:#EB001B;--orange:#FF5F00;--amber:#F79E1B;
+  --hub-fill:#141414;--node-fill:#121212;
+  --foundation:#152030;--foundation-border:#2a4058;
+}
+html{scroll-behavior:smooth}
+body{font-family:"Segoe UI",system-ui,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:auto}
+
+.page{min-width:min(100%,1180px);max-width:1400px;margin:0 auto;padding:1.75rem 1rem 2rem}
+header{text-align:center;margin-bottom:1.5rem}
+header h1{font-size:clamp(1.15rem,2.5vw,1.55rem);font-weight:650;margin-bottom:.35rem}
+header p{font-size:.82rem;color:var(--muted)}
+
+/* ── Main diagram row ── */
+.diagram{
+  display:flex;align-items:center;gap:0;
+  min-height:320px;padding:1rem 0 2.5rem;
+  position:relative;
+}
+
+/* Sources column */
+.sources-col{
+  flex:0 0 118px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:1rem;
+  position:relative;z-index:2;
+}
+.source-node{
+  width:58px;height:58px;border-radius:50%;
+  border:2px solid var(--red);background:var(--node-fill);
+  cursor:pointer;position:relative;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.58rem;font-weight:700;text-align:center;line-height:1.15;
+  color:var(--muted);transition:transform .2s,border-color .2s,box-shadow .2s;
+  animation:nodeIn .6s ease backwards;
+  padding:.2rem;
+}
+.source-node:nth-child(1){animation-delay:.05s}
+.source-node:nth-child(2){animation-delay:.12s}
+.source-node:nth-child(3){animation-delay:.19s}
+.source-node:nth-child(4){animation-delay:.26s}
+.source-node:hover,.source-node:focus-visible{
+  transform:scale(1.12);border-color:var(--orange);
+  box-shadow:0 0 20px rgba(255,95,0,.25);outline:none;
+}
+.source-node.active{border-color:var(--orange);box-shadow:0 0 16px rgba(255,95,0,.2)}
+
+/* Convergence SVG */
+.converge-wrap{flex:0 0 90px;height:300px;position:relative;z-index:1}
+.converge-wrap svg{width:100%;height:100%}
+
+/* Hub oval */
+.hub-wrap{flex:0 0 150px;display:flex;align-items:center;justify-content:center;z-index:2}
+.hub{
+  width:138px;height:168px;border-radius:50%;
+  border:2.5px solid var(--orange);background:var(--hub-fill);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  text-align:center;padding:.75rem;cursor:pointer;
+  animation:hubIn .7s ease .35s backwards, hubPulse 3s ease-in-out 1.2s infinite;
+  transition:transform .2s,box-shadow .2s;
+}
+.hub:hover,.hub:focus-visible{transform:scale(1.04);box-shadow:0 0 32px rgba(255,95,0,.15);outline:none}
+.hub-title{font-size:.72rem;font-weight:700;color:var(--orange);line-height:1.25;margin-bottom:.25rem}
+.hub-sub{font-size:.58rem;color:var(--muted);line-height:1.3}
+
+/* Pipeline chain */
+.chain-wrap{
+  flex:1;display:flex;align-items:center;min-width:0;
+  overflow-x:auto;padding:.5rem 0;
+  scrollbar-width:thin;scrollbar-color:var(--line) transparent;
+}
+.chain{
+  display:flex;align-items:center;gap:0;position:relative;
+  padding:0 .5rem;
+}
+.chain-node{
+  flex:0 0 auto;width:76px;height:76px;border-radius:50%;
+  border:2px solid color-mix(in srgb,var(--red) 80%,var(--line));
+  background:var(--node-fill);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  font-size:.58rem;font-weight:700;text-align:center;line-height:1.2;
+  padding:.35rem;color:var(--muted);
+  animation:nodeIn .5s ease backwards;
+  transition:transform .2s,border-color .2s,box-shadow .2s;
+  position:relative;z-index:2;
+}
+.chain-node.guarded{border-color:color-mix(in srgb,var(--amber) 70%,var(--line))}
+.chain-node.hero{width:84px;height:84px;border-width:2.5px;border-color:var(--amber);color:var(--amber);font-size:.56rem;animation:nodeIn .5s ease backwards, heroGlow 2.5s ease-in-out 1s infinite}
+.chain-node.gate{width:auto;min-width:96px;height:58px;border-radius:29px;border-style:dashed;border-color:var(--amber);color:var(--amber);padding:0 .75rem;font-size:.56rem;line-height:1.2}
+.chain-node:hover,.chain-node:focus-visible{
+  transform:scale(1.1);border-color:var(--orange);
+  box-shadow:0 0 18px rgba(255,95,0,.2);outline:none;z-index:5;
+}
+.chain-node.active{border-color:var(--orange);box-shadow:0 0 14px rgba(255,95,0,.18)}
+
+/* Connectors between chain nodes */
+.connector{
+  flex:0 0 36px;height:3px;position:relative;overflow:visible;
+  background:linear-gradient(90deg,var(--red),var(--orange));
+  opacity:.35;
+}
+.connector::after{
+  content:"";position:absolute;top:50%;left:0;width:10px;height:10px;
+  margin-top:-5px;border-radius:50%;background:var(--orange);
+  box-shadow:0 0 8px var(--orange);
+  animation:flowDot 1.8s linear infinite;
+}
+.connector:nth-child(4)::after{animation-delay:.2s}
+.connector:nth-child(6)::after{animation-delay:.4s}
+.connector:nth-child(8)::after{animation-delay:.6s}
+.connector:nth-child(10)::after{animation-delay:.8s}
+.connector:nth-child(12)::after{animation-delay:1s}
+.connector:nth-child(14)::after{animation-delay:1.2s}
+.connector:nth-child(16)::after{animation-delay:1.4s}
+.connector:nth-child(18)::after{animation-delay:1.6s}
+
+@keyframes flowDot{
+  0%{left:0;opacity:0}
+  10%{opacity:1}
+  90%{opacity:1}
+  100%{left:calc(100% - 10px);opacity:0}
+}
+@keyframes nodeIn{
+  from{opacity:0;transform:translateX(-12px) scale(.85)}
+  to{opacity:1;transform:translateX(0) scale(1)}
+}
+@keyframes hubIn{
+  from{opacity:0;transform:scale(.7)}
+  to{opacity:1;transform:scale(1)}
+}
+@keyframes hubPulse{
+  0%,100%{box-shadow:0 0 0 rgba(255,95,0,0)}
+  50%{box-shadow:0 0 24px rgba(255,95,0,.12)}
+}
+@keyframes heroGlow{
+  0%,100%{box-shadow:0 0 0 rgba(247,158,27,0)}
+  50%{box-shadow:0 0 20px rgba(247,158,27,.2)}
+}
+
+/* Return arc */
+.loop-arc{width:100%;height:70px;margin:-1rem 0 1rem}
+.loop-arc svg{width:100%;height:100%}
+.arc-path{stroke-dasharray:8 6;animation:dashFlow 2.5s linear infinite}
+@keyframes dashFlow{to{stroke-dashoffset:-28}}
+
+/* Guardrail strip */
+.guardrail{
+  margin:0 0 1rem;padding:.65rem 1rem;border-radius:10px;
+  border:1px solid color-mix(in srgb,var(--amber) 40%,transparent);
+  background:color-mix(in srgb,var(--amber) 6%,#111);
+  display:flex;flex-wrap:wrap;gap:.5rem 1.5rem;justify-content:center;
+  font-size:.68rem;color:var(--muted);
+}
+.guardrail span{color:var(--amber);font-weight:700;font-size:.62rem;text-transform:uppercase;letter-spacing:.06em}
+
+/* Hover overlay panel */
+.overlay{
+  position:fixed;z-index:100;pointer-events:none;
+  max-width:min(320px,calc(100vw - 24px));
+  padding:0;opacity:0;transform:translateY(6px);
+  transition:opacity .18s,transform .18s;
+}
+.overlay.visible{opacity:1;transform:translateY(0)}
+.overlay-card{
+  background:#161616;border:1px solid #3a3a3a;border-radius:12px;
+  padding:.85rem 1rem;box-shadow:0 12px 40px rgba(0,0,0,.55);
+  pointer-events:auto;
+}
+.overlay-card.hero{border-color:color-mix(in srgb,var(--amber) 50%,#3a3a3a)}
+.overlay-card.gate{border-color:var(--amber);border-style:dashed}
+.overlay-title{font-size:.78rem;font-weight:700;color:var(--orange);margin-bottom:.4rem;line-height:1.25}
+.overlay-card.hero .overlay-title{color:var(--amber)}
+.overlay-card.gate .overlay-title{color:var(--amber)}
+.overlay ul{list-style:none}
+.overlay li{font-size:.72rem;color:var(--muted);padding-left:.65rem;position:relative;margin-bottom:.22rem;line-height:1.35}
+.overlay li::before{content:"";position:absolute;left:0;top:.45em;width:3px;height:3px;border-radius:50%;background:var(--red)}
+.overlay-note{font-size:.65rem;color:var(--dim);margin-top:.45rem;font-style:italic;line-height:1.35}
+
+/* Branch mini in overlay */
+.branch-row{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.4rem}
+.branch-mini{font-size:.65rem;padding:.4rem;border-radius:6px;line-height:1.3}
+.branch-mini.contain{background:rgba(196,90,58,.12);border:1px solid rgba(196,90,58,.3);color:#d4a090}
+.branch-mini.source{background:rgba(58,138,122,.12);border:1px solid rgba(58,138,122,.3);color:#90c4b8}
+
+/* Foundation + legend + footer */
+.foundation{
+  margin-top:1rem;padding:.85rem 1rem;border-radius:10px;
+  border:1px solid var(--foundation-border);background:var(--foundation);
+  font-size:.7rem;color:#7a9ab8;
+}
+.foundation strong{display:block;font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.35rem}
+.foundation em{display:block;margin-top:.4rem;font-size:.65rem;color:var(--dim);font-style:italic}
+
+.legend{display:flex;flex-wrap:wrap;gap:.75rem 1.5rem;justify-content:center;margin:1rem 0;font-size:.68rem;color:var(--muted)}
+.legend i{display:inline-block;width:28px;height:3px;border-radius:2px;vertical-align:middle;margin-right:.35rem}
+.leg-fwd{background:linear-gradient(90deg,var(--red),var(--orange))}
+.leg-arc{border-top:2px dashed var(--orange);height:0;background:transparent}
+.leg-gate{width:20px;height:12px;border:2px dashed var(--amber);border-radius:8px;background:transparent}
+
+footer{text-align:center;font-size:.72rem;color:var(--dim);font-style:italic;margin-top:1rem;line-height:1.4;max-width:40rem;margin-left:auto;margin-right:auto}
+
+.hint{text-align:center;font-size:.65rem;color:var(--dim);margin-bottom:.75rem}
+
+/* Step controls */
+.step-controls{
+  display:flex;flex-wrap:wrap;align-items:center;justify-content:center;
+  gap:.65rem 1rem;margin-bottom:1.25rem;
+}
+.btn-next,.btn-reset{
+  font-family:inherit;font-size:.78rem;font-weight:650;
+  padding:.5rem 1.1rem;border-radius:8px;cursor:pointer;
+  transition:transform .15s,box-shadow .15s,opacity .15s;
+}
+.btn-next{
+  color:#fff;border:none;
+  background:linear-gradient(90deg,var(--red),var(--orange));
+  box-shadow:0 2px 12px rgba(255,95,0,.25);
+}
+.btn-next:hover{transform:translateY(-1px);box-shadow:0 4px 18px rgba(255,95,0,.35)}
+.btn-next:active{transform:translateY(0)}
+.btn-reset{
+  color:var(--muted);background:transparent;
+  border:1px solid var(--line);
+}
+.btn-reset:hover{border-color:var(--orange);color:var(--text)}
+.step-label{font-size:.74rem;color:var(--muted);min-width:12rem;text-align:center}
+.step-label strong{color:var(--orange);font-weight:650}
+
+/* Tour highlight (stronger than hover) */
+.source-node.step-active,.hub.step-active,.chain-node.step-active{
+  border-color:var(--orange)!important;
+  box-shadow:0 0 28px rgba(255,95,0,.4)!important;
+  transform:scale(1.1)!important;
+  z-index:6;
+}
+.chain-node.hero.step-active{box-shadow:0 0 32px rgba(247,158,27,.45)!important}
+.connector.lit{opacity:1!important}
+.connector.lit::after{animation-duration:1s}
+.loop-arc.lit .arc-path{stroke-width:3;opacity:1;animation-duration:1.5s}
+.loop-arc.lit{filter:drop-shadow(0 0 8px rgba(255,95,0,.35))}
+
+@media(max-width:900px){
+  .diagram{flex-direction:column;align-items:stretch;min-height:auto;gap:1rem}
+  .sources-col{flex-direction:row;flex-wrap:wrap;justify-content:center;flex: none}
+  .converge-wrap{display:none}
+  .hub-wrap{flex:none}
+  .chain-wrap{overflow-x:auto;width:100%}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <h1>Closed-Loop AI · SOC · IR · AI-SSDLC</h1>
+    <p>Hover nodes for details · use <strong>Next step</strong> to walk the flow</p>
+  </header>
+
+  <p class="hint">Detect-and-advise · agent proposes · humans approve · source fix closes the loop</p>
+
+  <div class="step-controls">
+    <button type="button" class="btn-next" id="btn-next">Next step →</button>
+    <button type="button" class="btn-reset" id="btn-reset">Reset</button>
+    <span class="step-label" id="step-label">Step 0 — click <strong>Next step</strong> to begin</span>
+  </div>
+
+  <div class="guardrail" aria-label="Guardrails">
+    <span>Guardrails</span>
+    Prompt-injection surface · excessive agency bounded · pre / deep / post checks
+  </div>
+
+  <div class="diagram" role="img" aria-label="Closed loop flow diagram">
+    <!-- Data sources -->
+    <div class="sources-col" id="sources">
+      <div class="source-node" tabindex="0" data-id="src-edr">Endpoint</div>
+      <div class="source-node" tabindex="0" data-id="src-net">Network</div>
+      <div class="source-node" tabindex="0" data-id="src-id">Identity</div>
+      <div class="source-node" tabindex="0" data-id="src-more">Cloud+</div>
+    </div>
+
+    <!-- Converging lines -->
+    <div class="converge-wrap" aria-hidden="true">
+      <svg viewBox="0 0 90 280" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <linearGradient id="cg" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stop-color="#EB001B"/><stop offset="100%" stop-color="#FF5F00"/>
+          </linearGradient>
+        </defs>
+        <path d="M 0 35 C 45 35 55 140 85 140" fill="none" stroke="url(#cg)" stroke-width="2" opacity=".5" class="arc-path"/>
+        <path d="M 0 95 C 45 95 55 140 85 140" fill="none" stroke="url(#cg)" stroke-width="2" opacity=".5" class="arc-path"/>
+        <path d="M 0 155 C 45 155 55 140 85 140" fill="none" stroke="url(#cg)" stroke-width="2" opacity=".5" class="arc-path"/>
+        <path d="M 0 215 C 45 215 55 140 85 140" fill="none" stroke="url(#cg)" stroke-width="2" opacity=".5" class="arc-path"/>
+        <circle r="4" fill="#FF5F00" opacity=".9">
+          <animateMotion dur="2s" repeatCount="indefinite" path="M 0 35 C 45 35 55 140 85 140"/>
+        </circle>
+        <circle r="3" fill="#EB001B" opacity=".8">
+          <animateMotion dur="2.3s" repeatCount="indefinite" begin=".4s" path="M 0 155 C 45 155 55 140 85 140"/>
+        </circle>
+      </svg>
+    </div>
+
+    <!-- Hub -->
+    <div class="hub-wrap">
+      <div class="hub" tabindex="0" data-id="hub-ingest" role="button" aria-label="Ingestion and normalization">
+        <div class="hub-title">Ingestion</div>
+        <div class="hub-sub">SIEM · correlation · asset enrichment</div>
+      </div>
+    </div>
+
+    <!-- Chain -->
+    <div class="chain-wrap">
+      <div class="chain" id="chain">
+        <div class="connector" aria-hidden="true"></div>
+        <div class="chain-node guarded" tabindex="0" data-id="ai-detect">AI Detect</div>
+        <div class="connector"></div>
+        <div class="chain-node guarded" tabindex="0" data-id="asset-id">Asset ID</div>
+        <div class="connector"></div>
+        <div class="chain-node hero guarded" tabindex="0" data-id="provenance">Provenance</div>
+        <div class="connector"></div>
+        <div class="chain-node guarded" tabindex="0" data-id="correlate">Correlate</div>
+        <div class="connector"></div>
+        <div class="chain-node guarded" tabindex="0" data-id="agentic">Agentic</div>
+        <div class="connector"></div>
+        <div class="chain-node gate" tabindex="0" data-id="human-gate">Human gate</div>
+        <div class="connector"></div>
+        <div class="chain-node" tabindex="0" data-id="notify">Notify</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Closing loop arc -->
+  <div class="loop-arc" id="loop-arc" data-id="loop" aria-hidden="true">
+    <svg viewBox="0 0 1000 70" preserveAspectRatio="xMidYMid meet">
+      <defs>
+        <marker id="arcArr" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+          <path d="M0,0 L7,3.5 L0,7 Z" fill="#FF5F00"/>
+        </marker>
+      </defs>
+      <path class="arc-path" d="M 920 20 C 600 55, 400 55, 80 20" fill="none" stroke="#FF5F00" stroke-width="2" marker-end="url(#arcArr)" opacity=".75"/>
+      <text x="80" y="14" fill="#EB001B" font-size="9" font-family="Segoe UI,sans-serif">Detect · Sources</text>
+      <text x="920" y="14" fill="#FF5F00" font-size="9" font-family="Segoe UI,sans-serif" text-anchor="end">Merged fix · tuning</text>
+      <text x="500" y="68" fill="#666" font-size="8.5" font-family="Segoe UI,sans-serif" text-anchor="middle">Closing arc — eliminate at source + model feedback</text>
+    </svg>
+  </div>
+
+  <div class="legend">
+    <span><i class="leg-fwd"></i> Forward flow</span>
+    <span><i class="leg-arc"></i> Feedback loop</span>
+    <span><i class="leg-gate"></i> Human gate</span>
+  </div>
+
+  <div class="foundation">
+    <strong>Prerequisite — provenance integrity (AI traverses links, does not create them)</strong>
+    Resource tags · OCI labels + SBOM · SLSA/in-toto · GitOps · CODEOWNERS / service catalog
+    <em>Stale or missing tags = confident mis-attribution</em>
+  </div>
+
+  <footer>The capability delta is the loop — runtime detection to build-time source so incidents are eliminated at origin, not just contained. Detect-and-advise today; auto-merge is not.</footer>
+</div>
+
+<!-- Hover overlay (single shared panel) -->
+<div class="overlay" id="overlay" role="tooltip" aria-hidden="true">
+  <div class="overlay-card" id="overlay-card"></div>
+</div>
+
+<script>
+(function(){
+  var DETAILS={
+    'src-edr':{title:'Data source · Endpoint / EDR',items:['Process · file · registry telemetry','EDR alerts & behavioral signals'],note:''},
+    'src-net':{title:'Data source · Network',items:['NetFlow · DNS · firewall logs','East-west & north-south traffic patterns'],note:''},
+    'src-id':{title:'Data source · Identity',items:['IAM · SSO · NHI / service accounts','Auth anomalies & privilege use'],note:''},
+    'src-more':{title:'Data sources · Cloud · Vuln · Intel',items:['CloudTrail / audit / control-plane logs','Application & API logs','EPSS · KEV · reachability · exposure','Threat intel feeds & ISACs'],note:''},
+    'hub-ingest':{title:'Ingestion & normalization',items:['SIEM / security data lake ingest','Parsing · schema mapping · entity resolution','Asset enrichment — CMDB · inventory tags'],note:'All sources converge here before AI detection.'},
+    'ai-detect':{title:'AI detection layer',items:['Sequence / anomaly — endpoint & API','Graph ML — identity & lateral movement','Unsupervised anomaly — network','NLP / LLM — intel & unstructured logs'],note:'Output: detected incident. Guardrails apply.'},
+    'asset-id':{title:'Asset identification',items:['Resolve incident → concrete asset','On-prem host · cloud instance · K8s pod/workload','Cross-environment normalization'],note:''},
+    'provenance':{title:'Provenance traversal ★',items:['Cloud → IaC module + Git commit (tags)','Container → repo + Dockerfile + OCI/SBOM/SLSA','K8s → pod → Helm/Kustomize → GitOps repo'],note:'Three paths converge into one provenance graph. Core differentiator.',hero:true},
+    'correlate':{title:'Correlation · root cause · exploitability',items:['Multi-source incident narrative','Root cause → IaC line / Dockerfile defect','EPSS + KEV + reachability + business context','MITRE ATT&CK mapping — not CVSS-volume triage'],note:''},
+    'agentic':{title:'Agentic investigation',items:['LLM agent queries sources · builds timeline','RAG over prior incidents','Owner from CODEOWNERS / service catalog / CMDB','Verdict + remediation recommendation'],note:'Guardrails: pre / deep / post checks on tool use.'},
+    'human-gate':{title:'Human-in-the-loop gate',items:['Required approval before any containment or PR'],note:'Autonomous actions blocked without analyst / engineering sign-off.',gate:true,
+      branches:{contain:['Isolate host / pod','Disable account · block hash','SOC-owned runtime containment'],source:['Terraform diff · Dockerfile fix · policy patch','Agent opens PR — engineering owns merge','Auto-merge out of scope']}},
+    'notify':{title:'Owner notification & routing',items:['Route to team & channel from provenance','SOC · platform · app engineering paths','Ticket · Slack · on-call escalation'],note:'Closing arc: merged fix eliminates future instances; dispositions tune detection.'}
+  };
+
+  var overlay=document.getElementById('overlay');
+  var card=document.getElementById('overlay-card');
+  var activeEl=null;
+  var hideTimer=null;
+
+  function renderDetail(id){
+    var d=DETAILS[id];
+    if(!d) return '';
+    card.className='overlay-card'+(d.hero?' hero':'')+(d.gate?' gate':'');
+    var html='<div class="overlay-title">'+esc(d.title)+'</div><ul>';
+    d.items.forEach(function(it){html+='<li>'+esc(it)+'</li>';});
+    html+='</ul>';
+    if(d.branches){
+      html+='<div class="branch-row">';
+      html+='<div class="branch-mini contain"><strong>Contain</strong><br>'+d.branches.contain.map(esc).join('<br>')+'</div>';
+      html+='<div class="branch-mini source"><strong>Source PR</strong><br>'+d.branches.source.map(esc).join('<br>')+'</div></div>';
+    }
+    if(d.note) html+='<p class="overlay-note">'+esc(d.note)+'</p>';
+    return html;
+  }
+
+  function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+  function positionOverlay(el){
+    var r=el.getBoundingClientRect();
+    var pad=12;
+    var cw=320;
+    var left=r.left+r.width/2-cw/2;
+    left=Math.max(pad,Math.min(left,window.innerWidth-cw-pad));
+    var top=r.bottom+pad;
+    if(top+200>window.innerHeight) top=r.top-pad-180;
+    overlay.style.left=left+'px';
+    overlay.style.top=Math.max(pad,top)+'px';
+  }
+
+  function show(el){
+    clearTimeout(hideTimer);
+    tourPinned=false;
+    var id=el.getAttribute('data-id');
+    if(!id||!DETAILS[id]) return;
+    if(activeEl) activeEl.classList.remove('active');
+    activeEl=el;
+    el.classList.add('active');
+    card.innerHTML=renderDetail(id);
+    positionOverlay(el);
+    overlay.classList.add('visible');
+    overlay.setAttribute('aria-hidden','false');
+  }
+
+  function hide(){
+    hideTimer=setTimeout(function(){
+      overlay.classList.remove('visible');
+      overlay.setAttribute('aria-hidden','true');
+      if(activeEl){activeEl.classList.remove('active');activeEl=null;}
+    },120);
+  }
+
+  function bindNodes(sel){
+    document.querySelectorAll(sel).forEach(function(el){
+      el.addEventListener('mouseenter',function(){show(el);});
+      el.addEventListener('focus',function(){show(el);});
+      el.addEventListener('mouseleave',hide);
+      el.addEventListener('blur',hide);
+    });
+  }
+
+  bindNodes('.source-node, .hub, .chain-node');
+  overlay.addEventListener('mouseenter',function(){clearTimeout(hideTimer);});
+  overlay.addEventListener('mouseleave',hide);
+
+  window.addEventListener('scroll',function(){
+    if(activeEl&&overlay.classList.contains('visible')) positionOverlay(activeEl);
+  },{passive:true});
+
+  document.querySelectorAll('.chain-node').forEach(function(n,i){
+    n.style.animationDelay=(0.45+i*0.08)+'s';
+  });
+
+  /* ── Step-by-step tour ── */
+  var STEPS=[
+    {id:'src-edr',label:'Data source · Endpoint / EDR'},
+    {id:'src-net',label:'Data source · Network'},
+    {id:'src-id',label:'Data source · Identity'},
+    {id:'src-more',label:'Data sources · Cloud · Vuln · Intel'},
+    {id:'hub-ingest',label:'Ingestion & normalization · SIEM hub'},
+    {id:'ai-detect',label:'AI detection layer'},
+    {id:'asset-id',label:'Asset identification'},
+    {id:'provenance',label:'Provenance traversal ★'},
+    {id:'correlate',label:'Correlation · root cause · exploitability'},
+    {id:'agentic',label:'Agentic investigation'},
+    {id:'human-gate',label:'Human-in-the-loop gate'},
+    {id:'notify',label:'Owner notification & routing'},
+    {id:'loop',label:'Closing arc · eliminate at source + model feedback',isLoop:true}
+  ];
+
+  var stepIndex=-1;
+  var tourPinned=false;
+  var stepLabel=document.getElementById('step-label');
+  var loopArc=document.getElementById('loop-arc');
+  var chainEl=document.getElementById('chain');
+
+  function stepElement(step){
+    if(step.isLoop) return loopArc;
+    return document.querySelector('[data-id="'+step.id+'"]');
+  }
+
+  function clearTour(){
+    document.querySelectorAll('.step-active').forEach(function(el){el.classList.remove('step-active');});
+    document.querySelectorAll('.connector.lit').forEach(function(el){el.classList.remove('lit');});
+    if(loopArc) loopArc.classList.remove('lit');
+  }
+
+  function lightConnectorsTo(node){
+    if(!chainEl||!node) return;
+    var kids=Array.prototype.slice.call(chainEl.children);
+    var idx=kids.indexOf(node);
+    if(idx<0) return;
+    for(var i=0;i<idx;i++){
+      if(kids[i].classList.contains('connector')) kids[i].classList.add('lit');
+    }
+  }
+
+  function updateStepLabel(){
+    if(stepIndex<0){
+      stepLabel.innerHTML='Step 0 — click <strong>Next step</strong> to begin';
+      document.getElementById('btn-next').textContent='Next step →';
+      return;
+    }
+    var s=STEPS[stepIndex];
+    stepLabel.innerHTML='Step <strong>'+(stepIndex+1)+'</strong> of '+STEPS.length+' — '+esc(s.label);
+    document.getElementById('btn-next').textContent=stepIndex>=STEPS.length-1?'Restart tour ↺':'Next step →';
+  }
+
+  function showStepOverlay(el){
+    if(!el||!el.getAttribute) return;
+    var id=el.getAttribute('data-id');
+    if(!id||!DETAILS[id]) return;
+    tourPinned=true;
+    if(activeEl) activeEl.classList.remove('active');
+    activeEl=el;
+    card.innerHTML=renderDetail(id);
+    positionOverlay(el);
+    overlay.classList.add('visible');
+    overlay.setAttribute('aria-hidden','false');
+  }
+
+  function goToStep(i){
+    clearTour();
+    stepIndex=i;
+    var step=STEPS[i];
+    var el=stepElement(step);
+    if(el){
+      el.classList.add('step-active');
+      if(!step.isLoop){
+        lightConnectorsTo(el);
+        showStepOverlay(el);
+        el.scrollIntoView({behavior:'smooth',block:'nearest',inline:'center'});
+      } else {
+        loopArc.classList.add('lit');
+        tourPinned=false;
+        hide();
+        loopArc.scrollIntoView({behavior:'smooth',block:'nearest'});
+      }
+    }
+    updateStepLabel();
+  }
+
+  function nextStep(){
+    if(stepIndex>=STEPS.length-1){ resetTour(); return; }
+    goToStep(stepIndex+1);
+  }
+
+  function resetTour(){
+    clearTour();
+    stepIndex=-1;
+    tourPinned=false;
+    hide();
+    updateStepLabel();
+  }
+
+  document.getElementById('btn-next').addEventListener('click',nextStep);
+  document.getElementById('btn-reset').addEventListener('click',resetTour);
+
+  /* Don't hide overlay on mouseleave while tour is showing current step */
+  var origHide=hide;
+  hide=function(){
+    if(tourPinned) return;
+    origHide();
+  };
+
+  updateStepLabel();
+})();
+</script>
+</body>
+</html>
