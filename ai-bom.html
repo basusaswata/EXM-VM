@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Bill of Materials — Beyond the SBOM</title>
+<style>
+:root {
+  --bg: #0A0A0A;
+  --panel: #141414;
+  --panel-2: #1C1C1C;
+  --border: #2A2A2A;
+  --text: #F0F0F0;
+  --muted: #888;
+  --red: #EB001B;
+  --orange: #FF5F00;
+  --amber: #F79E1B;
+  --sbom-muted: #555;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  min-height: 100vh;
+}
+
+.page { max-width: 980px; margin: 0 auto; padding: 1.5rem 1.25rem 2.5rem; }
+
+header { margin-bottom: 1.25rem; }
+header h1 { font-size: 1.5rem; font-weight: 700; letter-spacing: -.02em; margin-bottom: .4rem; }
+header h1 span { color: var(--amber); }
+header .subtitle { font-size: .9rem; color: var(--muted); max-width: 680px; }
+.beyond-banner {
+  margin-top: .85rem; padding: .7rem 1rem; border-radius: 10px;
+  background: linear-gradient(135deg, rgba(247,158,27,.08), rgba(255,95,0,.05));
+  border: 1px solid rgba(247,158,27,.25); font-size: .82rem; line-height: 1.55;
+}
+.beyond-banner strong { color: var(--amber); }
+
+.controls { display: flex; flex-wrap: wrap; gap: .6rem; margin: 1rem 0; }
+.toggle-btn {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .42rem .8rem; border-radius: 8px; font-size: .76rem; font-weight: 600;
+  border: 1px solid var(--border); background: var(--panel); color: var(--muted);
+  cursor: pointer; transition: all .2s;
+}
+.toggle-btn:hover { border-color: #444; color: var(--text); }
+.toggle-btn.sbom.active { background: rgba(85,85,85,.2); border-color: var(--sbom-muted); color: #bbb; }
+.toggle-btn.risk.active { background: rgba(235,0,27,.1); border-color: rgba(235,0,27,.45); color: #fca5a5; }
+.toggle-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--border); }
+.toggle-btn.sbom.active .toggle-dot { background: var(--sbom-muted); }
+.toggle-btn.risk.active .toggle-dot { background: var(--red); }
+
+.legend {
+  display: flex; flex-wrap: wrap; gap: .75rem 1.1rem;
+  padding: .65rem 1rem; border-radius: 10px;
+  background: var(--panel); border: 1px solid var(--border);
+  margin-bottom: 1rem; font-size: .72rem; color: var(--muted);
+}
+.legend-item { display: flex; align-items: center; gap: .35rem; }
+.legend-swatch { width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; }
+.legend-swatch.amber { background: var(--amber); }
+.legend-swatch.sbom { background: var(--sbom-muted); }
+.legend-swatch.risk { background: var(--red); }
+
+.weights-note {
+  padding: .65rem 1rem; border-radius: 10px; margin-bottom: 1rem;
+  background: rgba(247,158,27,.06); border: 1px dashed rgba(247,158,27,.35);
+  font-size: .78rem; color: var(--muted);
+}
+.weights-note strong { color: var(--amber); }
+.weights-note .triad { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: .45rem; }
+.weights-note .triad span {
+  padding: .18rem .5rem; border-radius: 6px; font-size: .7rem; font-weight: 600;
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--text);
+}
+
+/* ── Radial diagram ── */
+.diagram-wrap {
+  position: relative;
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto 1.25rem;
+  aspect-ratio: 1;
+}
+.diagram-svg {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+.diagram-svg line {
+  stroke: var(--border);
+  stroke-width: 1.5;
+  transition: stroke .3s, stroke-width .3s, opacity .35s;
+}
+.diagram-svg line.lit { stroke: var(--amber); stroke-width: 2.5; }
+.diagram-svg line.dim { opacity: .12; }
+.diagram-svg line.sbom-lit { stroke: #888; stroke-width: 2.5; }
+.diagram-svg line.embed-link {
+  stroke: var(--orange); stroke-width: 1.5; stroke-dasharray: 6 4; opacity: 0;
+  transition: opacity .3s;
+}
+.diagram-svg line.embed-link.visible { opacity: .85; }
+
+.orbit {
+  position: absolute; inset: 0;
+}
+
+/* Center hub */
+.hub {
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+  width: 34%; height: 34%;
+  min-width: 110px; min-height: 110px;
+  max-width: 170px; max-height: 170px;
+  border-radius: 50%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: .75rem;
+  background: radial-gradient(circle at 35% 30%, rgba(247,158,27,.22), rgba(247,158,27,.06));
+  border: 2.5px solid var(--amber);
+  box-shadow: 0 0 32px rgba(247,158,27,.18);
+  cursor: pointer; z-index: 3;
+  transition: transform .2s, box-shadow .2s;
+}
+.hub:hover { transform: translate(-50%, -50%) scale(1.03); box-shadow: 0 0 40px rgba(247,158,27,.28); }
+.hub.active { box-shadow: 0 0 48px rgba(247,158,27,.4); }
+.hub-icon { font-size: 1.6rem; line-height: 1; margin-bottom: .25rem; }
+.hub-title { font-size: .95rem; font-weight: 800; color: var(--amber); letter-spacing: .02em; }
+.hub-sub { font-size: .62rem; color: var(--muted); margin-top: .15rem; line-height: 1.3; }
+
+/* Satellite circles */
+.node {
+  position: absolute;
+  width: 22%; height: 22%;
+  min-width: 78px; min-height: 78px;
+  max-width: 120px; max-height: 120px;
+  border-radius: 50%;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center; padding: .5rem .35rem;
+  border: 2px solid var(--border);
+  background: var(--panel);
+  cursor: pointer; z-index: 2;
+  transition: transform .2s, border-color .2s, box-shadow .2s, opacity .35s, filter .35s;
+  transform: translate(-50%, -50%);
+}
+.node:hover { transform: translate(-50%, -50%) scale(1.06); z-index: 4; }
+.node.active {
+  border-color: var(--amber);
+  box-shadow: 0 0 24px rgba(247,158,27,.25);
+  z-index: 4;
+}
+.node.dimmed { opacity: .18; filter: grayscale(.7); pointer-events: none; }
+.node.sbom-highlight {
+  border-color: #888;
+  box-shadow: 0 0 28px rgba(170,170,170,.2);
+  opacity: 1 !important; filter: none !important; pointer-events: auto !important;
+}
+.node.risk-lit { border-color: var(--red); box-shadow: 0 0 20px rgba(235,0,27,.25); }
+
+.node-icon { font-size: 1.25rem; line-height: 1; margin-bottom: .2rem; }
+.node-label { font-size: .68rem; font-weight: 700; line-height: 1.25; color: var(--text); }
+.node-badge {
+  font-size: .52rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em;
+  margin-top: .2rem; padding: .1rem .35rem; border-radius: 999px;
+  background: rgba(85,85,85,.3); color: #999;
+}
+
+.node[data-id="model"] { border-color: rgba(247,158,27,.45); background: rgba(247,158,27,.08); }
+.node[data-id="data"] { border-color: rgba(255,95,0,.4); background: rgba(255,95,0,.06); }
+.node[data-id="software"] { border-color: rgba(85,85,85,.55); background: rgba(85,85,85,.12); }
+.node[data-id="behavior"] { border-color: rgba(235,0,27,.35); background: rgba(235,0,27,.06); }
+.node[data-id="connections"] { border-color: rgba(129,140,248,.4); background: rgba(129,140,248,.08); }
+
+.diagram-hint {
+  text-align: center; font-size: .74rem; color: var(--muted); margin-bottom: 1rem;
+}
+
+/* ── Detail panel below ── */
+.detail-panel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1.1rem 1.25rem;
+  min-height: 120px; transition: border-color .25s;
+}
+.detail-panel.has-selection { border-color: rgba(247,158,27,.35); }
+.detail-panel.empty { display: flex; align-items: center; justify-content: center; }
+.detail-panel.empty p { color: var(--muted); font-size: .84rem; text-align: center; }
+
+.detail-header { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .5rem .75rem; margin-bottom: .75rem; }
+.detail-header h2 { font-size: 1.05rem; font-weight: 700; flex: 1; min-width: 160px; }
+.detail-badges { display: flex; flex-wrap: wrap; gap: .35rem; }
+.badge {
+  font-size: .65rem; font-weight: 700; padding: .18rem .5rem; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--panel-2);
+}
+.badge.amber { color: var(--amber); border-color: rgba(247,158,27,.4); }
+.badge.sbom { color: #aaa; border-color: rgba(85,85,85,.5); }
+.badge.risk { color: #fca5a5; border-color: rgba(235,0,27,.4); }
+
+.detail-purpose { font-size: .84rem; color: var(--muted); margin-bottom: 1rem; line-height: 1.6; }
+
+.ingredient-groups { display: grid; gap: .85rem; }
+@media (min-width: 640px) { .ingredient-groups { grid-template-columns: 1fr 1fr; } }
+
+.ingredient-group h3 {
+  font-size: .68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--muted); margin-bottom: .4rem;
+}
+.ingredient-list { display: flex; flex-wrap: wrap; gap: .35rem; }
+.ingredient-chip {
+  padding: .3rem .6rem; border-radius: 8px; font-size: .74rem;
+  border: 1px solid var(--border); background: var(--panel-2);
+  cursor: pointer; transition: all .15s;
+}
+.ingredient-chip:hover, .ingredient-chip.active {
+  border-color: rgba(247,158,27,.5); background: rgba(247,158,27,.08);
+}
+.ingredient-chip.risk.risk-lit {
+  border-color: var(--red); background: rgba(235,0,27,.1);
+}
+.ingredient-chip.embed { border-color: rgba(247,158,27,.5); font-weight: 600; }
+
+.chip-detail {
+  margin-top: .5rem; padding: .55rem .7rem; border-radius: 8px;
+  background: var(--bg); border: 1px solid var(--border);
+  font-size: .76rem; color: var(--muted); line-height: 1.5;
+  display: none;
+}
+.chip-detail.visible { display: block; }
+.chip-detail strong { color: var(--amber); }
+
+.callout {
+  margin-top: .85rem; padding: .7rem .85rem; border-radius: 10px;
+  background: linear-gradient(90deg, rgba(247,158,27,.07), rgba(255,95,0,.04));
+  border: 1px solid rgba(247,158,27,.22);
+  font-size: .78rem; color: var(--muted); line-height: 1.55;
+}
+.callout strong { color: var(--amber); }
+
+footer {
+  margin-top: 1.75rem; padding-top: 1.1rem; border-top: 1px solid var(--border);
+  font-size: .76rem; color: var(--muted); text-align: center; line-height: 1.6;
+}
+footer em { color: var(--text); font-style: normal; font-weight: 600; }
+
+@media (max-width: 480px) {
+  .diagram-wrap { max-width: 340px; }
+  .hub-title { font-size: .82rem; }
+  .node-label { font-size: .58rem; }
+  .node-icon { font-size: 1rem; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <h1>AI Bill of Materials <span>— Beyond the SBOM</span></h1>
+    <p class="subtitle">The complete ingredient list of an AI system — click a circle to explore each component.</p>
+    <div class="beyond-banner">
+      A <strong>traditional SBOM</strong> covers only <strong>Software &amp; Dependencies</strong> (one circle).
+      The <strong>AI BOM</strong> at the center connects model, data, behavior, and agent connections — what makes AI different.
+    </div>
+  </header>
+
+  <div class="controls">
+    <button type="button" class="toggle-btn sbom" id="toggleSbom" aria-pressed="false">
+      <span class="toggle-dot"></span> Show what a traditional SBOM covers
+    </button>
+    <button type="button" class="toggle-btn risk" id="toggleRisk" aria-pressed="false">
+      <span class="toggle-dot"></span> Risk lens
+    </button>
+  </div>
+
+  <div class="legend">
+    <span style="font-weight:700;color:var(--text);">Legend</span>
+    <span class="legend-item"><span class="legend-swatch amber"></span> AI BOM hub &amp; differentiators</span>
+    <span class="legend-item"><span class="legend-swatch sbom"></span> Traditional SBOM only</span>
+    <span class="legend-item"><span class="legend-swatch risk"></span> Notable risk</span>
+    <span class="legend-item">Click any circle · details appear below</span>
+  </div>
+
+  <div class="weights-note">
+    <strong>Weights and parameters are three separate things</strong> — don't conflate them:
+    <div class="triad">
+      <span>Trained artifact (weights)</span>
+      <span>Structural identity (architecture)</span>
+      <span>Tuning &amp; runtime config (hyperparameters)</span>
+    </div>
+  </div>
+
+  <p class="diagram-hint">Connected circles — center is the full AI BOM; surrounding circles are its components</p>
+
+  <div class="diagram-wrap" id="diagramWrap">
+    <svg class="diagram-svg" id="diagramSvg" aria-hidden="true"></svg>
+    <div class="orbit" id="orbit">
+      <div class="hub" id="hub" role="button" tabindex="0" data-id="center">
+        <span class="hub-icon">◎</span>
+        <span class="hub-title">AI BOM</span>
+        <span class="hub-sub">Complete ingredient list</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-panel empty" id="detailPanel">
+    <p>Click the center <strong style="color:var(--amber)">AI BOM</strong> or any surrounding circle to see its ingredients and what to record.</p>
+  </div>
+
+  <footer>
+    <em>A traditional SBOM lists libraries; the AI BOM adds the model, the data, the behavior, and the connections</em> — the ingredients that make AI different.
+  </footer>
+
+</div>
+
+<script>
+(function () {
+  var NODES = [
+    { id: "model",        label: "The Model",              icon: "🧠", angle: -90,  hasRisk: true,  sbom: false },
+    { id: "data",         label: "The Data",               icon: "📊", angle: -18,  hasRisk: true,  sbom: false },
+    { id: "software",     label: "Software",               icon: "📦", angle: 54,   hasRisk: false, sbom: true  },
+    { id: "behavior",     label: "Behavioral",             icon: "🛡️", angle: 126,  hasRisk: false, sbom: false },
+    { id: "connections",  label: "Connections",            icon: "🔗", angle: 198,  hasRisk: true,  sbom: false }
+  ];
+
+  var COMPONENTS = {
+    center: {
+      title: "AI Bill of Materials",
+      badges: [{ text: "Full inventory", cls: "amber" }],
+      purpose: "The AI BOM is the complete ingredient list of an AI system — not just libraries. It connects five component layers that together describe what the system is, what it was built from, how it behaves, and what it can reach.",
+      groups: [
+        {
+          title: "Five connected components",
+          items: [
+            { name: "The Model", record: "identity, weights, architecture, hyperparameters, license, embedding model" },
+            { name: "The Data", record: "training/eval datasets, lineage, sensitive-data flags, vector store" },
+            { name: "Software & Dependencies", record: "frameworks, serving infra, external APIs — SBOM layer" },
+            { name: "Behavioral & Operational", record: "prompts, guardrails, eval results, limitations" },
+            { name: "Connections", record: "tools, dependent agents, non-human identities" }
+          ]
+        }
+      ],
+      callout: "A traditional SBOM captures only the Software circle. The AI BOM adds the other four — the layers a regular SBOM is blind to."
+    },
+    model: {
+      title: "The Model",
+      badges: [{ text: "AI BOM layer", cls: "amber" }, { text: "Beyond SBOM", cls: "amber" }],
+      purpose: "Model identity, weights integrity, architecture, hyperparameters, license — plus the embedding model most inventories miss.",
+      groups: [
+        { title: "Model identity", items: [
+          { name: "Model name & version", record: "name, version, provider, foundation vs. fine-tuned flag" },
+          { name: "Provider & hosting", record: "provider org, hosting region, API endpoint" },
+          { name: "Foundation vs. fine-tuned", record: "base model ID, fine-tune method, adapter type" }
+        ]},
+        { title: "Weights — integrity question", items: [
+          { name: "Weights identity & hash", record: "identity, version, hash/checksum, provenance, signature", risk: true },
+          { name: "Provenance & signature", record: "build pipeline, registry digest, cosign/SLSA attestation", risk: true },
+          { name: "Integrity verification", record: "has anyone tampered with or swapped the weights?" }
+        ]},
+        { title: "Architecture parameters", items: [
+          { name: "Parameter count & layers", record: "parameter count, layer count, attention heads" },
+          { name: "Context window", record: "max context window, token limit, modality support" }
+        ]},
+        { title: "Hyperparameters", items: [
+          { name: "Training", record: "learning rate, epochs, batch size, optimizer" },
+          { name: "Inference", record: "temperature, top-p, max tokens, stop sequences" }
+        ]},
+        { title: "License & usage", items: [
+          { name: "License terms", record: "model license, commercial use, attribution" },
+          { name: "Usage restrictions", record: "intended use policy, prohibited cases, data retention" }
+        ]},
+        { title: "★ Embedding model", items: [
+          { name: "Embedding model", record: "model name, version, provider, hash — swap it and all retrieval behavior changes", embed: true, link: "data" }
+        ]}
+      ],
+      callout: "Most inventories miss the embedding model — a hidden second model. Swap it and every retrieval result changes, even if the LLM stays the same. Linked to The Data circle (vector store)."
+    },
+    data: {
+      title: "The Data",
+      badges: [{ text: "AI BOM layer", cls: "amber" }, { text: "Beyond SBOM", cls: "amber" }],
+      purpose: "Training, fine-tuning, and evaluation datasets; data lineage; sensitive-data flags; embeddings and vector store.",
+      groups: [
+        { title: "Training datasets", items: [
+          { name: "Source & owner", record: "dataset name, source URL, owner, license, version" },
+          { name: "Metadata", record: "collection date, size, language distribution" }
+        ]},
+        { title: "Fine-tuning & evaluation", items: [
+          { name: "Fine-tuning datasets", record: "fine-tune dataset ID, owner, PII scrubbing status" },
+          { name: "Evaluation benchmarks", record: "benchmark name, version, score, evaluation date" }
+        ]},
+        { title: "Data lineage", items: [
+          { name: "Collection", record: "collection method, consent basis, geographic scope" },
+          { name: "Cleaning", record: "cleaning pipeline, dedup rules, filter criteria" },
+          { name: "Labeling", record: "labeling method, annotator pool, inter-rater agreement" }
+        ]},
+        { title: "Sensitive & regulated", items: [
+          { name: "Sensitive-data flags", record: "PII, PHI, PCI, GDPR/CCPA flags, data residency", risk: true },
+          { name: "Compliance classification", record: "regulatory class, retention policy, right-to-erasure", risk: true }
+        ]},
+        { title: "★ Embeddings + vector store", items: [
+          { name: "Vector store", record: "vector DB name, index schema, embedding dimensions, last refresh", embed: true, link: "model" },
+          { name: "Indexed embeddings", record: "derived data — live poisoning risk: crafted entries can return attacker content", embed: true, risk: true, link: "model" }
+        ]}
+      ],
+      callout: "Embeddings are derived data stored in a vector database. Poisoned entries can make retrieval return attacker-controlled content. The store may also contain sensitive data from indexed documents."
+    },
+    software: {
+      title: "Software & Dependencies",
+      badges: [{ text: "Traditional SBOM covers this", cls: "sbom" }],
+      purpose: "Frameworks, libraries, inference/serving infrastructure, and external APIs — the only layer a regular SBOM already inventories.",
+      groups: [
+        { title: "Frameworks & libraries", items: [
+          { name: "PyTorch 2.2.0", record: "package name, version, hash, license (CycloneDX/SPDX)" },
+          { name: "transformers 4.38.0", record: "package name, version, hash, license" },
+          { name: "LangChain 0.1.12", record: "package name, version, hash, license" },
+          { name: "FastAPI 0.110.0", record: "package name, version, hash, license" }
+        ]},
+        { title: "Inference & serving", items: [
+          { name: "vLLM container", record: "runtime image, digest, orchestrator, GPU driver" },
+          { name: "K8s deployment", record: "deployment manifest, namespace, resource limits" },
+          { name: "Serving gateway", record: "load balancer, autoscaling, rate limits" }
+        ]},
+        { title: "External APIs & models", items: [
+          { name: "OpenAI GPT-4o", record: "API provider, model ID, endpoint, auth method" },
+          { name: "Anthropic Claude", record: "API provider, model ID, endpoint, auth method" },
+          { name: "External search API", record: "service name, version, data flow direction" }
+        ]}
+      ],
+      callout: "This is the gap a traditional SBOM leaves when applied to AI — it lists libraries but not the model, data, behavior, or agent connections."
+    },
+    behavior: {
+      title: "Behavioral & Operational",
+      badges: [{ text: "AI BOM layer", cls: "amber" }, { text: "Beyond SBOM", cls: "amber" }],
+      purpose: "System prompts, guardrails, evaluation results, known limitations, and intended-use boundaries.",
+      groups: [
+        { title: "Prompts & templates", items: [
+          { name: "System prompt v3.4", record: "prompt text hash, version, author, approval date" },
+          { name: "Prompt templates", record: "template ID, variable schema, injection-test status" },
+          { name: "Few-shot examples", record: "examples, version, source dataset" }
+        ]},
+        { title: "Guardrails & safety", items: [
+          { name: "Content safety filter", record: "filter name, version, block/allow rules" },
+          { name: "PII redaction", record: "redaction rules, regex patterns, classifier version" },
+          { name: "Prompt injection guard", record: "jailbreak detection model, threshold, last updated" }
+        ]},
+        { title: "Evaluation results", items: [
+          { name: "Benchmark scores", record: "MMLU, HumanEval — score, date, evaluator" },
+          { name: "Red-team findings", record: "test date, findings count, severity breakdown" },
+          { name: "Bias & safety testing", record: "bias dimensions, fairness metrics, demographic parity" }
+        ]},
+        { title: "Limitations & intended use", items: [
+          { name: "Known limitations", record: "failure modes, hallucination rate, confidence bounds" },
+          { name: "Intended-use boundaries", record: "approved uses, prohibited uses, human-in-the-loop" }
+        ]}
+      ]
+    },
+    connections: {
+      title: "Connections (for agents)",
+      badges: [{ text: "AI BOM layer", cls: "amber" }, { text: "Beyond SBOM", cls: "amber" }],
+      purpose: "Tools and plugins the system can call, dependent models/agents, and non-human identities it uses to act.",
+      groups: [
+        { title: "Tools & plugins", items: [
+          { name: "Web search tool", record: "tool name, version, permissions scope, API scope" },
+          { name: "Code execution sandbox", record: "tool name, version, permissions scope, API scope" },
+          { name: "Database query tool", record: "tool name, version, permissions scope, API scope" },
+          { name: "Custom MCP plugins", record: "plugin ID, manifest hash, capability declarations" }
+        ]},
+        { title: "Dependent models & agents", items: [
+          { name: "Planner agent", record: "agent ID, model version (GPT-4o), orchestration role" },
+          { name: "Retrieval agent", record: "embedding + reranker, orchestration role" },
+          { name: "Code agent", record: "CodeLlama fine-tune, orchestration role" }
+        ]},
+        { title: "Non-human identities", items: [
+          { name: "Service account", record: "ai-agent-prod — IAM role, scope, rotation policy", risk: true },
+          { name: "API keys & tokens", record: "key ID, scope, expiry, last rotated", risk: true },
+          { name: "OAuth credentials", record: "client ID, granted scopes, token lifetime", risk: true }
+        ]}
+      ],
+      callout: "Non-human identities give AI systems agency. Excessive scope or stale credentials are a top risk for agentic deployments."
+    }
+  };
+
+  var sbomMode = false;
+  var riskMode = false;
+  var activeId = null;
+  var activeChip = null;
+
+  var orbit = document.getElementById("orbit");
+  var svg = document.getElementById("diagramSvg");
+  var hub = document.getElementById("hub");
+  var detailPanel = document.getElementById("detailPanel");
+  var diagramWrap = document.getElementById("diagramWrap");
+  var nodeEls = {};
+
+  /* Build satellite nodes */
+  NODES.forEach(function (n) {
+    var el = document.createElement("div");
+    el.className = "node";
+    el.setAttribute("data-id", n.id);
+    el.setAttribute("role", "button");
+    el.setAttribute("tabindex", "0");
+    el.innerHTML =
+      '<span class="node-icon">' + n.icon + "</span>" +
+      '<span class="node-label">' + n.label + "</span>" +
+      (n.sbom ? '<span class="node-badge">SBOM</span>' : "");
+    orbit.appendChild(el);
+    nodeEls[n.id] = el;
+    placeNode(el, n.angle);
+    bindNode(el, n.id);
+  });
+
+  bindNode(hub, "center");
+
+  function placeNode(el, angleDeg) {
+    var rad = (angleDeg * Math.PI) / 180;
+    var pctX = 50 + 38 * Math.cos(rad);
+    var pctY = 50 + 38 * Math.sin(rad);
+    el.style.left = pctX + "%";
+    el.style.top = pctY + "%";
+  }
+
+  function bindNode(el, id) {
+    function select() { showDetail(id); }
+    el.addEventListener("click", select);
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); select(); }
+    });
+  }
+
+  function drawLines(activeNodeId) {
+    var wrap = diagramWrap.getBoundingClientRect();
+    var cx = wrap.width / 2;
+    var cy = wrap.height / 2;
+    var hubR = hub.getBoundingClientRect();
+    var hubCx = hubR.left + hubR.width / 2 - wrap.left;
+    var hubCy = hubR.top + hubR.height / 2 - wrap.top;
+
+    var lines = [];
+    NODES.forEach(function (n) {
+      var nel = nodeEls[n.id];
+      var nr = nel.getBoundingClientRect();
+      var nx = nr.left + nr.width / 2 - wrap.left;
+      var ny = nr.top + nr.height / 2 - wrap.top;
+      var lit = activeNodeId === "center" || activeNodeId === n.id;
+      var cls = "ln-" + n.id;
+      if (sbomMode && n.sbom) cls += " sbom-lit";
+      else if (sbomMode) cls += " dim";
+      else if (lit) cls += " lit";
+      if (sbomMode && !n.sbom) cls += " dim";
+      lines.push('<line class="' + cls + '" x1="' + hubCx + '" y1="' + hubCy + '" x2="' + nx + '" y2="' + ny + '"/>');
+    });
+
+    var showEmbed = activeNodeId === "model" || activeNodeId === "data";
+    if (showEmbed) {
+      var mr = nodeEls.model.getBoundingClientRect();
+      var dr = nodeEls.data.getBoundingClientRect();
+      var mx = mr.left + mr.width / 2 - wrap.left;
+      var my = mr.top + mr.height / 2 - wrap.top;
+      var dx = dr.left + dr.width / 2 - wrap.left;
+      var dy = dr.top + dr.height / 2 - wrap.top;
+      lines.push('<line class="embed-link visible" x1="' + mx + '" y1="' + my + '" x2="' + dx + '" y2="' + dy + '"/>');
+    } else {
+      lines.push('<line class="embed-link" x1="0" y1="0" x2="0" y2="0"/>');
+    }
+
+    svg.innerHTML = lines.join("");
+  }
+
+  function showDetail(id) {
+    activeId = id;
+    activeChip = null;
+    var data = COMPONENTS[id];
+    if (!data) return;
+
+    hub.classList.toggle("active", id === "center");
+    Object.keys(nodeEls).forEach(function (nid) {
+      var el = nodeEls[nid];
+      el.classList.toggle("active", nid === id);
+      el.classList.toggle("dimmed", sbomMode && nid !== "software");
+      el.classList.toggle("sbom-highlight", sbomMode && nid === "software");
+      el.classList.toggle("risk-lit", riskMode && NODES.find(function (n) { return n.id === nid; }).hasRisk);
+    });
+
+    detailPanel.classList.remove("empty");
+    detailPanel.classList.add("has-selection");
+
+    var badges = data.badges.map(function (b) {
+      return '<span class="badge ' + b.cls + '">' + b.text + "</span>";
+    }).join("");
+
+    var groups = data.groups.map(function (g) {
+      var chips = g.items.map(function (item, idx) {
+        var cls = "ingredient-chip";
+        if (item.risk) cls += " risk";
+        if (item.embed) cls += " embed";
+        if (riskMode && item.risk) cls += " risk-lit";
+        var chipId = id + "-" + g.title.replace(/\W/g, "") + "-" + idx;
+        return '<span class="' + cls + '" data-record="' + esc(item.record) + '" data-link="' + (item.link || "") + '" data-chip="' + chipId + '">' + esc(item.name) + "</span>";
+      }).join("");
+      return '<div class="ingredient-group"><h3>' + esc(g.title) + '</h3><div class="ingredient-list">' + chips + '</div><div class="chip-detail" id="chipDetail-' + id + '"></div></div>';
+    }).join("");
+
+    detailPanel.innerHTML =
+      '<div class="detail-header"><h2>' + esc(data.title) + '</h2><div class="detail-badges">' + badges + "</div></div>" +
+      '<p class="detail-purpose">' + esc(data.purpose) + "</p>" +
+      '<div class="ingredient-groups">' + groups + "</div>" +
+      (data.callout ? '<div class="callout">' + data.callout + "</div>" : "");
+
+    detailPanel.querySelectorAll(".ingredient-chip").forEach(function (chip) {
+      chip.addEventListener("click", function () {
+        var link = chip.getAttribute("data-link");
+        var record = chip.getAttribute("data-record");
+        detailPanel.querySelectorAll(".ingredient-chip").forEach(function (c) { c.classList.remove("active"); });
+        chip.classList.add("active");
+        var group = chip.closest(".ingredient-group");
+        var detail = group.querySelector(".chip-detail");
+        detail.className = "chip-detail visible";
+        detail.innerHTML = "<strong>What you record:</strong> " + record;
+        if (link) {
+          pulseNode(link);
+          showDetail(link);
+        }
+      });
+      chip.title = "Record: " + chip.getAttribute("data-record");
+    });
+
+    drawLines(id);
+    detailPanel.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function pulseNode(id) {
+    var el = nodeEls[id];
+    if (!el) return;
+    el.style.transform = "translate(-50%, -50%) scale(1.12)";
+    setTimeout(function () { el.style.transform = ""; }, 900);
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/"/g, "&quot;");
+  }
+
+  document.getElementById("toggleSbom").addEventListener("click", function () {
+    sbomMode = !sbomMode;
+    this.classList.toggle("active", sbomMode);
+    this.setAttribute("aria-pressed", sbomMode ? "true" : "false");
+    if (sbomMode) showDetail("software");
+    else if (activeId) showDetail(activeId);
+    else drawLines(null);
+  });
+
+  document.getElementById("toggleRisk").addEventListener("click", function () {
+    riskMode = !riskMode;
+    this.classList.toggle("active", riskMode);
+    this.setAttribute("aria-pressed", riskMode ? "true" : "false");
+    if (activeId) showDetail(activeId);
+    else {
+      Object.keys(nodeEls).forEach(function (nid) {
+        nodeEls[nid].classList.toggle("risk-lit", riskMode && NODES.find(function (n) { return n.id === nid; }).hasRisk);
+      });
+    }
+  });
+
+  window.addEventListener("resize", function () { drawLines(activeId); });
+  setTimeout(function () { drawLines(null); }, 80);
+})();
+</script>
+</body>
+</html>
