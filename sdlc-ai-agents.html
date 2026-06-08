@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Agents Across the Secure SDLC</title>
+<style>
+:root {
+  --bg: #0A0A0A;
+  --panel: #141414;
+  --panel-2: #1A1A1A;
+  --border: #2A2A2A;
+  --text: #F2F2F2;
+  --muted: #9A9A9A;
+  --orange: #F79E1B;
+  --orange-deep: #D4852E;
+  --teal: #14B8A6;
+  --teal-dim: rgba(20,184,166,.12);
+  --dev-accent: #F79E1B;
+  --build-accent: #9E7B6B;
+  --build-light: #C4A494;
+  --deploy-accent: #14B8A6;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.55;
+  min-height: 100vh;
+}
+
+.page { max-width: 1280px; margin: 0 auto; padding: 0 1.25rem 3rem; }
+
+/* ── Title bar ── */
+.title-bar {
+  padding: 1.75rem 0 1.25rem;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 1.5rem;
+}
+.title-bar h1 {
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 800;
+  letter-spacing: -.025em;
+  margin-bottom: .35rem;
+  color: var(--text);
+}
+.title-bar .subtitle {
+  font-size: .92rem; color: var(--muted); font-weight: 500;
+}
+.title-bar .tagline {
+  margin-top: .65rem; font-size: .78rem; color: var(--muted);
+  display: flex; flex-wrap: wrap; gap: .5rem 1rem; align-items: center;
+}
+.tagline span {
+  display: inline-flex; align-items: center; gap: .35rem;
+}
+.tagline .dot { width: 4px; height: 4px; border-radius: 50%; background: var(--border); }
+
+/* ── Shift labels ── */
+.shift-labels {
+  display: flex; justify-content: space-between; align-items: center;
+  margin-bottom: .75rem; padding: 0 .25rem;
+  font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em;
+}
+.shift-left { color: var(--orange); }
+.shift-right { color: var(--teal); }
+
+/* ── Pipeline flow ── */
+.pipeline {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  position: relative;
+}
+
+.phase-connector {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  flex-shrink: 0; width: 48px; padding-top: 3.5rem;
+}
+.connector-arrow {
+  width: 100%; height: 2px;
+  background: linear-gradient(90deg, var(--border), #444);
+  position: relative;
+}
+.connector-arrow::after {
+  content: "";
+  position: absolute; right: -1px; top: 50%;
+  transform: translateY(-50%);
+  border: 6px solid transparent;
+  border-left-color: #555;
+}
+.connector-label {
+  font-size: .62rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .05em; color: var(--muted);
+  margin-top: .5rem; text-align: center; line-height: 1.3;
+  max-width: 70px;
+}
+
+/* ── Phase lanes ── */
+.phase {
+  flex: 1; min-width: 0;
+  border-radius: 16px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  overflow: hidden;
+  box-shadow: 0 8px 32px rgba(0,0,0,.35);
+  display: flex; flex-direction: column;
+}
+
+.phase-header {
+  padding: 1.1rem 1.15rem 1rem;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+}
+.phase-header::before {
+  content: "";
+  position: absolute; top: 0; left: 0; right: 0; height: 3px;
+}
+.phase.dev .phase-header::before {
+  background: linear-gradient(90deg, var(--orange-deep), var(--orange));
+}
+.phase.build .phase-header::before {
+  background: linear-gradient(90deg, #8A6B5C, var(--build-accent));
+}
+.phase.deploy .phase-header::before {
+  background: linear-gradient(90deg, #0d9488, var(--teal));
+}
+
+.phase-icon-wrap {
+  width: 44px; height: 44px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: .65rem;
+}
+.phase.dev .phase-icon-wrap { background: rgba(247,158,27,.15); color: var(--orange); }
+.phase.build .phase-icon-wrap { background: rgba(158,123,107,.15); color: var(--build-light); }
+.phase.deploy .phase-icon-wrap { background: var(--teal-dim); color: var(--teal); }
+
+.phase-num {
+  font-size: .65rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .1em; color: var(--muted); margin-bottom: .2rem;
+}
+.phase-title { font-size: 1.05rem; font-weight: 800; margin-bottom: .2rem; }
+.phase.dev .phase-title { color: var(--orange); }
+.phase.build .phase-title { color: var(--build-light); }
+.phase.deploy .phase-title { color: var(--teal); }
+.phase-desc { font-size: .76rem; color: var(--muted); line-height: 1.45; }
+
+.phase-body {
+  padding: .85rem; flex: 1;
+  display: flex; flex-direction: column; gap: .65rem;
+}
+
+/* ── Capability cards ── */
+.cap-card {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  padding: .85rem .9rem;
+  cursor: pointer;
+  transition: border-color .2s, box-shadow .2s, transform .2s;
+  position: relative;
+}
+.cap-card:hover {
+  border-color: rgba(255,255,255,.12);
+  box-shadow: 0 4px 20px rgba(0,0,0,.25);
+  transform: translateY(-1px);
+}
+.cap-card.expanded {
+  border-color: rgba(255,255,255,.15);
+  box-shadow: 0 6px 24px rgba(0,0,0,.3);
+}
+.phase.dev .cap-card:hover, .phase.dev .cap-card.expanded {
+  border-color: rgba(247,158,27,.35);
+}
+.phase.build .cap-card:hover, .phase.build .cap-card.expanded {
+  border-color: rgba(158,123,107,.4);
+}
+.phase.deploy .cap-card:hover, .phase.deploy .cap-card.expanded {
+  border-color: rgba(20,184,166,.35);
+}
+
+.cap-top {
+  display: flex; gap: .65rem; align-items: flex-start;
+}
+.cap-icon {
+  width: 36px; height: 36px; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  background: rgba(255,255,255,.04);
+  border: 1px solid var(--border);
+}
+.cap-icon svg { width: 20px; height: 20px; }
+.phase.dev .cap-icon { color: var(--orange); }
+.phase.build .cap-icon { color: var(--build-light); }
+.phase.deploy .cap-icon { color: var(--teal); }
+
+.cap-content { flex: 1; min-width: 0; }
+.cap-title {
+  font-size: .84rem; font-weight: 700; line-height: 1.35;
+  margin-bottom: .3rem; color: var(--text);
+}
+.cap-oneline {
+  font-size: .76rem; color: var(--muted); line-height: 1.45;
+}
+.cap-tags { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .45rem; }
+.cap-tag {
+  font-size: .6rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .04em; padding: .15rem .4rem; border-radius: 4px;
+}
+.tag-agentic { background: rgba(247,158,27,.15); color: var(--orange); }
+.tag-llm { background: rgba(129,140,248,.15); color: #a5b4fc; }
+.tag-redteam { background: rgba(158,123,107,.2); color: var(--build-light); }
+.tag-runtime { background: rgba(20,184,166,.15); color: #5eead4; }
+.tag-gate { background: rgba(255,95,0,.12); color: var(--orange-deep); }
+.tag-soc { background: rgba(20,184,166,.12); color: #7DD3C0; }
+
+.cap-expand {
+  max-height: 0; overflow: hidden;
+  transition: max-height .35s ease, margin-top .25s ease, opacity .3s;
+  opacity: 0;
+}
+.cap-card.expanded .cap-expand {
+  max-height: 120px; margin-top: .65rem; opacity: 1;
+}
+.cap-expand p {
+  font-size: .74rem; color: var(--muted); line-height: 1.55;
+  padding-top: .6rem; border-top: 1px solid var(--border);
+}
+.cap-chevron {
+  position: absolute; top: .85rem; right: .75rem;
+  font-size: .7rem; color: var(--muted);
+  transition: transform .25s;
+}
+.cap-card.expanded .cap-chevron { transform: rotate(180deg); }
+
+/* ── Timeline spine ── */
+.timeline-spine {
+  margin-top: 1.5rem;
+  position: relative;
+  padding: 1.25rem 0 .5rem;
+}
+.spine-track {
+  height: 3px;
+  background: linear-gradient(90deg, var(--orange), var(--build-accent) 50%, var(--teal));
+  border-radius: 999px;
+  position: relative;
+}
+.spine-markers {
+  display: flex; justify-content: space-between;
+  margin-top: .65rem;
+  padding: 0 2%;
+}
+.spine-marker {
+  text-align: center; flex: 1;
+}
+.spine-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  margin: 0 auto .35rem;
+  border: 2px solid var(--bg);
+}
+.spine-marker.dev .spine-dot { background: var(--orange); }
+.spine-marker.build .spine-dot { background: var(--build-accent); }
+.spine-marker.deploy .spine-dot { background: var(--teal); }
+.spine-label {
+  font-size: .68rem; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em;
+}
+.spine-marker.dev .spine-label { color: var(--orange); }
+.spine-marker.build .spine-label { color: var(--build-light); }
+.spine-marker.deploy .spine-label { color: var(--teal); }
+.spine-sub { font-size: .62rem; color: var(--muted); margin-top: .1rem; }
+
+/* ── Legend ── */
+.legend {
+  display: flex; flex-wrap: wrap; gap: .75rem 1.25rem;
+  margin-top: 1.75rem; padding: .75rem 1rem;
+  border-radius: 10px; background: var(--panel); border: 1px solid var(--border);
+  font-size: .72rem; color: var(--muted);
+}
+.legend strong { color: var(--text); }
+
+footer {
+  margin-top: 1.5rem; text-align: center;
+  font-size: .74rem; color: var(--muted);
+}
+
+/* ── Responsive ── */
+@media (max-width: 900px) {
+  .pipeline { flex-direction: column; gap: 0; }
+  .phase-connector {
+    width: 100%; height: 40px; padding: 0;
+    flex-direction: row;
+  }
+  .connector-arrow {
+    width: 2px; height: 100%;
+    background: linear-gradient(180deg, var(--border), #444);
+  }
+  .connector-arrow::after {
+    right: auto; left: 50%; top: auto; bottom: -1px;
+    transform: translateX(-50%);
+    border: 6px solid transparent;
+    border-top-color: #555;
+    border-left-color: transparent;
+  }
+  .connector-label { margin-top: 0; margin-left: .5rem; max-width: none; }
+  .shift-labels { flex-direction: column; gap: .35rem; align-items: flex-start; }
+  .spine-markers { flex-direction: column; gap: .75rem; align-items: flex-start; padding-left: 1rem; }
+  .spine-marker { display: flex; align-items: center; gap: .65rem; text-align: left; }
+  .spine-dot { margin: 0; }
+  .spine-track { width: 3px; height: 120px; margin-left: 1.15rem; }
+  .timeline-spine { display: flex; align-items: stretch; }
+  .spine-markers { margin-top: 0; padding-top: 0; }
+}
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="title-bar">
+    <h1>AI Agents Across the Secure SDLC</h1>
+    <p class="subtitle">Shift-Left to Runtime: Agentic Security Across the Pipeline</p>
+    <div class="tagline">
+      <span>Build Secure</span><span class="dot"></span>
+      <span>Run Secure</span><span class="dot"></span>
+      <span>Source Secure</span>
+    </div>
+  </header>
+
+  <div class="shift-labels">
+    <span class="shift-left">← Shift Left</span>
+    <span class="shift-right">Runtime / Shift Right →</span>
+  </div>
+
+  <div class="pipeline" id="pipeline">
+
+    <!-- Phase 1: Development -->
+    <section class="phase dev" aria-label="Development Time">
+      <div class="phase-header">
+        <div class="phase-icon-wrap" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>
+          </svg>
+        </div>
+        <div class="phase-num">Phase 1</div>
+        <h2 class="phase-title">Development Time</h2>
+        <p class="phase-desc">Secure-by-design coding, contextual scanning, and zero-day discovery in first-party code.</p>
+      </div>
+      <div class="phase-body">
+        <article class="cap-card" tabindex="0">
+          <span class="cap-chevron" aria-hidden="true">▾</span>
+          <div class="cap-top">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+            </div>
+            <div class="cap-content">
+              <h3 class="cap-title">Secure Code Generation Agents</h3>
+              <p class="cap-oneline">AI coding agents that generate secure-by-default code and remediate insecure suggestions inline.</p>
+              <div class="cap-tags">
+                <span class="cap-tag tag-agentic">Agentic</span>
+                <span class="cap-tag tag-llm">LLM</span>
+              </div>
+            </div>
+          </div>
+          <div class="cap-expand">
+            <p>Agents enforce secure patterns during generation — parameterized queries, input validation, least-privilege defaults — and flag or auto-fix insecure completions before they reach commit. Integrates with IDE and PR workflows to keep developers in flow while raising the security floor.</p>
+          </div>
+        </article>
+
+        <article class="cap-card" tabindex="0">
+          <span class="cap-chevron" aria-hidden="true">▾</span>
+          <div class="cap-top">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/><path d="M11 8v6"/><path d="M8 11h6"/></svg>
+            </div>
+            <div class="cap-content">
+              <h3 class="cap-title">LLM-Based Contextual Scanning</h3>
+              <p class="cap-oneline">In-IDE dev-time LLM scanning with semantic analysis beyond pattern-based SAST.</p>
+              <div class="cap-tags">
+                <span class="cap-tag tag-llm">LLM</span>
+                <span class="cap-tag tag-agentic">Agentic</span>
+              </div>
+            </div>
+          </div>
+          <div class="cap-expand">
+            <p>Understands code intent, data flows, and business logic to surface issues static rules miss — while reducing false positives by reasoning about context. Complements traditional SAST with semantic triage and developer-friendly explanations at the point of change.</p>
+          </div>
+        </article>
+
+        <article class="cap-card" tabindex="0">
+          <span class="cap-chevron" aria-hidden="true">▾</span>
+          <div class="cap-top">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+            </div>
+            <div class="cap-content">
+              <h3 class="cap-title">Zero-Day Discovery in First-Party Code</h3>
+              <p class="cap-oneline">LLM-driven analysis for novel vulnerabilities and logic flaws signature tools miss.</p>
+              <div class="cap-tags">
+                <span class="cap-tag tag-llm">LLM</span>
+              </div>
+            </div>
+          </div>
+          <div class="cap-expand">
+            <p>Probes proprietary code paths for hidden flaws — race conditions, authorization bypasses, unsafe deserialization — without relying on known CVE signatures. Finds logic vulnerabilities in custom business rules that pattern matchers cannot detect.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="phase-connector" aria-hidden="true">
+      <div class="connector-arrow"></div>
+      <span class="connector-label">CI/CD handoff</span>
+    </div>
+
+    <!-- Phase 2: Build -->
+    <section class="phase build" aria-label="Build Time">
+      <div class="phase-header">
+        <div class="phase-icon-wrap" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2" y="6" width="20" height="12" rx="2"/><path d="M12 12h.01"/><path d="M17 12h.01"/><path d="M7 12h.01"/>
+          </svg>
+        </div>
+        <div class="phase-num">Phase 2</div>
+        <h2 class="phase-title">Build Time</h2>
+        <p class="phase-desc">Adversarial agents in the pipeline, AI-native threat testing, and gated enforcement.</p>
+      </div>
+      <div class="phase-body">
+        <article class="cap-card" tabindex="0">
+          <span class="cap-chevron" aria-hidden="true">▾</span>
+          <div class="cap-top">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+            </div>
+            <div class="cap-content">
+              <h3 class="cap-title">AI Red-Team Agents in Pipeline</h3>
+              <p class="cap-oneline">Autonomous adversarial agents attack the application as it's built in CI/CD.</p>
+              <div class="cap-tags">
+                <span class="cap-tag tag-redteam">Red Team</span>
+                <span class="cap-tag tag-agentic">Agentic</span>
+              </div>
+            </div>
+          </div>
+          <div class="cap-expand">
+            <p>LLM-powered red-team agents probe running builds for injection, auth bypass, and business-logic abuse — producing structured findings with reproduction steps. Runs continuously on every build, not just annual pen tests.</p>
+          </div>
+        </article>
+
+        <article class="cap-card" tabindex="0">
+          <span class="cap-chevron" aria-hidden="true">▾</span>
+          <div class="cap-top">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/><circle cx="18" cy="6" r="3"/></svg>
+            </div>
+            <div class="cap-content">
+              <h3 class="cap-title">AI-Specific Threat Testing</h3>
+              <p class="cap-oneline">Targeted tests for prompt injection, tool poisoning, and memory poisoning.</p>
+              <div class="cap-tags">
+                <span class="cap-tag tag-redteam">Red Team</span>
+                <span class="cap-tag tag-llm">LLM</span>
+              </div>
+            </div>
+          </div>
+          <div class="cap-expand">
+            <p>Validates AI-native attack surfaces: jailbreak resistance, tool-call manipulation, RAG poisoning, and agent memory corruption. Ensures LLM-integrated features are tested with the same rigor as traditional appsec before release.</p>
+          </div>
+        </article>
+
+        <article class="cap-card" tabindex="0">
+          <span class="cap-chevron" aria-hidden="true">▾</span>
+          <div class="cap-top">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
+            <div class="cap-content">
+              <h3 class="cap-title">Gated Pipeline Enforcement</h3>
+              <p class="cap-oneline">Agentic test findings feed quality gates that block vulnerable build promotion.</p>
+              <div class="cap-tags">
+                <span class="cap-tag tag-gate">Gate</span>
+                <span class="cap-tag tag-agentic">Agentic</span>
+              </div>
+            </div>
+          </div>
+          <div class="cap-expand">
+            <p>Critical or high-severity agent findings automatically fail the pipeline. Policy rules map severity, exploitability, and asset tier to pass/fail/warn — preventing vulnerable artifacts from reaching staging or production registries.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="phase-connector" aria-hidden="true">
+      <div class="connector-arrow"></div>
+      <span class="connector-label">Deploy &amp; operate</span>
+    </div>
+
+    <!-- Phase 3: Deployment -->
+    <section class="phase deploy" aria-label="Deployment Time">
+      <div class="phase-header">
+        <div class="phase-icon-wrap" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/><path d="M12 6v6l4 2"/>
+          </svg>
+        </div>
+        <div class="phase-num">Phase 3</div>
+        <h2 class="phase-title">Deployment Time</h2>
+        <p class="phase-desc">Agentic threat monitoring, autonomous SecOps response, and continuous posture validation.</p>
+      </div>
+      <div class="phase-body">
+        <article class="cap-card" tabindex="0">
+          <span class="cap-chevron" aria-hidden="true">▾</span>
+          <div class="cap-top">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4"/><path d="M12 18v4"/><path d="m4.93 4.93 2.83 2.83"/><path d="m16.24 16.24 2.83 2.83"/><path d="M2 12h4"/><path d="M18 12h4"/><path d="m4.93 19.07 2.83-2.83"/><path d="m16.24 7.76 2.83-2.83"/></svg>
+            </div>
+            <div class="cap-content">
+              <h3 class="cap-title">Autonomous Detection &amp; Response Agent</h3>
+              <p class="cap-oneline">AI SecOps agent triages runtime alerts, correlates exposure with business context, and responds.</p>
+              <div class="cap-tags">
+                <span class="cap-tag tag-soc">SecOps</span>
+                <span class="cap-tag tag-agentic">Agentic</span>
+                <span class="cap-tag tag-runtime">Runtime</span>
+              </div>
+            </div>
+          </div>
+          <div class="cap-expand">
+            <p>Correlates SIEM, runtime, and identity signals with asset ownership and blast radius. Enriches alerts, recommends containment, and can execute approved playbooks — shrinking MTTD and MTTR for AI workload incidents.</p>
+          </div>
+        </article>
+
+        <article class="cap-card" tabindex="0">
+          <span class="cap-chevron" aria-hidden="true">▾</span>
+          <div class="cap-top">
+            <div class="cap-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg>
+            </div>
+            <div class="cap-content">
+              <h3 class="cap-title">Continuous Drift &amp; Posture Validation</h3>
+              <p class="cap-oneline">Ongoing validation that deployed models/agents stay within approved behavioral boundaries.</p>
+              <div class="cap-tags">
+                <span class="cap-tag tag-runtime">Runtime</span>
+              </div>
+            </div>
+          </div>
+          <div class="cap-expand">
+            <p>Monitors for model drift, prompt changes, new tool registrations, and policy violations post-deploy. Compares live behavior against approved AI BOM and baseline — alerting when production diverges from what was tested and signed off at build time.</p>
+          </div>
+        </article>
+      </div>
+    </section>
+
+  </div><!-- /pipeline -->
+
+  <div class="timeline-spine" aria-label="SDLC progression timeline">
+    <div class="spine-track" id="spineTrack"></div>
+    <div class="spine-markers">
+      <div class="spine-marker dev">
+        <div class="spine-dot"></div>
+        <div>
+          <div class="spine-label">Development</div>
+          <div class="spine-sub">Shift left · secure by design</div>
+        </div>
+      </div>
+      <div class="spine-marker build">
+        <div class="spine-dot"></div>
+        <div>
+          <div class="spine-label">Build</div>
+          <div class="spine-sub">CI/CD · adversarial testing</div>
+        </div>
+      </div>
+      <div class="spine-marker deploy">
+        <div class="spine-dot"></div>
+        <div>
+          <div class="spine-label">Deployment</div>
+          <div class="spine-sub">Runtime · shift right</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <strong>Capability tags:</strong>
+    <span>Agentic — autonomous multi-step agents</span>
+    <span>LLM — large language model powered</span>
+    <span>Red Team — adversarial testing</span>
+    <span>Runtime — production-time controls</span>
+    <span>Click any card to expand details</span>
+  </div>
+
+  <footer>Illustrative capability map for cybersecurity</footer>
+
+</div>
+
+<script>
+(function () {
+  document.querySelectorAll(".cap-card").forEach(function (card) {
+    function toggle() {
+      var wasOpen = card.classList.contains("expanded");
+      document.querySelectorAll(".cap-card.expanded").forEach(function (c) {
+        c.classList.remove("expanded");
+      });
+      if (!wasOpen) card.classList.add("expanded");
+    }
+    card.addEventListener("click", toggle);
+    card.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        toggle();
+      }
+    });
+  });
+})();
+</script>
+</body>
+</html>
